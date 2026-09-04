@@ -1,0 +1,67 @@
+name: Phase 5 extended source patch and build
+
+on:
+  push:
+    branches:
+      - phase5-test-extended
+    paths:
+      - tools/phase5_apply_batch1.py
+      - .github/workflows/phase5-apply-and-build.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Phase 5 branch
+        uses: actions/checkout@v4
+        with:
+          ref: phase5-test-extended
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Apply deterministic Phase 5 batch 1 patch
+        run: python3 tools/phase5_apply_batch1.py
+
+      - name: Commit patched sources
+        run: |
+          if git diff --quiet; then
+            echo "No source changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/main/java
+          git commit -m "Phase 5: wire advanced controls and diagnostics"
+          git push origin HEAD:phase5-test-extended
+
+      - name: Clean compile extended source
+        run: ./gradlew clean compileJava --stacktrace
+
+      - name: Build extended test JAR
+        run: ./gradlew jar --stacktrace
+
+      - name: List test artifact
+        run: |
+          ls -lh build/libs
+          jar tf build/libs/*.jar | sort > phase5-jar-contents.txt
+          echo "Phase 5 extended build: PASS"
+
+      - name: Upload extended test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase5-extended-test-build
+          path: |
+            build/libs/*.jar
+            phase5-jar-contents.txt
