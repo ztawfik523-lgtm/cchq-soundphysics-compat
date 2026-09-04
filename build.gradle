@@ -94,9 +94,11 @@ dependencies {
     localRuntime sprDependency
     compileOnly files(sprCompileJar)
 
-    // NeoForge's standalone AT processor. The fat JAR is executable and keeps
-    // this compile preprocessing independent from runtime class loading.
-    accessTransformerCli 'net.neoforged.accesstransformers:at-cli:10.0.1:fatjar'
+    // NeoForge's standalone AT processor. 10.0.1 (the loader-era runtime
+    // library in NeoForge 21.1.248) bundles ASM too old for Java-21 classfiles;
+    // 10.0.6 is the maintained 1.21.1-line processor and can transform major-65
+    // SPR bytecode. This tool is build-only and never enters the mod runtime.
+    accessTransformerCli 'net.neoforged.accesstransformers:at-cli:10.0.6:fatjar'
 
     // Optional config UI used by the baseline source/config classes.
     implementation clothConfigDependency
