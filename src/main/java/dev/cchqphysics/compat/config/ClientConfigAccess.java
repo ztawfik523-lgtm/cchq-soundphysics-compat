@@ -18,7 +18,7 @@ public final class ClientConfigAccess {
                 field.setAccessible(true);
                 return (ModConfigSpec.ConfigValue<?>) field.get(null);
             } catch (ReflectiveOperationException e) {
-                throw new IllegalStateException("Could not access config value " + key, e);
+                throw new IllegalStateException("Unable to access config field " + key, e);
             }
         });
     }
