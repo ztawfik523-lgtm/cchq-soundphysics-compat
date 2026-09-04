@@ -1,5 +1,6 @@
 package dev.cchqphysics.compat.audio;
 
+import dev.cchqphysics.compat.config.ClientConfig;
 import dev.cchqphysics.compat.mixin.SoundEngineAccessor;
 import dev.cchqphysics.compat.mixin.SoundManagerAccessor;
 import net.minecraft.client.Minecraft;
@@ -12,9 +13,11 @@ import java.nio.ByteOrder;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -26,7 +29,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/** Client-owned CC:HQ whole-file playback bridge. OpenAL/source lifecycle remains sound-thread-owned. */
+/** Client-owned CC:HQ whole-file playback bridge reconstructed against Beta11 Hotfix3 bytecode. */
 public final class CompatAudioManager {
     private static final ExecutorService DECODER = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "CC-HQ SoundPhysics decoder");
@@ -37,19 +40,23 @@ public final class CompatAudioManager {
     private static final ConcurrentHashMap<DecodeKey, DecodeEntry> DECODES = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<UUID, AtomicInteger> GENERATIONS = new ConcurrentHashMap<>();
     private static final Set<String> LOGGED = ConcurrentHashMap.newKeySet();
+    private static final int MAX_DECODE_CACHE_ENTRIES = 4;
 
-    // Sound-thread-owned unless explicitly stated otherwise.
     private static final Map<UUID, ActiveSource> ACTIVE = new HashMap<>();
     private static final Map<DecodeKey, BufferRef> BUFFERS = new HashMap<>();
 
-    private static final AtomicInteger SESSION_EPOCH = new AtomicInteger();
     private static long clientTicks;
+    private static double lastListenerX = Double.NaN;
+    private static double lastListenerY = Double.NaN;
+    private static double lastListenerZ = Double.NaN;
+    private static final AtomicInteger SESSION_EPOCH = new AtomicInteger();
     private static boolean hadLevel;
 
     private CompatAudioManager() {
     }
 
     public static boolean tryHandleAudioPayload(Object payload) {
+        if (!ClientConfig.enabled()) return false;
         if (!HQPayloadView.isAudioPayload(payload) || !SoundPhysicsBridge.available()) return false;
         if (Minecraft.getInstance().level == null) return false;
 
@@ -61,9 +68,9 @@ public final class CompatAudioManager {
             return false;
         }
 
-        if (audio.format().endsWith("_STREAM")) return false;
+        if (audio.format().endsWith("_STREAM") || "PCM_S16LE".equals(audio.format())) return false;
         if (!AudioDecoder.canDecode(audio.format(), audio.data())) {
-            logOnce("decoder-" + audio.format(), "No compatible decoder for CC:HQ format " + audio.format() + "; using normal CC:HQ playback.");
+            logOnce("decoder-" + audio.format(), "No compatible decoder for CC:HQ format " + audio.format() + "; that format will use normal CC:HQ playback.");
             return false;
         }
 
@@ -138,12 +145,39 @@ public final class CompatAudioManager {
         if ((clientTicks % 200L) == 0L) {
             long cutoff = clientTicks - 600L;
             DECODES.entrySet().removeIf(e -> e.getValue().lastUsedTick < cutoff && e.getValue().future.isDone());
+            List<Map.Entry<DecodeKey, DecodeEntry>> completed = DECODES.entrySet().stream()
+                    .filter(e -> e.getValue().future.isDone())
+                    .sorted(Comparator.comparingLong(e -> e.getValue().lastUsedTick))
+                    .toList();
+            int excess = completed.size() - MAX_DECODE_CACHE_ENTRIES;
+            for (int i = 0; i < excess; i++) {
+                Map.Entry<DecodeKey, DecodeEntry> oldest = completed.get(i);
+                DECODES.remove(oldest.getKey(), oldest.getValue());
+            }
         }
 
-        // Accepted beta lineage queues source maintenance every second client tick (~10 Hz).
-        // This also gives the Hotfix3 100 ms partial-sync grace an opportunity to flush promptly.
-        if ((clientTicks & 1L) == 0L) {
-            onSoundThread(CompatAudioManager::maintainSources);
+        if ((clientTicks % 2L) == 0L) {
+            boolean moved = true;
+            if (mc.player != null) {
+                double x = mc.player.getX();
+                double y = mc.player.getY();
+                double z = mc.player.getZ();
+                if (!Double.isNaN(lastListenerX)) {
+                    double dx = x - lastListenerX;
+                    double dy = y - lastListenerY;
+                    double dz = z - lastListenerZ;
+                    moved = dx * dx + dy * dy + dz * dz >= 0.25D;
+                }
+                lastListenerX = x;
+                lastListenerY = y;
+                lastListenerZ = z;
+            }
+            boolean periodic = (clientTicks % 2L) == 0L;
+            if (moved || periodic) {
+                onSoundThread(CompatAudioManager::maintainSources);
+            } else {
+                onSoundThread(CompatAudioManager::cleanupFinishedSources);
+            }
         }
     }
 
@@ -172,35 +206,28 @@ public final class CompatAudioManager {
             ref.refs++;
 
             sourceId = AL10.alGenSources();
+            EnvironmentSmoother.register(sourceId);
             AL10.alSourcei(sourceId, AL10.AL_BUFFER, ref.bufferId);
             AL10.alSourcei(sourceId, AL10.AL_SOURCE_RELATIVE, AL10.AL_FALSE);
             AL10.alSourcei(sourceId, AL10.AL_LOOPING, AL10.AL_FALSE);
             AL10.alSourcef(sourceId, AL10.AL_PITCH, 1.0F);
-            AL10.alSourcef(sourceId, AL10.AL_REFERENCE_DISTANCE, 1.0F);
-            AL10.alSourcef(sourceId, AL10.AL_MAX_DISTANCE, 1024.0F);
+            AL10.alSourcef(sourceId, AL10.AL_REFERENCE_DISTANCE, AttenuationBridge.referenceDistance(request.audio));
+            AL10.alSourcef(sourceId, AL10.AL_MAX_DISTANCE, AttenuationBridge.maxDistance(request.audio));
             AL10.alSourcef(sourceId, AL10.AL_ROLLOFF_FACTOR, 0.0F);
             AL10.alSource3f(sourceId, AL10.AL_POSITION, request.audio.x(), request.audio.y(), request.audio.z());
-            AL10.alSourcef(sourceId, AL10.AL_GAIN, DistanceBridge.effectiveGain(request.audio));
+            AL10.alSourcef(sourceId, AL10.AL_GAIN, effectiveGain(request.audio));
             checkAl("configure source");
 
-            // Pre-play SPR evaluation is intentionally retained. Pass 2 owns the capture/private-EFX
-            // semantics and must keep pre-play in native/pass-through mode.
             SoundPhysicsBridge.apply(sourceId, request.audio.source(), request.audio.x(), request.audio.y(), request.audio.z());
+            SyncStartCoordinator.play(sourceId, request.audio);
+            checkAl("start source");
 
             ACTIVE.put(request.audio.source(), new ActiveSource(sourceId, request.key, request.audio, request.generation));
             installed = true;
-
-            boolean pending = SyncStartCoordinator.addSource(
-                    request.audio.syncGroupId(), request.audio.syncGroupSize(), sourceId);
-            if (!pending) {
-                AL10.alSourcePlay(sourceId);
-                checkAl("start source");
-            }
         } catch (Throwable t) {
             logOnce("openal-start", "Failed to start bridged OpenAL source: " + t);
         } finally {
             if (!installed) {
-                SyncStartCoordinator.removeSource(sourceId);
                 if (sourceId != 0) {
                     try { AL10.alSourceStop(sourceId); } catch (Throwable ignored) {}
                     try { AL10.alSourcei(sourceId, AL10.AL_BUFFER, 0); } catch (Throwable ignored) {}
@@ -212,32 +239,54 @@ public final class CompatAudioManager {
     }
 
     private static void maintainSources() {
-        // Hotfix3: give incomplete declared groups 100 ms, then launch all sources that arrived.
-        SyncStartCoordinator.flushExpired();
-
+        Minecraft mc = Minecraft.getInstance();
         Iterator<Map.Entry<UUID, ActiveSource>> iterator = ACTIVE.entrySet().iterator();
         while (iterator.hasNext()) {
             Map.Entry<UUID, ActiveSource> entry = iterator.next();
             ActiveSource active = entry.getValue();
-            int state = AL10.alGetSourcei(active.sourceId, AL10.AL_SOURCE_STATE);
-
-            // Critical Hotfix3 protection: an AL_INITIAL source waiting inside a sync group is live.
-            if (state == AL10.AL_INITIAL && SyncStartCoordinator.isPending(active.sourceId)) {
-                continue;
-            }
+            int state = SyncStartCoordinator.sourceState(active.sourceId, AL10.AL_SOURCE_STATE);
             if (state != AL10.AL_PLAYING && state != AL10.AL_PAUSED) {
                 destroyActive(active);
                 iterator.remove();
                 continue;
             }
 
-            float gain = DistanceBridge.effectiveGain(active.audio);
-            AL10.alSourcef(active.sourceId, AL10.AL_GAIN, gain);
+            float gain = effectiveGain(active.audio);
+            if (mc.player != null) {
+                double dx = mc.player.getX() - active.audio.x();
+                double dy = mc.player.getY() - active.audio.y();
+                double dz = mc.player.getZ() - active.audio.z();
+                double distanceSquared = dx * dx + dy * dy + dz * dz;
+                double maxDistanceSquared = AttenuationBridge.maxDistanceSquared(active.audio);
+                Beta9Optimizer.updateDistance(active.sourceId, distanceSquared, maxDistanceSquared);
+                if (distanceSquared > maxDistanceSquared) {
+                    gain = 0.0F;
+                }
+            }
+
+            Beta10Optimizer.alSourcefStable(active.sourceId, AL10.AL_GAIN, gain);
+            Beta10Optimizer.updateAudibility(active.sourceId, gain);
             if (gain > 0.0F) {
                 AL10.alSource3f(active.sourceId, AL10.AL_POSITION, active.audio.x(), active.audio.y(), active.audio.z());
                 SoundPhysicsBridge.apply(active.sourceId, entry.getKey(), active.audio.x(), active.audio.y(), active.audio.z());
             }
         }
+    }
+
+    private static void cleanupFinishedSources() {
+        Iterator<Map.Entry<UUID, ActiveSource>> iterator = ACTIVE.entrySet().iterator();
+        while (iterator.hasNext()) {
+            ActiveSource active = iterator.next().getValue();
+            int state = SyncStartCoordinator.sourceState(active.sourceId, AL10.AL_SOURCE_STATE);
+            if (state != AL10.AL_PLAYING && state != AL10.AL_PAUSED) {
+                destroyActive(active);
+                iterator.remove();
+            }
+        }
+    }
+
+    private static float effectiveGain(HQPayloadView.Audio audio) {
+        return DistanceBridge.effectiveGain(audio);
     }
 
     private static void stopSource(UUID source) {
@@ -246,9 +295,8 @@ public final class CompatAudioManager {
     }
 
     private static void destroyActive(ActiveSource active) {
-        SyncStartCoordinator.removeSource(active.sourceId);
+        EnvironmentSmoother.unregister(active.sourceId);
         try {
-            // Pass 2 will verify exact capture/acoustic teardown calls against Hotfix3 bytecode.
             AL10.alSourceStop(active.sourceId);
             AL10.alSourcei(active.sourceId, AL10.AL_BUFFER, 0);
             AL10.alDeleteSources(active.sourceId);
@@ -266,7 +314,6 @@ public final class CompatAudioManager {
     }
 
     private static void stopAllSources() {
-        SyncStartCoordinator.clear();
         for (ActiveSource active : new ArrayList<>(ACTIVE.values())) {
             try { destroyActive(active); } catch (Throwable t) {
                 logOnce("stop-all", "Error while stopping compatibility source: " + t);
@@ -278,7 +325,6 @@ public final class CompatAudioManager {
         }
         BUFFERS.clear();
         Beta11RoomRayCache.clear();
-        RoomSchedulerClient.reset();
     }
 
     private static void invalidateSession() {
@@ -286,9 +332,9 @@ public final class CompatAudioManager {
         READY.clear();
         DECODES.clear();
         GENERATIONS.clear();
-        // Cache state is not allowed to leak across world/sound sessions.
-        Beta11RoomRayCache.clear();
-        RoomSchedulerClient.reset();
+        SyncStartCoordinator.clear();
+        SoundPhysicsBridge.clearSourceIds();
+        lastListenerX = lastListenerY = lastListenerZ = Double.NaN;
     }
 
     public static void resetForSoundEngine() {
@@ -299,7 +345,7 @@ public final class CompatAudioManager {
     public static void pauseCompatSources() {
         onSoundThread(() -> {
             for (ActiveSource active : ACTIVE.values()) {
-                if (AL10.alGetSourcei(active.sourceId, AL10.AL_SOURCE_STATE) == AL10.AL_PLAYING) {
+                if (SyncStartCoordinator.sourceState(active.sourceId, AL10.AL_SOURCE_STATE) == AL10.AL_PLAYING) {
                     AL10.alSourcePause(active.sourceId);
                 }
             }
@@ -309,7 +355,7 @@ public final class CompatAudioManager {
     public static void resumeCompatSources() {
         onSoundThread(() -> {
             for (ActiveSource active : ACTIVE.values()) {
-                if (AL10.alGetSourcei(active.sourceId, AL10.AL_SOURCE_STATE) == AL10.AL_PAUSED) {
+                if (SyncStartCoordinator.sourceState(active.sourceId, AL10.AL_SOURCE_STATE) == AL10.AL_PAUSED) {
                     AL10.alSourcePlay(active.sourceId);
                 }
             }
@@ -321,9 +367,8 @@ public final class CompatAudioManager {
         onSoundThread(CompatAudioManager::stopAllSources);
     }
 
-    /** Narrow public scheduler seam already referenced by RoomSchedulerClient. */
-    public static void beta10OnSoundThread(Runnable task) {
-        onSoundThread(task);
+    private static void clearAlErrors() {
+        while (AL10.alGetError() != AL10.AL_NO_ERROR) { }
     }
 
     private static void onSoundThread(Runnable task) {
@@ -338,8 +383,7 @@ public final class CompatAudioManager {
     }
 
     private static DecodeKey makeDecodeKey(HQPayloadView.Audio audio) {
-        if (audio.syncGroupId() != null) return new DecodeKey("sync:" + audio.syncGroupId());
-        return new DecodeKey("single:" + audio.source() + ":" + audio.startTick() + ":" + shortHash(audio.data()));
+        return new DecodeKey(audio.format() + ":" + shortHash(audio.data()));
     }
 
     private static String shortHash(byte[] data) {
@@ -349,10 +393,6 @@ public final class CompatAudioManager {
         } catch (Exception e) {
             return Integer.toHexString(Arrays.hashCode(data));
         }
-    }
-
-    private static void clearAlErrors() {
-        while (AL10.alGetError() != AL10.AL_NO_ERROR) { }
     }
 
     private static void checkAl(String where) {
@@ -394,4 +434,8 @@ public final class CompatAudioManager {
 
     private record ActiveSource(int sourceId, DecodeKey key, HQPayloadView.Audio audio, int generation) { }
     private record StartRequest(HQPayloadView.Audio audio, DecodeKey key, DecodedAudio decoded, int generation, int epoch) { }
+
+    static void beta10OnSoundThread(Runnable task) {
+        onSoundThread(task);
+    }
 }
