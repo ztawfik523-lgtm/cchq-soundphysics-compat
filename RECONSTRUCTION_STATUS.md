@@ -44,6 +44,39 @@ The following source has now been written from the actual tested class/method de
 
 These are source-level reconstructions of the runtime behavior. They are not claimed byte-for-byte compiler reproductions.
 
+## Pass 1 — core playback/lifecycle reconstructed from recovered lineage + Hotfix3 invariants
+
+Added:
+
+- `CompatAudioManager.java`
+- `SyncStartCoordinator.java` (including authored nested `GroupState`)
+
+Evidence used for this pass was deliberately layered rather than guessed:
+
+- recovered pre-Hotfix source lineage for `CompatAudioManager`;
+- accepted beta handoff documentation showing the sound-thread ownership model, every-second-client-tick maintenance cadence, stable UUID-aware `SoundPhysicsBridge.apply(...)` call shape, and synchronized-group behavior;
+- tested Hotfix3 runtime/log evidence;
+- the Hotfix3 reconstruction guide's explicit sync fix.
+
+Hotfix3 behavior now represented in source:
+
+- synchronized complete groups use one `AL10.alSourcePlayv(int[])` start;
+- `PARTIAL_FLUSH_NS = 100_000_000L`;
+- incomplete declared groups flush after the 100 ms grace and start all sources that actually arrived together;
+- an `AL_INITIAL` source still pending in `SyncStartCoordinator` is treated as live by maintenance instead of being destroyed;
+- stop/replacement removes pending sources from sync state;
+- reset/stop-all clears sync state;
+- world/sound-session teardown clears `Beta11RoomRayCache` and resets `RoomSchedulerClient`;
+- source maintenance remains sound-thread-owned and does not move physics/audio clocks to worker threads.
+
+### Pass 1 verification caveat — do not erase this
+
+The complete Hotfix3 JAR is **not yet fully staged in this branch**. `reference/beta11-hotfix3.jar.b64.part00` is only the first fragment, and the manual CFR workflow currently fails the SHA check before decompilation because the reference is incomplete.
+
+Therefore `CompatAudioManager` and `SyncStartCoordinator` are currently **behavioral/source-level reconstructions, not yet bytecode-descriptor-verified Hotfix3 reproductions**. In particular, the exact Hotfix3 private method names/descriptors and exact nested `GroupState` field layout remain audit items. Do not silently rewrite them based on taste; compare them to the complete tested artifact when it becomes available.
+
+Pass 2 must also verify the exact acoustic/capture teardown calls surrounding source creation/destruction once `SoundPhysicsBridge` and `AcousticCapture` are reconstructed. The current manager intentionally does not invent undocumented capture cleanup calls.
+
 ## Project/build skeleton
 
 Added a Java 21 / NeoForge 1.21.1 ModDevGradle project skeleton targeting NeoForge 21.1.248, CC:Tweaked 1.120.2, SPR 1.5.1, and the tested local CC:HQ Speakers jar.
@@ -54,13 +87,15 @@ A manual-only CFR reference workflow is also staged. It must not be run until th
 
 ## Still to reconstruct/verify before source-level Beta11.1 work
 
-Highest-priority runtime classes:
+Next prerequisite — SPR/acoustic core:
 
-- `CompatAudioManager`, including Hotfix3 sync-pending source protection and room-cache teardown
-- final Hotfix3 `SyncStartCoordinator` grace-period implementation
 - `Beta10Optimizer`, including the verifier-safe `beta11RoomCacheActive()` implementation
 - `SoundPhysicsBridge`
 - `AcousticCapture`
+- verify the exact source-register/source-destroy acoustic lifecycle hooks used by Hotfix3
+
+Then:
+
 - `EnvironmentSmoother`
 - `ProgressiveOcclusionModel`
 - `PositionStabilizer`
