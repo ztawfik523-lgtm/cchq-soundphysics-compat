@@ -4,10 +4,10 @@ license="MIT"
 
 [[mods]]
 modId="cchq_soundphysics_compat"
-version="0.1.0-beta11-hotfix3"
+version="0.1.0-beta11-phase5-test"
 displayName="CC:HQ Sound Physics Compat"
 authors="CC:HQ / Sound Physics compatibility"
-description='''Beta11 exact-optimization and production-hardening build: preserves beta9/Beta10 acoustics and transition behavior; retains Beta10 exact direct-occlusion sharing and OpenAL state suppression; adds an exact cache for SPR static environment/bounce raycasts scoped to the current cloned BlockGetter; adds cross-clone reuse-potential telemetry without enabling unsafe cross-clone reuse; batches PCM mono downmix writes; and starts synchronized HQ source groups with OpenAL alSourcePlayv; incomplete declared groups now get a short sound-thread grace period and then start all sources that actually arrived together instead of being destroyed in AL_INITIAL. No room-ray count, bounce count, direct probe geometry, distance curve, EFX attachment semantics, or playback clock is reduced or approximated.'''
+description='''Phase 5 real-game validation build based on the verified Beta11 Hotfix3 reconstruction. With all new advanced controls left at their defaults it preserves the Phase 4/Hotfix3 acoustic and scheduling values, while adding targeted diagnostics, safe cache/room/EFX reset commands, and optional advanced scheduler, sentinel, sync, cache, EFX, and Beta9 backoff controls for troubleshooting. Non-default advanced values intentionally depart from Hotfix3 behavior and are for validation/tuning only.'''
 
 [[mixins]]
 config="cchq_soundphysics_compat.mixins.json"
