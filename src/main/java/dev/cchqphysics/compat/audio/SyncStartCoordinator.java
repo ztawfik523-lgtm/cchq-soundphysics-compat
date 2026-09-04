@@ -43,7 +43,8 @@ final class SyncStartCoordinator {
     }
 
     static synchronized int sourceState(int sourceId, int param) {
-        flushExpired(System.nanoTime());
+        long now = System.nanoTime();
+        flushExpired(now);
         int state = AL10.alGetSourcei(sourceId, param);
         if (param == AL10.AL_SOURCE_STATE && state == AL10.AL_INITIAL && isPending(sourceId)) {
             return AL10.AL_PAUSED;
@@ -79,7 +80,7 @@ final class SyncStartCoordinator {
 
     private static void playVector(List<Integer> sources) {
         int[] ids = new int[sources.size()];
-        for (int i = 0; i < sources.size(); i++) {
+        for (int i = 0; i < ids.length; i++) {
             ids[i] = sources.get(i);
         }
         AL10.alSourcePlayv(ids);
