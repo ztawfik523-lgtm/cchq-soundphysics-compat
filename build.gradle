@@ -16,6 +16,11 @@ repositories {
     mavenCentral()
 
     maven {
+        name = 'NeoForged'
+        url = 'https://maven.neoforged.net/releases'
+    }
+
+    maven {
         name = 'CC-Tweaked'
         url = 'https://maven.squiddev.cc'
         content { includeGroup 'cc.tweaked' }
@@ -58,16 +63,40 @@ neoForge {
 configurations {
     localRuntime
     runtimeClasspath.extendsFrom localRuntime
+
+    // The tested Hotfix3 directly invokes SPR members which are private in the
+    // published SPR JAR and are widened by this mod's access transformer. Keep
+    // the untouched SPR artifact for runtime, but preprocess an isolated copy
+    // for javac so source compilation sees the same accessibility contract.
+    sprCompileInput {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = false
+    }
+    accessTransformerCli {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = false
+    }
 }
 
 def sprDependency = "maven.modrinth:qyVF9oeo:${spr_modrinth_version_id}"
 def hqSpeakerDependency = "maven.modrinth:${hqspeaker_modrinth_project_id}:${hqspeaker_modrinth_version_id}"
 def clothConfigDependency = "curse.maven:cloth-config-348521:${cloth_config_curse_file}"
 def ccTweakedApiDependency = "cc.tweaked:cc-tweaked-${minecraft_version}-common-api:${cc_tweaked_version}"
+def sprCompileJar = layout.buildDirectory.file('reconstruction/compile/sound-physics-remastered-at.jar')
 
 dependencies {
     // Exact SPR release used by the tested Beta11 Hotfix3 environment.
-    implementation sprDependency
+    // Runtime remains the untouched upstream JAR; javac receives only the
+    // access-transformed compile copy produced by prepareSprCompileJar.
+    sprCompileInput sprDependency
+    localRuntime sprDependency
+    compileOnly files(sprCompileJar)
+
+    // NeoForge's standalone AT processor. The fat JAR is executable and keeps
+    // this compile preprocessing independent from runtime class loading.
+    accessTransformerCli 'net.neoforged.accesstransformers:at-cli:10.0.1:fatjar'
 
     // Optional config UI used by the baseline source/config classes.
     implementation clothConfigDependency
@@ -83,13 +112,47 @@ dependencies {
     localRuntime hqSpeakerDependency
 }
 
+tasks.register('prepareSprCompileJar', Exec) {
+    group = 'build setup'
+    description = 'Apply the Hotfix3 access transformer to an isolated SPR copy used only by javac.'
+
+    inputs.files(configurations.sprCompileInput)
+    inputs.file('src/main/resources/META-INF/accesstransformer.cfg')
+    outputs.file(sprCompileJar)
+
+    doFirst {
+        def inputJar = configurations.sprCompileInput.singleFile
+        def cliJar = configurations.accessTransformerCli.singleFile
+        def outputJar = sprCompileJar.get().asFile
+        def atFile = file('src/main/resources/META-INF/accesstransformer.cfg')
+        outputJar.parentFile.mkdirs()
+        if (outputJar.exists()) {
+            outputJar.delete()
+        }
+
+        def javaLauncher = javaToolchains.launcherFor {
+            languageVersion = JavaLanguageVersion.of(21)
+        }.get()
+
+        commandLine(
+            javaLauncher.executablePath.asFile.absolutePath,
+            '-jar', cliJar.absolutePath,
+            '--inJar', inputJar.absolutePath,
+            '--outJar', outputJar.absolutePath,
+            '--atFile', atFile.absolutePath
+        )
+    }
+}
+
 tasks.withType(JavaCompile).configureEach {
+    dependsOn tasks.named('prepareSprCompileJar')
     options.encoding = 'UTF-8'
 }
 
 tasks.register('verifyReconstructionClasspath') {
     group = 'verification'
     description = 'Resolve and print the reconstruction compile classpath without compiling incomplete Phase 3 sources.'
+    dependsOn tasks.named('prepareSprCompileJar')
     notCompatibleWithConfigurationCache('This audit task intentionally resolves and enumerates the live dependency graph.')
 
     doLast {
@@ -98,8 +161,20 @@ tasks.register('verifyReconstructionClasspath') {
             throw new GradleException('compileClasspath resolved to no files')
         }
 
+        def transformedSpr = sprCompileJar.get().asFile
+        if (!transformedSpr.isFile()) {
+            throw new GradleException('Access-transformed SPR compile JAR was not produced')
+        }
+        if (!resolved.any { it.canonicalFile == transformedSpr.canonicalFile }) {
+            throw new GradleException('compileClasspath does not contain the access-transformed SPR compile JAR')
+        }
+        if (resolved.any { it.name == 'qyVF9oeo-Dd2tmpsk.jar' }) {
+            throw new GradleException('Raw SPR runtime JAR leaked onto compileClasspath; javac would see private baseline members')
+        }
+
         println "Resolved compileClasspath (${resolved.size()} files):"
         resolved.each { println " - ${it.name}" }
+        println "SPR compile preprocessing verified: ${transformedSpr.name}"
     }
 }
 
