@@ -13,8 +13,8 @@ Do not optimize while reconstructing. Hotfix3 remains the behavioral authority u
 | Phase | Status |
 | --- | --- |
 | Phase 1 — Freeze and inventory binary baseline | **COMPLETE** |
-| Phase 2 — Reconstruct build project | **COMPLETE** |
-| Phase 3 — Reconstruct every Java class | **NEXT / PARTIALLY PRE-RECOVERED** |
+| Phase 2 — Reconstruct build project | **COMPLETE / RECHECKED** |
+| Phase 3 — Reconstruct every Java class | **IN PROGRESS** |
 | Phase 4 — Structural and behavioral equivalence audit | Not started |
 | Phase 5 — Runtime validation and source handover | Not started |
 
@@ -24,6 +24,7 @@ Durable phase evidence:
 - `docs/baseline/PHASE1_FINAL_VERIFICATION.md`
 - `docs/PHASE1_HOTFIX3_BYTECODE_AUDIT.md`
 - `docs/PHASE2_BUILD_AUDIT.md`
+- `docs/PHASE3_START_AUDIT.md`
 - `docs/BETA11_RECONSTRUCTION_HANDOFF.md`
 - `docs/RECONSTRUCTION_GUIDE.md`
 
@@ -50,9 +51,9 @@ Exact runtime resources retained under `src/main/resources` include:
 
 See `docs/baseline/PHASE1_FINAL_VERIFICATION.md` for the closure evidence.
 
-## Phase 2 — COMPLETE
+## Phase 2 — COMPLETE / RECHECKED
 
-Phase 2 reconstructed and verified the build project. The definitive finish gate is GitHub Actions run `33856858450`.
+Phase 2 reconstructed and verified the build project. The definitive original finish gate is GitHub Actions run `33856858450`.
 
 Verified build environment:
 
@@ -75,15 +76,15 @@ Phase 2 proof:
 - `createMinecraftArtifacts` completes the NeoForge development artifact pipeline;
 - `processResources` + `verifyResourceWiring` verify the four critical processed resources, all 11 configured client mixins, mixin registration, and access-transformer registration;
 - `compileJava` reaches javac with dependencies resolved;
-- remaining compiler failures are project-source reconstruction gaps, not Gradle/dependency/access-transformer failures.
+- the original compile probe's 44 failures are project-source reconstruction gaps, not Gradle/dependency/access-transformer failures.
 
-The Phase 2 compile probe currently reports 44 source-level `cannot find symbol` errors. Those are the expected Phase 3 boundary.
+The Phase 2 boundary was rechecked before Phase 3 work began. After the first Phase 3 mixin batch, finish-gate run `33858967668` also completed successfully, confirming that the new sources did not regress the build/resource/dependency boundary.
 
-See `docs/PHASE2_BUILD_AUDIT.md` for full closure evidence.
+See `docs/PHASE2_BUILD_AUDIT.md` and `docs/PHASE3_START_AUDIT.md`.
 
-## Phase 3 — NEXT / already partially recovered
+## Phase 3 — IN PROGRESS
 
-Several Java sources were recovered before the canonical five-phase boundaries were finalized. Treat them as **partial Phase 3 progress**, not as evidence that Phase 3 is complete.
+Several Java sources were recovered before the canonical five-phase boundaries were finalized. Treat them as partial Phase 3 progress, not as evidence that Phase 3 is complete.
 
 ### Reconstructed from original Beta11 build inputs
 
@@ -91,7 +92,7 @@ Several Java sources were recovered before the canonical five-phase boundaries w
 - `Beta11RoomRayCache.java`
 - `SoundPhysicsRoomRayMemoMixin.java`
 
-### Reconstructed/audited against Hotfix3 bytecode
+### Reconstructed/audited against Hotfix3 bytecode before the current Phase 3 start batch
 
 - `CCHQSoundPhysicsCompat.java`
 - `DecodedAudio.java`
@@ -110,7 +111,15 @@ Several Java sources were recovered before the canonical five-phase boundaries w
 - `SyncStartCoordinator.java`
 - `CompatAudioManager.java`
 
-These are source-level runtime reconstructions, not claims of byte-for-byte compiler reproduction.
+### Phase 3 start batch committed 2026-09-04
+
+- `HQSpeakerClientHandlerMixin.java` — commit `733309b1cac07f0eff5e2167d3b206382321571f`
+- `HQSpeakerStopPacketMixin.java` — commit `523ceb3303a12737ed993262557c2621409c6b79`
+- `SoundEngineLifecycleMixin.java` — commit `1a4129b06d9e30dfd27c827e9b02eadbb436c2a5`
+
+Runtime Hotfix3 Mixin metadata confirms that the final lifecycle mixin has six hooks: `pause`, `resume`, `stopAll`, `destroy`, `emergencyShutdown`, and `reload`, rather than the older four-hook preserved source shape.
+
+These are source-level runtime reconstructions, not claims of byte-for-byte compiler reproduction. Full structural equivalence remains a Phase 4 concern.
 
 ### Important Hotfix3 behavior already recovered
 
@@ -147,27 +156,43 @@ if (context != null && context.owner == OWNER_SPR) return context.cacheable;
 return false;
 ```
 
-### Known Phase 3 gaps
+### Current Phase 3 evidence limitation
 
-The current compile boundary identifies unreconstructed project symbols/classes including:
+The authoritative Hotfix3 JAR is not fully restaged on this branch; the retained `reference/` baseline staging is incomplete. Therefore large optimizer/bridge implementations must **not** be regenerated from historical prose alone.
 
-- `ClientConfig`
-- `PerformanceStats`
-- `SoundPhysicsBridge`
-- `ProgressiveOcclusionModel`
-- `PositionStabilizer`
-- `Beta10Optimizer`
+Evidence precedence is:
+
+1. authoritative Hotfix3 bytecode/decompile;
+2. exact Hotfix3 runtime Mixin metadata/descriptors;
+3. already-audited Hotfix3 sources and local call sites;
+4. version-matched upstream dependency source/signatures;
+5. historical handoffs as supporting context only.
+
+This is a Phase 3 evidence limitation, not a Phase 2 regression.
+
+### Remaining top-level Phase 3 gaps
+
+Audio:
+
 - `AttenuationBridge`
 - `Beta9Optimizer`
+- `Beta10Optimizer`
+- `PerformanceStats`
+- `PositionStabilizer`
+- `ProgressiveOcclusionModel`
+- `SoundPhysicsBridge`
 
-The resource-wiring audit also explicitly identifies four configured mixin source files still absent:
+Config:
 
-- `HQSpeakerClientHandlerMixin`
-- `HQSpeakerStopPacketMixin`
+- `ClientConfig`
+- `ClientConfigAccess`
+- `ClothConfigScreen`
+
+Mixin:
+
 - `SoundPhysicsOcclusionMemoMixin`
-- `SoundEngineLifecycleMixin`
 
-Additional helpers/config classes and nested structures must be reconciled against the Phase 1 binary inventory before Phase 3 can close.
+That is **11 remaining top-level authored Java classes**, plus their nested class topology recorded in the Phase 1 binary inventory.
 
 ### Phase 3 exit rule
 
@@ -179,6 +204,8 @@ Before closure:
 2. nested classes, constants, descriptors, annotations, and mixin targets must be reconstructed intentionally;
 3. hand-patched bytecode behavior must be represented as normal verifier-safe Java;
 4. the full project must compile successfully.
+
+See `docs/PHASE3_START_AUDIT.md` for the current checkpoint and next reconstruction order.
 
 ## Frozen runtime/acoustic invariants during reconstruction
 
