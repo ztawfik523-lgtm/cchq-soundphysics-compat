@@ -151,6 +151,12 @@ tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }
 
+tasks.named('jar') {
+    manifest {
+        from(file('src/main/resources/META-INF/MANIFEST.MF'))
+    }
+}
+
 tasks.register('verifyReconstructionClasspath') {
     group = 'verification'
     description = 'Resolve and print the reconstruction compile classpath without compiling incomplete Phase 3 sources.'
