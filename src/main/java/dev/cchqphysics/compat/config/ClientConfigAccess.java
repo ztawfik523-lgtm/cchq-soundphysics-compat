@@ -57,5 +57,6 @@ public final class ClientConfigAccess {
 
     public static void save() {
         ClientConfig.SPEC.save();
+        ExtendedClientConfig.SPEC.save();
     }
 }
