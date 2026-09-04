@@ -31,7 +31,7 @@ These files came from source used while constructing Beta11 rather than speculat
 - `Beta11RoomRayCache.java`
 - `SoundPhysicsRoomRayMemoMixin.java`
 
-## Reconstructed against Hotfix3 bytecode before the latest Phase 1 audit
+## Reconstructed against Hotfix3 bytecode
 
 - `CCHQSoundPhysicsCompat.java`
 - `DecodedAudio.java`
@@ -45,6 +45,8 @@ These files came from source used while constructing Beta11 rather than speculat
 - `SoundManagerAccessor.java`
 - `SoundPhysicsEnvironmentMixin.java`
 - `SoundPhysicsPositionMixin.java`
+- `AcousticCapture.java`
+- `EnvironmentSmoother.java`
 
 These are source-level runtime reconstructions, not claims of byte-for-byte compiler reproduction.
 
@@ -110,21 +112,57 @@ Compilation is not yet expected because Phase 1 now correctly references Phase 2
 
 The GitHub `reference/` base64 staging is still incomplete; the branch's manual CFR workflow should not be treated as a verified full-JAR reconstruction path until the complete reference is staged. The bytecode audit above used the separately available complete tested artifact and its verified SHA.
 
-## Next bounded phase — SPR/acoustic core
+## Phase 2 — SPR/acoustic core: in progress, exact bytecode authority available
 
-Phase 2 remains next and was intentionally **not** started/committed in the Phase 1 repair run.
+The complete Hotfix3 JAR was independently recovered from the project library during this run and again verified to the authoritative SHA-256 above. Phase 2 inspection therefore used exact `javap -p -s -constants -c -l` output rather than inferred behavior.
 
-Reconstruct/verify:
+### Done in this bounded Phase 2 pass
 
-- `SoundPhysicsBridge`
-- `Beta10Optimizer`, including verifier-safe normal-Java `beta11RoomCacheActive()` semantics
-- `AcousticCapture`
-- `EnvironmentSmoother`
-- private per-source EFX application/reattachment behavior
-- direct-cache / OpenAL write-suppression integration
-- exact acoustic register/unregister teardown chain now referenced by `CompatAudioManager`
+`AcousticCapture.java` was reconstructed from the exact Hotfix3 descriptors/bytecode, preserving:
 
-Critical invariant for Phase 2: **every actual environment application must reattach direct/aux EFX even when parameter writes are suppressed.** No worker-thread SPR world/geometry raycasts or OpenAL ownership changes.
+- per-source monotonic capture generations;
+- UUID identity binding and mismatch fail-safe behavior;
+- owner/sound-thread capture enforcement;
+- nested capture stack begin/end discipline;
+- environment and reflected-position capture;
+- native-environment fallback guard;
+- generation validation and the exact `Result` record shape.
+
+`EnvironmentSmoother.java` was reconstructed from the exact Hotfix3 descriptors/bytecode, preserving:
+
+- the registration chain into `ProgressiveOcclusionModel`, `PositionStabilizer`, and `SoundPhysicsBridge`;
+- the matching unregister chain plus sync removal and private-filter teardown;
+- Hotfix3 smoothing direction semantics via `ClientConfig` alphas;
+- no private EFX creation while a source is `AL_INITIAL`; only PLAYING/PAUSED are eligible;
+- one private direct low-pass filter plus four private send low-pass filters per source;
+- SPR auxiliary effect-slot reuse while avoiding SPR's mutable global filter objects;
+- parameter updates through `Beta10Optimizer.alFilterfMaybe(...)`;
+- raw `AL11.alSource3i(...)` auxiliary reattachment and raw `AL11.alSourcei(...)` direct reattachment on **every** successful environment application;
+- native-SPR fallback if isolated EFX setup/application fails;
+- detach-before-delete teardown semantics.
+
+The mandatory EFX invariant is therefore explicit in reconstructed source: parameter writes may be skipped when bit-identical, but attachment itself is never skipped from an actual environment apply. This matches the tested logs where `efxApplies == efxReattachPasses` while filter/source write-suppression counters remain high.
+
+The exact Hotfix3 `Beta10Optimizer.beta11RoomCacheActive()` bytecode was also verified. Its verifier-safe normal-Java semantics are:
+
+```java
+Context context = CONTEXT.get();
+if (context != null && context.owner == OWNER_SPR) return context.cacheable;
+return false;
+```
+
+Normal Java source must retain that behavior; javac will generate the required stack-map frames that were missing from the old manual branch-bytecode patch.
+
+### Phase 2 still incomplete — do not skip ahead
+
+The next bounded run must continue Phase 2 rather than start Phase 3. Remaining exact work:
+
+- reconstruct and commit full `Beta10Optimizer.java`, including the 2048-slot / 6-probe exact direct-ray cache, owner separation, stamp scoping, direct-to-SPR reuse accounting, and bit-identical OpenAL filter/source write suppression;
+- reconstruct and commit full `SoundPhysicsBridge.java` plus its authored/nested `SourceState`, `RoomStamp`, `Candidate`, `RoomEnvironmentAccess`, and `ConfigStamp` structures;
+- verify the bridge's exact `AcousticCapture.begin/end`, native fallback, stored-environment application, position restoration, and scheduler paths against the Hotfix3 bytecode;
+- after those two large classes are committed, perform a focused descriptor/call-order check of the full Phase 2 integration before marking Phase 2 complete.
+
+No Phase 3 helper reconstruction and no Beta11.1/B optimization work was started in this pass.
 
 ## Later reconstruction work
 
