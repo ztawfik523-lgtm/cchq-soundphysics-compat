@@ -1,6 +1,6 @@
 # Reconstruction documentation sync — 2026-09-04
 
-This file records the full documentation sweep performed after the exact Beta11 Hotfix3 JAR was supplied and Phases 1–2 were rechecked against it.
+This file records the documentation sweep performed after the exact Beta11 Hotfix3 JAR was supplied, Phases 1–2 were rechecked, and Phase 3 source reconstruction subsequently closed.
 
 ## Authority
 
@@ -20,16 +20,11 @@ Branch:
 
 - Phase 1 — **COMPLETE / JAR-RECHECKED**
 - Phase 2 — **COMPLETE / JAR-RECHECKED**
-- Phase 3 — **IN PROGRESS**
-- Phase 4 — not started
+- Phase 3 — **COMPLETE**
+- Phase 4 — **NEXT / NOT STARTED**
 - Phase 5 — not started
 
-Known remaining top-level authored Phase 3 gaps:
-
-1. `SoundPhysicsBridge`
-2. `ClothConfigScreen`
-
-The latest compile boundary is 17 javac errors, all references to the missing `SoundPhysicsBridge` class. The earlier SPR private-access errors are resolved by compile-time AT preprocessing.
+The earlier state in this file that listed two remaining Phase 3 classes has been superseded by `docs/PHASE3_FINAL_VERIFICATION.md`.
 
 ## Phase 1 recheck facts
 
@@ -40,14 +35,14 @@ The exact JAR recheck confirms:
 - 65 non-directory files;
 - 60 Java-21 classfiles;
 - all 65 per-entry SHA-256 fingerprints agree with `docs/baseline/HOTFIX3_SHA256SUMS.txt`;
-- all five source-relevant resources agree with the exact JAR bytes and Git blob identities;
+- all five source-relevant resources agree with exact JAR bytes;
 - manifest CRLF form remains exact.
 
-During this documentation sweep, a temporary documentation-only error in `PHASE1_JAR_RECHECK_2026-09-04.md` was found: its resource checksum table did not match the actual supplied JAR. The whole-JAR hash and frozen `HOTFIX3_SHA256SUMS.txt` were correct. The recheck document was corrected from the actual JAR bytes and now agrees with `PHASE1_FINAL_VERIFICATION.md`.
+A temporary documentation-only checksum mistake in the first draft of `PHASE1_JAR_RECHECK_2026-09-04.md` was corrected from the exact JAR bytes. The frozen `HOTFIX3_SHA256SUMS.txt` was already correct.
 
 ## Phase 2 recheck facts
 
-The exact reconstructed Hotfix3 source calls SPR members widened by the compat access transformer. The reconstructed build now correctly supplies that accessibility contract to javac:
+Exact Hotfix3 source calls SPR members widened by the compat access transformer. The reconstructed build now supplies that accessibility contract to javac correctly:
 
 - runtime uses untouched tested SPR;
 - an isolated exact SPR compile copy is transformed with the exact Hotfix3 AT;
@@ -58,45 +53,63 @@ The exact reconstructed Hotfix3 source calls SPR members widened by the compat a
 Verified CI:
 
 - classpath run `33864425672` — success;
-- finish-gate run `33864425687` — success;
-- build commit `cef50d04fbb03b4f523961aeb95f2f0377856994`.
+- finish-gate run `33864425687` — success.
 
-The full finish gate verifies wrapper/toolchain, 90-file compileClasspath, NeoForge artifacts, processed resources, all 11 mixins, AT registration and javac boundary classification.
+## Phase 3 final closure
 
-## Phase 3 state recorded by this sync
+Final authored source closures:
 
-Most source is present, including the playback/lifecycle stack, direct occlusion helpers, optimizers, config core and all configured mixin/accessor source counterparts.
+- `SoundPhysicsBridge.java` — commit `91d70508a04001da788ac7520e09955d5f753b09`;
+- `ClothConfigScreen.java` — commit `d336bdea9d39be801360b1f286d67f29d6333772`.
 
-`SoundPhysicsBridge` remains the principal runtime source and compile blocker. Its nested topology to recover intentionally is:
+A strict Phase 3 source gate was added in commit:
 
-- `SoundPhysicsBridge$Candidate`
-- `SoundPhysicsBridge$RoomEnvironmentAccess`
-- `SoundPhysicsBridge$RoomEnvironmentAccess$ConfigStamp`
-- `SoundPhysicsBridge$RoomStamp`
-- `SoundPhysicsBridge$SourceState`
+`e918e3199b98332c0320eb4cd07e34740d1ec8ec`
 
-`ClothConfigScreen` remains the second top-level source gap and must be reconstructed before Phase 3 closure.
+Definitive closure run:
 
-## Files synchronized
+`33867207760` — **SUCCESS**.
 
-The following documentation was refreshed so it no longer carries stale assumptions such as "the JAR is unavailable", "11 classes remain", the obsolete ad-hoc phase numbering, or the pre-AT compile boundary:
+It reported:
+
+```text
+compileJava: PASS
+jar: PASS
+Hotfix3 60-class topology: PASS
+source-relevant processed resources: PASS
+```
+
+Exact topology reconciliation:
+
+```text
+Hotfix3 expected classes: 60
+Reconstructed classes:    60
+```
+
+The expected/actual class-path diff was empty.
+
+The source tree therefore accounts for the full Phase 1 compat class-path topology and compiles cleanly. This closes Phase 3 source reconstruction, not Phase 4 behavioral equivalence or Phase 5 runtime validation.
+
+## Documentation synchronized after Phase 3 closure
+
+The following current-state documents were advanced to Phase 4-next status:
 
 - `README.md`
 - `RECONSTRUCTION_STATUS.md`
 - `docs/BETA11_RECONSTRUCTION_HANDOFF.md`
-- `docs/PHASE1_HOTFIX3_BYTECODE_AUDIT.md`
-- `docs/PHASE2_BUILD_AUDIT.md`
-- `docs/PHASE3_START_AUDIT.md`
 - `docs/RECONSTRUCTION_GUIDE.md`
-- `docs/RECONSTRUCTION_PHASES.md`
-- `docs/baseline/BETA11_HOTFIX3_INVENTORY.md`
-- `docs/baseline/PHASE1_FINAL_VERIFICATION.md`
-- `docs/baseline/PHASE1_JAR_RECHECK_2026-09-04.md`
+- `docs/PHASE3_START_AUDIT.md` — retained as a historical checkpoint but explicitly marked closed/superseded
+- `docs/DOCUMENTATION_SYNC_2026-09-04.md`
 
-`docs/baseline/HOTFIX3_SHA256SUMS.txt` was not changed because its frozen 65-entry fingerprint list was already correct.
+New final evidence:
+
+- `docs/PHASE3_FINAL_VERIFICATION.md`
+- `.github/workflows/phase3-source-closure.yml`
+
+Phase 1 frozen inventory/fingerprint records remain unchanged except for earlier documentation corrections because their binary evidence did not change.
 
 ## Frozen next step
 
-Continue Phase 3 by reconstructing `SoundPhysicsBridge` from the exact Hotfix3 classfile/decompile. Do not add a compile-only stub. After it is reconstructed, run the compile gate, reconstruct `ClothConfigScreen`, reconcile the full Phase 1 class/nested-class inventory, then close Phase 3 only if the full project compiles and every meaningful binary class has an intentional source/compiler-generated explanation.
+Begin **Phase 4 — Structural and behavioral equivalence audit** against the exact Hotfix3 JAR.
 
-Do not begin Beta11.1/B optimization before Phases 4 and 5 also close.
+Do not merge `beta11-source-reconstruction` to `main`, do not claim runtime equivalence, and do not begin Beta11.1/B optimization until Phases 4 and 5 close.
