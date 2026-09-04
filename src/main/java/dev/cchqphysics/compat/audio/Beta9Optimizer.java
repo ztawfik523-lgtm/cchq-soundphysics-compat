@@ -1,5 +1,6 @@
 package dev.cchqphysics.compat.audio;
 
+import dev.cchqphysics.compat.config.ExtendedClientConfig;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.HashMap;
@@ -462,7 +463,7 @@ final class Beta9Optimizer {
     private static void maybeReportAndControl(long now) {
         updateController(now);
         long elapsed = now - reportStartNs;
-        if (elapsed < REPORT_NS) return;
+        if (elapsed < ExtendedClientConfig.performanceReportNs()) return;
         double seconds = elapsed / 1.0E9D;
         String report = "[CC:HQ Sound Physics Compat] beta9 extra window=" + round1(seconds)
                 + "s directReal=" + directReal + " (" + round1(directReal / seconds) + "/s)"

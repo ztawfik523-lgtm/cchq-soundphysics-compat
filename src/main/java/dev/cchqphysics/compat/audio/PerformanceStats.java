@@ -1,6 +1,7 @@
 package dev.cchqphysics.compat.audio;
 
 import dev.cchqphysics.compat.config.ClientConfig;
+import dev.cchqphysics.compat.config.ExtendedClientConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -128,7 +129,7 @@ final class PerformanceStats {
     private static void maybeReport() {
         long now = System.nanoTime();
         long elapsed = now - windowStartNs;
-        if (elapsed < WINDOW_NS) return;
+        if (elapsed < ExtendedClientConfig.performanceReportNs()) return;
 
         boolean diagnostics = ClientConfig.diagnosticsEnabled();
         boolean debug = LOGGER.isDebugEnabled();

@@ -2,6 +2,7 @@ package dev.cchqphysics.compat.audio;
 
 import com.sonicether.soundphysics.SoundPhysics;
 import dev.cchqphysics.compat.config.ClientConfig;
+import dev.cchqphysics.compat.config.ExtendedClientConfig;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.phys.Vec3;
@@ -166,7 +167,9 @@ public final class Beta10Optimizer {
     private static Context contextFor(int sourceId, byte owner, Context previous) {
         Object stamp = SoundPhysicsBridge.beta9CaptureStamp(sourceId);
         StampInfo info = readStamp(stamp);
-        boolean cacheable = info != null && info.reusable && debugAllowsRayCache();
+        boolean cacheable = info != null && info.reusable
+                && ExtendedClientConfig.beta10RayCacheEnabled()
+                && debugAllowsRayCache();
         return new Context(sourceId, owner, stamp, info, cacheable, previous);
     }
 
@@ -241,6 +244,7 @@ public final class Beta10Optimizer {
             scopeClone = info.cloneIdentity;
             scopeCloneTick = info.cloneTick;
             scopeConfig = info.configFingerprint;
+            DebugDiagnostics.cache("beta10 ray scope reset cloneTick={} config={}", info.cloneTick, info.configFingerprint);
         }
     }
 
@@ -486,7 +490,7 @@ public final class Beta10Optimizer {
 
     private static void maybeReportLocked(long now) {
         long elapsed = now - reportStartNs;
-        if (elapsed < REPORT_NS) return;
+        if (elapsed < ExtendedClientConfig.performanceReportNs()) return;
         if (!ClientConfig.diagnosticsEnabled()) {
             reportStartNs = now;
             rayHits = rayMisses = rayActualNs = 0L;

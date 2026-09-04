@@ -1,6 +1,7 @@
 package dev.cchqphysics.compat.audio;
 
 import dev.cchqphysics.compat.config.ClientConfig;
+import dev.cchqphysics.compat.config.ExtendedClientConfig;
 import org.lwjgl.openal.AL10;
 import org.lwjgl.openal.AL11;
 import org.lwjgl.openal.EXTEfx;
@@ -60,6 +61,10 @@ public final class EnvironmentSmoother {
         synchronized (EnvironmentSmoother.class) {
             state = STATES.get(sourceId);
             if (state == null) return false;
+        }
+        if (!ExtendedClientConfig.privateEfxEnabled()) {
+            DebugDiagnostics.efx("source={} private EFX disabled; using native SPR fallback", sourceId);
+            return false;
         }
         float[] adjusted = ProgressiveOcclusionModel.adjust(sourceId, directCutoff, directGain);
         float targetCutoff = adjusted[0];
@@ -123,6 +128,7 @@ public final class EnvironmentSmoother {
             int error = AL10.alGetError();
             if (error != AL_NO_ERROR) throw new IllegalStateException("OpenAL error creating isolated EFX: " + error);
             state.privateEfxReady = true;
+            DebugDiagnostics.efx("source={} created private EFX directFilter={} maxAux={}", sourceId, state.directFilter, state.maxAuxSends);
             LOGGER.debug("beta1 isolated EFX source={} directFilter={} sends={}/{}/{}/{} maxAux={}",
                     sourceId, state.directFilter, state.sendFilters[0], state.sendFilters[1], state.sendFilters[2], state.sendFilters[3], state.maxAuxSends);
             return true;
@@ -169,6 +175,7 @@ public final class EnvironmentSmoother {
                 LOGGER.warn("beta1 isolated EFX failed for source {}; falling back to native SPR", sourceId, throwable);
             }
             state.privateEfxFailed = true;
+            DebugDiagnostics.efx("source={} private EFX failed; native fallback reason={}", sourceId, throwable.toString());
         }
         destroyPrivateEfx(sourceId, state);
         drainAlErrors();
@@ -189,6 +196,7 @@ public final class EnvironmentSmoother {
         state.directFilter = 0;
         for (int i = 0; i < 4; i++) state.sendFilters[i] = 0;
         state.privateEfxReady = false;
+        DebugDiagnostics.efx("source={} destroyed private EFX", sourceId);
         drainAlErrors();
     }
 

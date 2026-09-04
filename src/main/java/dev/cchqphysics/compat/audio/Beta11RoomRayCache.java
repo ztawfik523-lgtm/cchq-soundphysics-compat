@@ -2,6 +2,7 @@ package dev.cchqphysics.compat.audio;
 
 import com.sonicether.soundphysics.utils.RaycastUtils;
 import dev.cchqphysics.compat.config.ClientConfig;
+import dev.cchqphysics.compat.config.ExtendedClientConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.phys.BlockHitResult;
@@ -34,7 +35,8 @@ public final class Beta11RoomRayCache {
     private Beta11RoomRayCache() {}
 
     public static BlockHitResult rayCast(BlockGetter level, Vec3 from, Vec3 to, BlockPos ignore) {
-        if (!Beta10Optimizer.beta11RoomCacheActive() || level == null) {
+        if (!ExtendedClientConfig.beta11RoomRayMemoEnabled()
+                || !Beta10Optimizer.beta11RoomCacheActive() || level == null) {
             return RaycastUtils.rayCast(level, from, to, ignore);
         }
 
@@ -78,6 +80,7 @@ public final class Beta11RoomRayCache {
         current.clear();
         scopeGetter = getter;
         scopeResets++;
+        DebugDiagnostics.cache("beta11 room-ray scope rotated entriesPrevious={}", previous.entries);
     }
 
     private static void maybeDiagnostics() {
@@ -88,7 +91,7 @@ public final class Beta11RoomRayCache {
         if (!diagnostics) return;
         long now = System.nanoTime();
         long elapsed = now - reportStartNs;
-        if (elapsed < REPORT_NS) return;
+        if (elapsed < ExtendedClientConfig.performanceReportNs()) return;
         double seconds = elapsed / 1_000_000_000.0;
         long total = hits + misses;
         double hitRate = total == 0 ? 0.0 : (100.0 * hits / total);

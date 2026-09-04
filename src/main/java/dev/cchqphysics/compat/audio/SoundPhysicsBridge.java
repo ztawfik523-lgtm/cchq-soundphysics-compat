@@ -2,6 +2,7 @@ package dev.cchqphysics.compat.audio;
 
 import com.sonicether.soundphysics.SoundPhysics;
 import dev.cchqphysics.compat.config.ClientConfig;
+import dev.cchqphysics.compat.config.ExtendedClientConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundSource;
@@ -31,20 +32,8 @@ final class SoundPhysicsBridge {
     private static final int AL_PAUSED = 4115;
     private static final int AL_MAX_DISTANCE = 4131;
 
-    private static final long ROOM_SLOT_NS = 50_000_000L;
-    private static final long MIN_HARD_STALE_NS = 500_000_000L;
-    private static final long MAX_HARD_STALE_NS = 2_000_000_000L;
-    private static final long RECENT_SOURCE_NS = 1_000_000_000L;
-    private static final double TELEPORT_SQ = 16.0D;
-    private static final double SOURCE_MOVE_URGENT_SQ = 0.01D;
-    private static final double SENTINEL_MOVE_SQ = 0.0025D;
-    private static final double SENTINEL_RAW_OCCLUDED = 0.075D;
-    private static final double SENTINEL_REARM_CENTER = 0.12D;
-    private static final double SENTINEL_OPEN_CENTER = 0.035D;
-    private static final double SENTINEL_CENTER_DROP = 0.15D;
-    private static final double CONFIRM_RAW_DROP = 0.035D;
-    private static final float CONFIRM_CUTOFF_RISE = 0.055F;
-    private static final long CLEAR_TRIGGER_COOLDOWN_NS = 300_000_000L;
+    // Phase 5 exposes the former Hotfix3 scheduler/sentinel constants through
+    // ExtendedClientConfig. Its defaults are the verified Phase-4 parity values.
 
     private static int rrCursor;
     private static boolean haveSchedulerListener;
@@ -63,12 +52,14 @@ final class SoundPhysicsBridge {
         long generation = AcousticCapture.currentGeneration(sourceId);
         STATES.put(sourceId, new SourceState(sourceId, generation));
         if (rrCursor >= STATES.size()) rrCursor = 0;
+        DebugDiagnostics.source("register source={} generation={} tracked={}", sourceId, generation, STATES.size());
     }
 
     static synchronized void unregisterSource(int sourceId) {
         STATES.remove(sourceId);
         AcousticCapture.unregister(sourceId);
         if (rrCursor >= Math.max(1, STATES.size())) rrCursor = 0;
+        DebugDiagnostics.source("unregister source={} tracked={}", sourceId, STATES.size());
     }
 
     static void apply(int sourceId, UUID uuid, double x, double y, double z) {
@@ -83,9 +74,10 @@ final class SoundPhysicsBridge {
             if (state.uuid == null) state.uuid = uuid;
             if (!uuid.equals(state.uuid) || state.generation != AcousticCapture.currentGeneration(sourceId)) return;
 
-            if (state.hasPosition && distanceSq(x, y, z, state.x, state.y, state.z) >= SOURCE_MOVE_URGENT_SQ) {
+            if (state.hasPosition && distanceSq(x, y, z, state.x, state.y, state.z) >= ExtendedClientConfig.sourceMoveUrgentSq()) {
                 state.urgent = true;
                 state.roomStamp = null;
+                DebugDiagnostics.room("source={} movement marked room urgent", sourceId);
             }
             state.x = x;
             state.y = y;
@@ -138,7 +130,7 @@ final class SoundPhysicsBridge {
             state.directGain = direct[1];
         }
 
-        long applyInterval = Math.max(ROOM_SLOT_NS, ClientConfig.fullSprIntervalNs());
+        long applyInterval = Math.max(ExtendedClientConfig.roomSlotNs(), ClientConfig.fullSprIntervalNs());
         final boolean due;
         synchronized (SoundPhysicsBridge.class) {
             due = now - state.lastApplyNs >= applyInterval;
@@ -161,7 +153,7 @@ final class SoundPhysicsBridge {
         if (!independent) {
             List<SourceState> due = new ArrayList<>();
             synchronized (SoundPhysicsBridge.class) {
-                long interval = Math.max(ROOM_SLOT_NS, ClientConfig.fullSprIntervalNs());
+                long interval = Math.max(ExtendedClientConfig.roomSlotNs(), ClientConfig.fullSprIntervalNs());
                 for (SourceState state : STATES.values()) {
                     if (eligible(state, now)
                             && (state.room == null || now - state.lastRoomNs >= interval)) {
@@ -173,7 +165,7 @@ final class SoundPhysicsBridge {
             return;
         }
 
-        if (camera != null && movementSq >= SENTINEL_MOVE_SQ && movementSq < TELEPORT_SQ) {
+        if (camera != null && movementSq >= ExtendedClientConfig.sentinelMoveSq() && movementSq < ExtendedClientConfig.teleportDistanceSq()) {
             runClearingSentinel(now, camera);
         }
 
@@ -199,9 +191,9 @@ final class SoundPhysicsBridge {
             synchronized (SoundPhysicsBridge.class) {
                 SourceState current = STATES.get(state.sourceId);
                 if (current != state) continue;
-                if (now - state.lastClearTriggerNs >= CLEAR_TRIGGER_COOLDOWN_NS
-                        && (oldRaw >= SENTINEL_RAW_OCCLUDED
-                        || (!Double.isNaN(oldCenter) && oldCenter >= SENTINEL_REARM_CENTER))) {
+                if (now - state.lastClearTriggerNs >= ExtendedClientConfig.clearTriggerCooldownNs()
+                        && (oldRaw >= ExtendedClientConfig.sentinelRawOccluded()
+                        || (!Double.isNaN(oldCenter) && oldCenter >= ExtendedClientConfig.sentinelRearmCenter()))) {
                     state.sentinelArmed = true;
                 }
                 armed = state.sentinelArmed;
@@ -209,8 +201,8 @@ final class SoundPhysicsBridge {
                 previousCenter = state.hasSentinelCenter ? state.sentinelCenter : oldCenter;
             }
 
-            if (!armed && oldRaw < SENTINEL_RAW_OCCLUDED) continue;
-            if (now - lastTrigger < CLEAR_TRIGGER_COOLDOWN_NS) continue;
+            if (!armed && oldRaw < ExtendedClientConfig.sentinelRawOccluded()) continue;
+            if (now - lastTrigger < ExtendedClientConfig.clearTriggerCooldownNs()) continue;
 
             final double center;
             try {
@@ -222,16 +214,16 @@ final class SoundPhysicsBridge {
             if (Double.isNaN(center)) continue;
             if (Double.isNaN(previousCenter)) previousCenter = center;
 
-            boolean candidate = armed && (previousCenter - center >= SENTINEL_CENTER_DROP
-                    || (previousCenter >= SENTINEL_REARM_CENTER && center <= SENTINEL_OPEN_CENTER));
+            boolean candidate = armed && (previousCenter - center >= ExtendedClientConfig.sentinelCenterDrop()
+                    || (previousCenter >= ExtendedClientConfig.sentinelRearmCenter() && center <= ExtendedClientConfig.sentinelOpenCenter()));
 
             synchronized (SoundPhysicsBridge.class) {
                 SourceState current = STATES.get(state.sourceId);
                 if (current != state) continue;
                 state.sentinelCenter = center;
                 state.hasSentinelCenter = true;
-                if (center >= SENTINEL_REARM_CENTER
-                        && now - state.lastClearTriggerNs >= CLEAR_TRIGGER_COOLDOWN_NS) {
+                if (center >= ExtendedClientConfig.sentinelRearmCenter()
+                        && now - state.lastClearTriggerNs >= ExtendedClientConfig.clearTriggerCooldownNs()) {
                     state.sentinelArmed = true;
                 }
             }
@@ -251,10 +243,12 @@ final class SoundPhysicsBridge {
 
             float[] direct = ProgressiveOcclusionModel.forceAdjust(state.sourceId, baseCutoff, baseGain);
             double newRaw = ProgressiveOcclusionModel.currentRawOcclusion(state.sourceId);
-            boolean confirmed = oldRaw - newRaw >= CONFIRM_RAW_DROP
-                    || direct[0] - priorCutoff >= CONFIRM_CUTOFF_RISE
-                    || (oldRaw >= SENTINEL_RAW_OCCLUDED && newRaw <= SENTINEL_OPEN_CENTER);
+            boolean confirmed = oldRaw - newRaw >= ExtendedClientConfig.confirmRawDrop()
+                    || direct[0] - priorCutoff >= ExtendedClientConfig.confirmCutoffRise()
+                    || (oldRaw >= ExtendedClientConfig.sentinelRawOccluded() && newRaw <= ExtendedClientConfig.sentinelOpenCenter());
             PerformanceStats.recordSentinelCandidate(confirmed);
+            DebugDiagnostics.sentinel("source={} oldRaw={} newRaw={} previousCenter={} center={} priorCutoff={} newCutoff={} confirmed={}",
+                    state.sourceId, oldRaw, newRaw, previousCenter, center, priorCutoff, direct[0], confirmed);
 
             boolean immediate = false;
             synchronized (SoundPhysicsBridge.class) {
@@ -271,7 +265,7 @@ final class SoundPhysicsBridge {
                     state.sentinelArmed = false;
                     state.lastApplyNs = now;
                     immediate = true;
-                } else if (center <= SENTINEL_OPEN_CENTER) {
+                } else if (center <= ExtendedClientConfig.sentinelOpenCenter()) {
                     state.sentinelArmed = false;
                 }
             }
@@ -292,10 +286,10 @@ final class SoundPhysicsBridge {
         if (count == 0) return null;
         if (rrCursor >= count) rrCursor = 0;
 
-        long baseInterval = Math.max(ROOM_SLOT_NS, ClientConfig.fullSprIntervalNs());
-        long fairShare = Math.max(baseInterval, ROOM_SLOT_NS * count);
-        long hardStale = Math.max(MIN_HARD_STALE_NS, fairShare * 2L);
-        hardStale = Math.min(MAX_HARD_STALE_NS, hardStale);
+        long baseInterval = Math.max(ExtendedClientConfig.roomSlotNs(), ClientConfig.fullSprIntervalNs());
+        long fairShare = Math.max(baseInterval, ExtendedClientConfig.roomSlotNs() * count);
+        long hardStale = Math.max(ExtendedClientConfig.minHardStaleNs(), fairShare * 2L);
+        hardStale = Math.min(ExtendedClientConfig.maxHardStaleNs(), hardStale);
 
         int index = findCandidate(eligible, now, hardStale, Candidate.STALE);
         if (index < 0) index = findCandidate(eligible, now, fairShare, Candidate.URGENT);
@@ -315,7 +309,7 @@ final class SoundPhysicsBridge {
             long age = state.room == null ? Long.MAX_VALUE : Math.max(0L, now - state.lastRoomNs);
             boolean matches = switch (candidate) {
                 case STALE -> state.room == null || age >= threshold;
-                case URGENT -> state.urgent && age >= ROOM_SLOT_NS;
+                case URGENT -> state.urgent && age >= ExtendedClientConfig.roomSlotNs();
                 case DUE -> age >= Beta9Optimizer.roomInterval(state.sourceId, threshold, state.room);
             };
             if (matches) return index;
@@ -359,6 +353,7 @@ final class SoundPhysicsBridge {
         }
         if (reuse) {
             PerformanceStats.recordRoomReuse();
+            DebugDiagnostics.room("source={} reused room stamp", state.sourceId);
             return;
         }
 
@@ -418,11 +413,14 @@ final class SoundPhysicsBridge {
         }
 
         PerformanceStats.recordRoomRefresh();
+        DebugDiagnostics.room("source={} refreshed room stableStamp={} immediate={} urgentCleared=true", state.sourceId, stableStamp, immediate);
         if (immediate) {
             applyStoredState(state);
             PerformanceStats.recordImmediateRoomApply();
             if (transitionDetected > 0L) {
-                PerformanceStats.recordTransitionLatency(System.nanoTime() - transitionDetected);
+                long latency = System.nanoTime() - transitionDetected;
+                PerformanceStats.recordTransitionLatency(latency);
+                DebugDiagnostics.transition("source={} clearing transition room-applied latencyMs={}", state.sourceId, latency / 1_000_000.0D);
             }
         }
     }
@@ -533,6 +531,7 @@ final class SoundPhysicsBridge {
         PerformanceStats.reset();
         RoomSchedulerClient.reset();
         RoomEnvironmentAccess.reset();
+        DebugDiagnostics.source("cleared all compat source ids/state");
     }
 
     private static synchronized double updateSchedulerListener(Vec3 camera) {
@@ -542,11 +541,12 @@ final class SoundPhysicsBridge {
                 schedulerListenerX, schedulerListenerY, schedulerListenerZ)
                 : 0.0D;
 
-        if (haveSchedulerListener && movementSq >= TELEPORT_SQ) {
+        if (haveSchedulerListener && movementSq >= ExtendedClientConfig.teleportDistanceSq()) {
             for (SourceState state : STATES.values()) {
                 if (state.playing && state.inRange) {
                     state.urgent = true;
                     state.roomStamp = null;
+                    DebugDiagnostics.room("source={} listener teleport forced room urgent", state.sourceId);
                 }
             }
         }
@@ -574,7 +574,7 @@ final class SoundPhysicsBridge {
                 && state.hasPosition
                 && state.playing
                 && state.inRange
-                && now - state.lastSeenNs <= RECENT_SOURCE_NS
+                && now - state.lastSeenNs <= ExtendedClientConfig.recentSourceNs()
                 && state.generation == AcousticCapture.currentGeneration(state.sourceId);
     }
 
