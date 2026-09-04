@@ -10,15 +10,53 @@ Compatibility layer between **CC:HQ Speakers** and **Sound Physics Remastered (S
 - NeoForge 21.1.248
 - Java 21
 - CC:Tweaked 1.120.2
-- CC:HQ Speakers 1.1.4-neoforge-1.21.1
+- CC:HQ Speakers tested artifact resolving as `ygA78R8l-u5PEI5Ax.jar`
 - Sound Physics Remastered 1.21.1-1.5.1
-- Client-only compatibility mod
+- client-only compatibility mod
 
-Baseline artifact SHA-256:
+Authoritative baseline artifact SHA-256:
 
 `83500f182fc9829aa1a5a51fbfa11ba6cdfb645699b25d1c445167666dabc1ef`
 
-This repository is being reconstructed from the tested Beta11 Hotfix3 artifact so future work can move away from direct JAR/bytecode patching and back to normal source-level development.
+The exact Hotfix3 JAR was independently reverified on 2026-09-04 and remains the behavioral authority while source reconstruction is in progress.
+
+## Reconstruction state
+
+Work is isolated on `beta11-source-reconstruction`.
+
+Canonical status:
+
+- Phase 1 — **complete / JAR-rechecked**
+- Phase 2 — **complete / JAR-rechecked**
+- Phase 3 — **in progress**
+- Phase 4 — not started
+- Phase 5 — not started
+
+The current known top-level authored Java gaps are:
+
+- `SoundPhysicsBridge`
+- `ClothConfigScreen`
+
+`SoundPhysicsBridge` is the current runtime/compile blocker. The latest JAR-backed build probe reaches javac with only references to that missing class; the earlier SPR private-access errors have been eliminated by the Phase 2 compile-time AT preprocessing fix.
+
+See:
+
+- `RECONSTRUCTION_STATUS.md`
+- `docs/BETA11_RECONSTRUCTION_HANDOFF.md`
+- `docs/RECONSTRUCTION_PHASES.md`
+- `docs/PHASE2_BUILD_AUDIT.md`
+- `docs/PHASE3_START_AUDIT.md`
+
+## Build-project note
+
+Hotfix3 directly calls SPR members widened by this mod's access transformer. The reconstructed build therefore:
+
+- keeps the untouched tested SPR artifact at runtime;
+- creates an isolated access-transformed SPR copy for javac;
+- compiles against `sound-physics-remastered-at.jar`;
+- explicitly rejects the raw private-member SPR JAR from compileClasspath.
+
+The JAR-backed Phase 2 recheck succeeded in GitHub Actions runs `33864425672` and `33864425687`.
 
 ## Frozen acoustic/runtime invariants
 
@@ -27,28 +65,33 @@ The tested baseline preserves these rules:
 - HQ whole-file playback is intercepted without Lua-side changes.
 - Decode is off-thread; stereo/multichannel audio is downmixed to mono PCM for positional OpenAL playback.
 - Shared OpenAL buffers/refcounts are used for synchronized speakers playing the same payload.
-- Synchronized groups use `alSourcePlayv`; incomplete groups receive a short grace period so valid sources are not stranded in `AL_INITIAL`.
+- Synchronized groups use `alSourcePlayv`; incomplete groups receive the Hotfix3 100 ms grace period so arrived sources are not stranded in `AL_INITIAL`.
 - Distance behavior remains based on the approved `SoundSource.BLOCKS` curve.
 - Direct occlusion uses the approved progressive 17-path model: center + 8 inner + 8 outer, with adaptive 9-path partial refreshes.
-- Private per-source EFX is used to prevent SPR global-filter cross-source contamination.
+- Private per-source EFX prevents SPR global-filter cross-source contamination.
 - **Every actual environment application must reattach direct/aux EFX. Do not optimize EFX attachment away.**
 - Private EFX is not created before the OpenAL source reaches PLAYING/PAUSED eligibility.
 - `PositionStabilizer` behavior is preserved.
 - Do not inject/cancel/replace SPR `calculateOcclusion()`.
+- `SoundPhysicsOcclusionMemoMixin` redirects the internal `runOcclusion(...)` call instead of replacing the whole calculation.
 - No worker-thread SPR world/geometry raycasts.
-- Source lifetime identity is source id + monotonic generation + speaker UUID.
-- Physics scheduling must not alter PCM sample position, OpenAL playback clock, buffer offset, or sync-group timing.
+- Source lifetime identity/generation semantics remain strict.
+- Physics scheduling must not alter PCM sample position, OpenAL playback clock, buffer offset or sync-group timing.
+- Beta10 exact direct reuse and bit-identical OpenAL write suppression remain intact.
+- Beta11 room-ray cache remains same-clone/exact; cross-clone reuse is telemetry-only.
 
 ## Beta11 additions retained in Hotfix3
 
-- Beta10 exact direct-occlusion sharing remains active for HQ-owned SPR calls.
-- Exact same-clone room/bounce `RaycastUtils.rayCast` memoization for SPR `evaluateEnvironment`.
-- Diagnostics can report room-ray hits, misses, same-clone savings, and cross-clone reuse potential.
+- Beta10 exact direct-occlusion reuse for HQ-owned SPR calls.
+- Exact same-clone room/bounce ray memoization in SPR `evaluateEnvironment`.
+- Room-ray diagnostics including cross-clone reuse potential telemetry.
 - Batched PCM mono conversion writes.
 - OpenAL `alSourcePlayv` synchronized group start.
-- Hotfix3 protects incomplete sync groups during a short grace window and starts the sources that actually arrived.
+- Hotfix3 pending-INITIAL protection and partial-group grace behavior.
 
 ## Development roadmap
+
+Do not start this roadmap until Phases 3–5 close and reconstructed source becomes authoritative.
 
 1. **Beta11.1 — exact cleanup (B)**
    - remove redundant decode/probe work safely;
@@ -67,15 +110,15 @@ The tested baseline preserves these rules:
 
 3. **Beta12.x — Acoustic work scheduler (C2)**
    - schedule room branch/ray work instead of whole-room jobs;
-   - fairness, age ceilings, and bounded per-tick acoustic work.
+   - fairness, age ceilings and bounded per-tick acoustic work.
 
 4. **Beta13 — Sparse Adaptive Room Map (D)**
    - room-only spatial memory;
    - direct occlusion remains exact/current;
    - sparse adaptive listener cells across the speaker's audible range.
 
-Later: optional HQ enhanced/music spatial mode. Adaptive quality reduction (lower ray/bounce counts) is shelved.
+Later: optional HQ enhanced/music spatial mode. Adaptive quality reduction remains shelved.
 
-## Repository state
+## Repository rule
 
-The binary Beta11 Hotfix3 artifact is the authoritative behavioral baseline. Source reconstruction is intentionally tracked separately until it can be verified against that artifact; no decompiled/reconstructed source should be assumed equivalent merely because it compiles.
+Do not assume reconstructed source is equivalent merely because it compiles. Do not merge `beta11-source-reconstruction` to `main` until Phase 4 structural/behavioral auditing and Phase 5 runtime validation are complete.
