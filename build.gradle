@@ -102,3 +102,52 @@ tasks.register('verifyReconstructionClasspath') {
         resolved.each { println " - ${it.name}" }
     }
 }
+
+tasks.register('verifyResourceWiring') {
+    group = 'verification'
+    description = 'Exercise Gradle resource processing and verify NeoForge mixin/access-transformer wiring.'
+    dependsOn tasks.named('processResources')
+    notCompatibleWithConfigurationCache('This reconstruction audit intentionally inspects processed files and source topology.')
+
+    doLast {
+        def outputRoot = layout.buildDirectory.dir('resources/main').get().asFile
+        def requiredResources = [
+            'META-INF/MANIFEST.MF',
+            'META-INF/neoforge.mods.toml',
+            'META-INF/accesstransformer.cfg',
+            'cchq_soundphysics_compat.mixins.json'
+        ]
+
+        requiredResources.each { relativePath ->
+            def processed = new File(outputRoot, relativePath)
+            if (!processed.isFile()) {
+                throw new GradleException("Processed resource missing: ${relativePath}")
+            }
+        }
+
+        def modsToml = new File(outputRoot, 'META-INF/neoforge.mods.toml').getText('UTF-8')
+        if (!modsToml.contains('config="cchq_soundphysics_compat.mixins.json"')) {
+            throw new GradleException('neoforge.mods.toml does not register the compat mixin config')
+        }
+        if (!modsToml.contains('file="META-INF/accesstransformer.cfg"')) {
+            throw new GradleException('neoforge.mods.toml does not register the access transformer')
+        }
+
+        def mixinConfig = new groovy.json.JsonSlurper().parse(new File(outputRoot, 'cchq_soundphysics_compat.mixins.json'))
+        if (mixinConfig.package != 'dev.cchqphysics.compat.mixin') {
+            throw new GradleException("Unexpected mixin package: ${mixinConfig.package}")
+        }
+        if (!(mixinConfig.client instanceof List) || mixinConfig.client.isEmpty()) {
+            throw new GradleException('Mixin config has no client mixins')
+        }
+
+        mixinConfig.client.each { mixinName ->
+            def source = file("src/main/java/dev/cchqphysics/compat/mixin/${mixinName}.java")
+            if (!source.isFile()) {
+                throw new GradleException("Mixin config references missing source: ${mixinName}.java")
+            }
+        }
+
+        println "Resource wiring verified: ${requiredResources.size()} processed resources, ${mixinConfig.client.size()} client mixins, access transformer registered."
+    }
+}
