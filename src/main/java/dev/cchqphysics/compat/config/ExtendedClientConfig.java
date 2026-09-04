@@ -34,6 +34,12 @@ public final class ExtendedClientConfig {
 
     private static final ModConfigSpec.BooleanValue PRIVATE_EFX;
     private static final ModConfigSpec.BooleanValue BETA9_DIRECT_REUSE;
+    private static final ModConfigSpec.BooleanValue BETA9_ROOM_BACKOFF;
+    private static final ModConfigSpec.BooleanValue BETA9_ADAPTIVE_CONTROLLER;
+    private static final ModConfigSpec.IntValue BETA9_RECENT_MOVEMENT_MS;
+    private static final ModConfigSpec.DoubleValue BETA9_LISTENER_MOVE_DISTANCE;
+    private static final ModConfigSpec.DoubleValue BETA9_MAX_ROOM_FACTOR;
+    private static final ModConfigSpec.IntValue BETA9_MAX_ROOM_INTERVAL_MS;
     private static final ModConfigSpec.BooleanValue BETA10_RAY_CACHE;
     private static final ModConfigSpec.BooleanValue BETA11_ROOM_RAY_MEMO;
     private static final ModConfigSpec.IntValue PERFORMANCE_REPORT_MS;
@@ -114,6 +120,24 @@ public final class ExtendedClientConfig {
         BETA9_DIRECT_REUSE = builder
                 .comment("Enable exact whole-direct-result reuse when source/environment inputs are unchanged. Hotfix3 = true.")
                 .define("beta9_direct_reuse", true);
+        BETA9_ROOM_BACKOFF = builder
+                .comment("Enable stable/relevance room-interval backoff. Hotfix3 = true.")
+                .define("beta9_room_backoff", true);
+        BETA9_ADAPTIVE_CONTROLLER = builder
+                .comment("Enable load-pressure contribution to room backoff. Hotfix3 = true.")
+                .define("beta9_adaptive_controller", true);
+        BETA9_RECENT_MOVEMENT_MS = builder
+                .comment("Window after listener movement during which stability backoff is suppressed. Hotfix3 = 400 ms.")
+                .defineInRange("beta9_recent_movement_ms", 400, 0, 5000);
+        BETA9_LISTENER_MOVE_DISTANCE = builder
+                .comment("Listener movement that resets Beta9 stability state. Hotfix3 = 0.05 blocks.")
+                .defineInRange("beta9_listener_move_distance", 0.05D, 0.0D, 4.0D);
+        BETA9_MAX_ROOM_FACTOR = builder
+                .comment("Maximum combined room-interval backoff multiplier. Hotfix3 = 2.0.")
+                .defineInRange("beta9_max_room_factor", 2.0D, 1.0D, 6.0D);
+        BETA9_MAX_ROOM_INTERVAL_MS = builder
+                .comment("Absolute ceiling for a backed-off room interval. Hotfix3 = 1500 ms.")
+                .defineInRange("beta9_max_room_interval_ms", 1500, 50, 10000);
         BETA10_RAY_CACHE = builder
                 .comment("Enable exact direct/SPR occlusion-ray reuse when the room stamp is reusable. Hotfix3 = true.")
                 .define("beta10_ray_cache", true);
@@ -172,8 +196,16 @@ public final class ExtendedClientConfig {
     }
 
     public static long roomSlotNs() { return i(ROOM_SLOT_MS, 50) * 1_000_000L; }
-    public static long minHardStaleNs() { return i(MIN_HARD_STALE_MS, 500) * 1_000_000L; }
-    public static long maxHardStaleNs() { return i(MAX_HARD_STALE_MS, 2000) * 1_000_000L; }
+    public static long minHardStaleNs() {
+        int a = i(MIN_HARD_STALE_MS, 500);
+        int b = i(MAX_HARD_STALE_MS, 2000);
+        return Math.min(a, b) * 1_000_000L;
+    }
+    public static long maxHardStaleNs() {
+        int a = i(MIN_HARD_STALE_MS, 500);
+        int b = i(MAX_HARD_STALE_MS, 2000);
+        return Math.max(a, b) * 1_000_000L;
+    }
     public static long recentSourceNs() { return i(RECENT_SOURCE_MS, 1000) * 1_000_000L; }
 
     public static double teleportDistanceSq() {
@@ -200,10 +232,23 @@ public final class ExtendedClientConfig {
     public static long clearTriggerCooldownNs() { return i(CLEAR_TRIGGER_COOLDOWN_MS, 300) * 1_000_000L; }
 
     public static long syncPartialFlushNs() { return i(SYNC_PARTIAL_FLUSH_MS, 100) * 1_000_000L; }
-    public static long syncStaleGroupNs() { return i(SYNC_STALE_GROUP_MS, 5000) * 1_000_000L; }
+    public static long syncStaleGroupNs() {
+        long partial = syncPartialFlushNs();
+        long stale = i(SYNC_STALE_GROUP_MS, 5000) * 1_000_000L;
+        return Math.max(partial, stale);
+    }
 
     public static boolean privateEfxEnabled() { return b(PRIVATE_EFX, true); }
     public static boolean beta9DirectReuseEnabled() { return b(BETA9_DIRECT_REUSE, true); }
+    public static boolean beta9RoomBackoffEnabled() { return b(BETA9_ROOM_BACKOFF, true); }
+    public static boolean beta9AdaptiveControllerEnabled() { return b(BETA9_ADAPTIVE_CONTROLLER, true); }
+    public static long beta9RecentMovementNs() { return i(BETA9_RECENT_MOVEMENT_MS, 400) * 1_000_000L; }
+    public static double beta9ListenerMoveSq() {
+        double value = d(BETA9_LISTENER_MOVE_DISTANCE, 0.05D);
+        return value * value;
+    }
+    public static double beta9MaxRoomFactor() { return d(BETA9_MAX_ROOM_FACTOR, 2.0D); }
+    public static long beta9MaxRoomIntervalNs() { return i(BETA9_MAX_ROOM_INTERVAL_MS, 1500) * 1_000_000L; }
     public static boolean beta10RayCacheEnabled() { return b(BETA10_RAY_CACHE, true); }
     public static boolean beta11RoomRayMemoEnabled() { return b(BETA11_ROOM_RAY_MEMO, true); }
     public static long performanceReportNs() { return i(PERFORMANCE_REPORT_MS, 10000) * 1_000_000L; }
@@ -226,6 +271,10 @@ public final class ExtendedClientConfig {
                 + " syncStaleMs=" + syncStaleGroupNs() / 1_000_000L
                 + " privateEfx=" + privateEfxEnabled()
                 + " beta9DirectReuse=" + beta9DirectReuseEnabled()
+                + " beta9RoomBackoff=" + beta9RoomBackoffEnabled()
+                + " beta9Adaptive=" + beta9AdaptiveControllerEnabled()
+                + " beta9MaxFactor=" + beta9MaxRoomFactor()
+                + " beta9MaxRoomMs=" + beta9MaxRoomIntervalNs() / 1_000_000L
                 + " beta10RayCache=" + beta10RayCacheEnabled()
                 + " beta11RoomRayMemo=" + beta11RoomRayMemoEnabled()
                 + " perfReportMs=" + performanceReportNs() / 1_000_000L;

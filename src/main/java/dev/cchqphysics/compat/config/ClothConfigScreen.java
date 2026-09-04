@@ -382,6 +382,10 @@ public final class ClothConfigScreen {
                 "OFF bypasses compat-owned isolated filters and deliberately falls back to native SPR environment writes."));
         category.addEntry(extendedBoolEntry(entries, "Beta9 whole-direct reuse", "BETA9_DIRECT_REUSE", true,
                 "OFF forces the progressive direct result to be recomputed instead of reusing an exact matching result."));
+        category.addEntry(extendedBoolEntry(entries, "Beta9 room backoff", "BETA9_ROOM_BACKOFF", true,
+                "OFF keeps room updates at the base scheduler interval instead of backing off stable/distant sources."));
+        category.addEntry(extendedBoolEntry(entries, "Beta9 adaptive load controller", "BETA9_ADAPTIVE_CONTROLLER", true,
+                "OFF removes CPU/queue-pressure contribution while retaining stable/relevance backoff."));
         category.addEntry(extendedBoolEntry(entries, "Beta10 exact ray cache", "BETA10_RAY_CACHE", true,
                 "OFF disables exact direct/SPR occlusion-ray reuse."));
         category.addEntry(extendedBoolEntry(entries, "Beta11 room-ray memo", "BETA11_ROOM_RAY_MEMO", true,
@@ -406,6 +410,22 @@ public final class ClothConfigScreen {
                 .setDefaultValue(0.10D).setMin(0.0D).setMax(8.0D)
                 .setTooltip(tip("Speaker movement that invalidates its room stamp and marks it urgent, in blocks. Hotfix3 = 0.1."))
                 .setSaveConsumer(value -> ExtendedClientConfigAccess.set("SOURCE_MOVE_URGENT_DISTANCE", value)).build());
+        SubCategoryBuilder beta9 = entries.startSubCategory(t("Beta9 room backoff"))
+                .setExpanded(false)
+                .setTooltip(tip("High-level bounds around Hotfix3's adaptive room scheduling. Defaults reproduce Hotfix3."));
+        beta9.add(extendedIntervalEntry(entries, "Recent movement window", "BETA9_RECENT_MOVEMENT_MS", 400, 0, 5000,
+                "Stability backoff is suppressed for this long after listener movement."));
+        beta9.add(entries.startDoubleField(t("Listener movement reset"), extDouble("BETA9_LISTENER_MOVE_DISTANCE", 0.05D))
+                .setDefaultValue(0.05D).setMin(0.0D).setMax(4.0D)
+                .setTooltip(tip("Movement in blocks that resets stable-room counters. Hotfix3 = 0.05."))
+                .setSaveConsumer(value -> ExtendedClientConfigAccess.set("BETA9_LISTENER_MOVE_DISTANCE", value)).build());
+        beta9.add(entries.startDoubleField(t("Maximum room backoff"), extDouble("BETA9_MAX_ROOM_FACTOR", 2.0D))
+                .setDefaultValue(2.0D).setMin(1.0D).setMax(6.0D)
+                .setTooltip(tip("Maximum combined interval multiplier. Hotfix3 = 2.0×."))
+                .setSaveConsumer(value -> ExtendedClientConfigAccess.set("BETA9_MAX_ROOM_FACTOR", value)).build());
+        beta9.add(extendedIntervalEntry(entries, "Maximum room interval", "BETA9_MAX_ROOM_INTERVAL_MS", 1500, 50, 10000,
+                "Absolute ceiling after all Beta9 backoff. Hotfix3 = 1500 ms."));
+        category.addEntry(beta9.build());
         category.addEntry(scheduler.build());
 
         SubCategoryBuilder sentinel = entries.startSubCategory(t("Clearing sentinel"))
@@ -451,6 +471,10 @@ public final class ClothConfigScreen {
         category.addEntry(entries.startTextDescription(
                         t("Targeted INFO-level diagnostics for your real-game Phase 5 test. All are OFF by default."))
                 .setColor(DESCRIPTION)
+                .build());
+        category.addEntry(entries.startTextDescription(
+                        t("Client commands: /cchqphysics status | dump | refresh_rooms | reset_caches | config"))
+                .setColor(8374527)
                 .build());
 
         category.addEntry(extendedIntervalEntry(entries, "Performance report interval", "PERFORMANCE_REPORT_MS", 10000, 1000, 60000,

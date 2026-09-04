@@ -144,6 +144,7 @@ final class SoundPhysicsBridge {
     }
 
     static void schedulerTick() {
+        DebugControl.consumeSoundThreadRequests();
         long now = System.nanoTime();
         boolean independent = ProgressiveOcclusionModel.independentDirectActive();
         Vec3 camera = currentCameraPosition();
@@ -532,6 +533,31 @@ final class SoundPhysicsBridge {
         RoomSchedulerClient.reset();
         RoomEnvironmentAccess.reset();
         DebugDiagnostics.source("cleared all compat source ids/state");
+    }
+
+    static synchronized void debugForceRoomRefreshNow() {
+        for (SourceState state : STATES.values()) {
+            if (state.playing && state.inRange) {
+                state.urgent = true;
+                state.roomStamp = null;
+                state.lastRoomNs = 0L;
+            }
+        }
+    }
+
+    static synchronized String debugSummary() {
+        int playing = 0;
+        int inRange = 0;
+        int urgent = 0;
+        int withRoom = 0;
+        for (SourceState state : STATES.values()) {
+            if (state.playing) playing++;
+            if (state.inRange) inRange++;
+            if (state.urgent) urgent++;
+            if (state.room != null) withRoom++;
+        }
+        return "sources=" + STATES.size() + " playing=" + playing + " inRange=" + inRange
+                + " urgent=" + urgent + " rooms=" + withRoom;
     }
 
     private static synchronized double updateSchedulerListener(Vec3 camera) {

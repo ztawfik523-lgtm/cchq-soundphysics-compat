@@ -91,6 +91,15 @@ public final class ProgressiveOcclusionModel {
         return state != null && state.valid ? state.lastCalcNs : 0L;
     }
 
+    static synchronized void debugInvalidateCaches() {
+        for (State state : STATES.values()) {
+            state.valid = false;
+            state.ringsValid = false;
+            state.sourceRingsValid = false;
+        }
+        applyOverrideSource = Integer.MIN_VALUE;
+    }
+
     public static double sampleCenterSentinel(int sourceId, Vec3 listener) throws Exception {
         Beta9Optimizer.beginSentinelTimer();
         final double x;

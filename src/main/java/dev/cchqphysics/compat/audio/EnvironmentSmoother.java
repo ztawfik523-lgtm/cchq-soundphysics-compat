@@ -116,6 +116,18 @@ public final class EnvironmentSmoother {
         }
     }
 
+    static synchronized String debugSummary() {
+        int initialized = 0;
+        int ready = 0;
+        int failed = 0;
+        for (State state : STATES.values()) {
+            if (state.initialized) initialized++;
+            if (state.privateEfxReady) ready++;
+            if (state.privateEfxFailed) failed++;
+        }
+        return "envStates=" + STATES.size() + " initialized=" + initialized + " efxReady=" + ready + " efxFailed=" + failed;
+    }
+
     private static boolean createPrivateEfx(int sourceId, State state) {
         drainAlErrors();
         try {

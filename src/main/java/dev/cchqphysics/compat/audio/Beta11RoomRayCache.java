@@ -103,7 +103,7 @@ public final class Beta11RoomRayCache {
         reportStartNs = now;
     }
 
-    static void clear() {
+    static synchronized void clear() {
         BANK_A.clear();
         BANK_B.clear();
         current = BANK_A;
@@ -115,8 +115,13 @@ public final class Beta11RoomRayCache {
         diagnostics = false;
     }
 
-    static long[] statsForTest() {
+    static synchronized long[] statsForTest() {
         return new long[]{hits, misses, actualRayNs, crossCloneWouldReuse, scopeResets, current.entries};
+    }
+
+    static synchronized String debugSummary() {
+        return "beta11Entries=" + current.entries + " hit=" + hits + " miss=" + misses
+                + " crossCloneTelemetry=" + crossCloneWouldReuse + " scopeResets=" + scopeResets;
     }
 
     private static final class CacheBank {

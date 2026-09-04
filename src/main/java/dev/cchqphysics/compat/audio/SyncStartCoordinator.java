@@ -114,6 +114,12 @@ final class SyncStartCoordinator {
         }
     }
 
+    static synchronized String debugSummary() {
+        int pendingSources = 0;
+        for (Group group : GROUPS.values()) pendingSources += group.sources.size();
+        return "syncGroups=" + GROUPS.size() + " pendingSources=" + pendingSources;
+    }
+
     private static final class Group {
         int expected;
         final List<Integer> sources = new ArrayList<>();

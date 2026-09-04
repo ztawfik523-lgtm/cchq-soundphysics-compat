@@ -16,8 +16,7 @@ final class Beta9Optimizer {
 
     private static final long REPORT_NS = 10_000_000_000L;
     private static final long CONTROL_NS = 1_000_000_000L;
-    private static final long RECENT_MOVEMENT_NS = 400_000_000L;
-    private static final double LISTENER_MOVE_SQ = 0.0025D;
+    // Phase 5 exposes the Hotfix3 movement/backoff values through ExtendedClientConfig.
 
     private static long reportStartNs = System.nanoTime();
     private static long controlStartNs = reportStartNs;
@@ -126,7 +125,7 @@ final class Beta9Optimizer {
 
     static synchronized void onListenerMovement(double movementSq) {
         long now = System.nanoTime();
-        if (Double.isFinite(movementSq) && movementSq >= LISTENER_MOVE_SQ) {
+        if (Double.isFinite(movementSq) && movementSq >= ExtendedClientConfig.beta9ListenerMoveSq()) {
             lastListenerMoveNs = now;
             boolean hadStable = false;
             for (SourceMeta meta : META.values()) {
@@ -282,7 +281,7 @@ final class Beta9Optimizer {
                 && reflectedStable(meta, haveReflected, rx, ry, rz);
 
         boolean recentlyMoved = lastListenerMoveNs != 0L
-                && System.nanoTime() - lastListenerMoveNs < RECENT_MOVEMENT_NS;
+                && System.nanoTime() - lastListenerMoveNs < ExtendedClientConfig.beta9RecentMovementNs();
         if (stable && !recentlyMoved) {
             meta.stableCount = Math.min(1000, meta.stableCount + 1);
             roomStableObservations++;
@@ -306,7 +305,11 @@ final class Beta9Optimizer {
         SourceMeta meta = META.get(sourceId);
         if (meta == null || baseIntervalNs <= 0L) return baseIntervalNs;
 
-        boolean recentlyMoved = lastListenerMoveNs != 0L && now - lastListenerMoveNs < RECENT_MOVEMENT_NS;
+        boolean recentlyMoved = lastListenerMoveNs != 0L && now - lastListenerMoveNs < ExtendedClientConfig.beta9RecentMovementNs();
+        if (!ExtendedClientConfig.beta9RoomBackoffEnabled()) {
+            maybeReportAndControl(now);
+            return baseIntervalNs;
+        }
         double stableFactor = 1.0D;
         if (!recentlyMoved) {
             if (meta.stableCount >= 10) stableFactor = 2.5D;
@@ -324,20 +327,21 @@ final class Beta9Optimizer {
         if (meta.wetEnergy >= 0.15F) relevanceFactor = Math.min(relevanceFactor, 1.15D);
         else if (meta.wetEnergy >= 0.05F) relevanceFactor = Math.min(relevanceFactor, 1.35D);
 
-        double adaptive = adaptiveFactor;
+        double adaptive = ExtendedClientConfig.beta9AdaptiveControllerEnabled() ? adaptiveFactor : 1.0D;
         if (stableFactor > 1.0D) stableBackoffs++;
         if (relevanceFactor > 1.0D) relevanceBackoffs++;
         if (adaptive > 1.001D) adaptiveBackoffs++;
 
         double environmentalFactor = Math.max(stableFactor, relevanceFactor);
-        double totalFactor = Math.min(2.0D, Math.max(1.0D, environmentalFactor * adaptive));
+        double totalFactor = Math.min(ExtendedClientConfig.beta9MaxRoomFactor(),
+                Math.max(1.0D, environmentalFactor * adaptive));
         long result;
         if (totalFactor <= 1.0D) {
             result = baseIntervalNs;
         } else {
             double scaled = baseIntervalNs * totalFactor;
             result = scaled >= Long.MAX_VALUE ? Long.MAX_VALUE : (long) scaled;
-            result = Math.min(result, 1_500_000_000L);
+            result = Math.min(result, ExtendedClientConfig.beta9MaxRoomIntervalNs());
         }
         maybeReportAndControl(now);
         return Math.max(baseIntervalNs, result);
@@ -436,6 +440,28 @@ final class Beta9Optimizer {
         reportMaxAdaptive = Math.max(reportMaxAdaptive, adaptiveFactor);
         ctrlSprCalls = ctrlQueueSamples = ctrlQueueMaxNs = ctrlQueueNs = ctrlSprNs = ctrlAcousticNs = 0L;
         controlStartNs = now;
+    }
+
+    static synchronized void debugResetCaches() {
+        DIRECT.clear();
+        PENDING.remove();
+        for (SourceMeta meta : META.values()) {
+            meta.stableCount = 0;
+            meta.haveRoom = false;
+        }
+        adaptiveFactor = 1.0D;
+        reportMinAdaptive = 1.0D;
+        reportMaxAdaptive = 1.0D;
+        pressureWindows = 0;
+        healthyWindows = 0;
+        ctrlAcousticNs = ctrlSprNs = ctrlQueueNs = ctrlQueueMaxNs = ctrlQueueSamples = ctrlSprCalls = 0L;
+        lastAcousticMsPerSec = lastSprMsPerSec = lastQueueAvgMs = lastQueueMaxMs = 0.0D;
+        controlStartNs = System.nanoTime();
+    }
+
+    static synchronized String debugSummary() {
+        return "beta9Meta=" + META.size() + " directCache=" + DIRECT.size()
+                + " load=" + round2(adaptiveFactor) + " directReal=" + directReal + " directReuse=" + directReuse;
     }
 
     private static boolean reflectedStable(SourceMeta meta, boolean have, double x, double y, double z) {

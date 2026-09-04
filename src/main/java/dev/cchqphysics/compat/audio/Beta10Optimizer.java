@@ -521,6 +521,31 @@ public final class Beta10Optimizer {
                 sourceWrites, sourceSkips, activeSources.size(), inaudibleSources.size()};
     }
 
+    static synchronized void debugResetCaches() {
+        Arrays.fill(rayUsed, false);
+        Arrays.fill(rayOwner, OWNER_NONE);
+        scopeClone = null;
+        scopeCloneTick = Long.MIN_VALUE;
+        scopeConfig = Long.MIN_VALUE;
+        filterStates.clear();
+        sourceAlStates.clear();
+        debugLastReadNs = 0L;
+        debugAllowsCache = false;
+        debugReflectionFailed = false;
+        sprConfig = null;
+        renderOcclusionField = null;
+        occlusionLoggingField = null;
+        configEntryGet = null;
+    }
+
+    static synchronized String debugSummary() {
+        int used = 0;
+        for (boolean value : rayUsed) if (value) used++;
+        return "beta10Active=" + activeSources.size() + " inaudible=" + inaudibleSources.size()
+                + " rayEntries=" + used + " rayHit=" + rayHits + " rayMiss=" + rayMisses
+                + " filterSkip=" + filterSkips + " sourceSkip=" + sourceSkips;
+    }
+
     public static boolean beta11RoomCacheActive() {
         Context context = CONTEXT.get();
         if (context != null && context.owner == OWNER_SPR) return context.cacheable;

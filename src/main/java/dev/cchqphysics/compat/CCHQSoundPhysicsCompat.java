@@ -1,5 +1,6 @@
 package dev.cchqphysics.compat;
 
+import dev.cchqphysics.compat.audio.DebugCommands;
 import dev.cchqphysics.compat.config.ClientConfig;
 import dev.cchqphysics.compat.config.ConfigScreenFactory;
 import dev.cchqphysics.compat.config.ExtendedClientConfig;
@@ -21,6 +22,7 @@ public final class CCHQSoundPhysicsCompat {
         container.registerConfig(ModConfig.Type.CLIENT, ClientConfig.SPEC, "cchq_soundphysics_compat-client.toml");
         container.registerConfig(ModConfig.Type.CLIENT, ExtendedClientConfig.SPEC, "cchq_soundphysics_compat-advanced.toml");
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigScreenFactory::create);
+        DebugCommands.init();
         LOGGER.info("CC:HQ Sound Physics Compat {} initialized; Phase 4 parity defaults preserved; Phase 5 advanced/debug controls available", VERSION);
         if (ExtendedClientConfig.logConfig()) {
             LOGGER.info("Phase 5 advanced config: {}", ExtendedClientConfig.summary());
