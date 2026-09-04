@@ -61,7 +61,7 @@ configurations {
 }
 
 def sprDependency = "maven.modrinth:qyVF9oeo:${spr_modrinth_version_id}"
-def hqSpeakerDependency = "maven.modrinth:cchq-speakers:${hqspeaker_modrinth_selector}"
+def hqSpeakerDependency = "maven.modrinth:${hqspeaker_modrinth_project_id}:${hqspeaker_modrinth_version_id}"
 def clothConfigDependency = "curse.maven:cloth-config-348521:${cloth_config_curse_file}"
 def ccTweakedApiDependency = "cc.tweaked:cc-tweaked-${minecraft_version}-common-api:${cc_tweaked_version}"
 
@@ -75,9 +75,10 @@ dependencies {
     // CC:Tweaked API version present in the tested environment.
     compileOnly ccTweakedApiDependency
 
-    // Tested runtime target: CC:HQ Speakers 1.1.4 / NeoForge / MC 1.21.1.
-    // Modrinth Maven's loader/game filter removes the old incorrect 1.0.1
-    // local-file dependency from the reconstruction build.
+    // The tested runtime JAR is the Modrinth 1.0.1 NeoForge/1.21.1 file even
+    // though its internal mod version reports 1.1.4-neoforge-1.21.1. Pin its
+    // immutable Modrinth project/version IDs rather than deriving Maven coords
+    // from the internal mod version string.
     compileOnly hqSpeakerDependency
     localRuntime hqSpeakerDependency
 }
@@ -86,17 +87,13 @@ tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }
 
-// Capture the FileCollection during configuration so the verification task is
-// compatible with Gradle's configuration cache.
-def reconstructionCompileClasspath = configurations.compileClasspath
-
 tasks.register('verifyReconstructionClasspath') {
     group = 'verification'
     description = 'Resolve and print the reconstruction compile classpath without compiling incomplete Phase 3 sources.'
-    inputs.files(reconstructionCompileClasspath)
+    notCompatibleWithConfigurationCache('This audit task intentionally resolves and enumerates the live dependency graph.')
 
     doLast {
-        def resolved = inputs.files.files.toList().sort { a, b -> a.name <=> b.name }
+        def resolved = configurations.compileClasspath.resolve().toList().sort { a, b -> a.name <=> b.name }
         if (resolved.isEmpty()) {
             throw new GradleException('compileClasspath resolved to no files')
         }
