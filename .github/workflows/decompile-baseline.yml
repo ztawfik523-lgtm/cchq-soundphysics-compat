@@ -1,9 +1,10 @@
 name: Decompile Beta11 Hotfix3 baseline
 
-# Manual only until every reference chunk is present and the concatenated JAR
-# has been verified against the tested Hotfix3 SHA-256.
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'reference/beta11-hotfix3.jar.b64.part*'
 
 permissions:
   contents: write
@@ -47,7 +48,7 @@ jobs:
         shell: bash
         run: |
           git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.email '418982418+github-actions[bot]@users.noreply.github.com'
           git add reconstruction/raw-cfr
           if git diff --cached --quiet; then
             echo 'No raw decompiler changes.'
