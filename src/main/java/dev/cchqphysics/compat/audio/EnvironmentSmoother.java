@@ -121,7 +121,7 @@ public final class EnvironmentSmoother {
             state.directFilter = newLowpassFilter();
             for (int i = 0; i < 4; i++) state.sendFilters[i] = newLowpassFilter();
             int error = AL10.alGetError();
-            if (error != AL_NO_ERROR) throw new IllegalStateException("OpenAL error creating isolated EFX: 0x" + Integer.toHexString(error));
+            if (error != AL_NO_ERROR) throw new IllegalStateException("OpenAL error creating isolated EFX: " + error);
             state.privateEfxReady = true;
             LOGGER.debug("beta1 isolated EFX source={} directFilter={} sends={}/{}/{}/{} maxAux={}",
                     sourceId, state.directFilter, state.sendFilters[0], state.sendFilters[1], state.sendFilters[2], state.sendFilters[3], state.maxAuxSends);
@@ -158,7 +158,7 @@ public final class EnvironmentSmoother {
         AL11.alSourcei(sourceId, AL_DIRECT_FILTER, state.directFilter);
         AL11.alSourcef(sourceId, AL_AIR_ABSORPTION_FACTOR, cachedAirAbsorption);
         int error = AL10.alGetError();
-        if (error != AL_NO_ERROR) throw new IllegalStateException("OpenAL error applying isolated EFX: 0x" + Integer.toHexString(error));
+        if (error != AL_NO_ERROR) throw new IllegalStateException("OpenAL error applying isolated EFX: " + error);
         PerformanceStats.recordEfxApply(true);
     }
 
