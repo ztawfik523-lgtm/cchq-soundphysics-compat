@@ -11,16 +11,25 @@ Phase 5 must not be marked COMPLETE until the optional synchronized occluded-sou
 - branch: `phase5-test-candidate-1`
 - commit: `44612192d875e43ecef66ca51798cab7adb17020`
 - version: `0.1.0-beta11-phase5-test`
-- CI verification run: `33927205360` — SUCCESS
+- CI verification run: `33927205360` — **SUCCESS**
 - JAR SHA-256: `6d782812f7915de1870a8b5ae0f619556e7ec1d24ef2eaffa7b5b225aa00bd93`
 
-### Finalization candidate
+### Final optional-feature test candidate
 
-- branch: `phase5-finalization`
-- version target: `0.1.0-beta11-phase5-final-test`
-- adds optional synchronized occluded-source suppression
-- suppression feature default: OFF
-- default-OFF behavior intentionally preserves the already-runtime-tested candidate behavior
+- working branch: `phase5-finalization`
+- verified source commit: `323d0e34651ae086dcd96ebe608b3149f5f0d73a`
+- version: `0.1.0-beta11-phase5-final-test`
+- read-only final verification run: `33931215077` — **SUCCESS**
+- verified artifact: `cchq-phase5-final-verified-build`
+- artifact ID: `9958632289`
+- artifact digest: `sha256:aa859c7bc3c7ab3671b022e3c97848465bbec2d1812ece0fe87977402c6ad2fa`
+- final-test JAR SHA-256: `8bfea798256758fa35af65b99fe4434d0c5a940f7dfbb12df5a7f7e8dcaf7d70`
+- packaged classfiles: 66
+- optional synchronized occluded-source suppression default: **OFF**
+
+The read-only verifier independently confirmed the frozen Phase-4 references, the frozen runtime-tested candidate-1 reference, all existing Hotfix3-equivalent advanced defaults, the new feature's OFF default, unchanged primary Hotfix3 config source, compile-time SPR access-transform contract, resource/Mixin/access-transformer wiring, clean Java-21 compilation, JAR packaging and exact expected support-class topology. It did not launch Minecraft.
+
+The one-shot Phase-5 source patch scripts and source-mutating finalization workflow were removed after their successful build. The maintained branch keeps only useful diagnostics, durable verification tooling and the read-only final verifier.
 
 ## Tested runtime stack
 
@@ -177,15 +186,23 @@ This motivated an **optional post-parity feature** on `phase5-finalization`:
 - retains a configurable minimum gain factor;
 - default OFF to preserve the already-validated behavior.
 
+Default feature values:
+
+- enabled: `false`
+- suppression strength: `0.55`
+- raw-occlusion threshold: `0.075`
+- minimum additional gain factor: `0.30`
+
 ## Remaining test before formal closure
 
 One short user test remains:
 
-1. install the `0.1.0-beta11-phase5-final-test` candidate;
-2. enable `Reduce occluded synchronized copies`;
-3. reproduce the same multi-speaker / mixed blocked-and-clear scene;
-4. confirm clear speakers now dominate the combined mix more naturally;
-5. confirm no new timing, crackle, dropout, EFX or positional issue;
-6. run `/cchqphysics dump` once while the feature is active and return the log.
+1. install `cchq_soundphysics_compat-0.1.0-beta11-phase5-final-test.jar` with SHA-256 `8bfea798256758fa35af65b99fe4434d0c5a940f7dfbb12df5a7f7e8dcaf7d70`;
+2. open **Advanced Runtime → Synchronized multi-speaker mixing**;
+3. enable **Reduce occluded synchronized copies** and leave its three tuning values at defaults;
+4. reproduce the same multi-speaker / mixed blocked-and-clear scene;
+5. confirm clear speakers now dominate the combined mix more naturally;
+6. confirm no new timing, crackle, dropout, EFX or positional issue;
+7. run `/cchqphysics dump` once while the feature is active and return `latest.log`.
 
-After this succeeds, this document should be changed to **COMPLETE / RECHECKED**, the final candidate should be frozen, and Phase 5 can be formally closed.
+After this succeeds, this document should be changed to **COMPLETE / RECHECKED**, the final maintained candidate should be frozen, README/status should be switched from pending to complete, and Phase 5 can be formally closed.
