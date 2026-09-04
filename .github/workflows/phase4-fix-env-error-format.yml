@@ -1,0 +1,38 @@
+name: Phase 4 fix EnvironmentSmoother error format
+
+on:
+  push:
+    branches:
+      - beta11-source-reconstruction
+    paths:
+      - 'tools/phase4_fix_env_error_format.py'
+      - '.github/workflows/phase4-fix-env-error-format.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out reconstruction branch
+        uses: actions/checkout@v4
+        with:
+          ref: beta11-source-reconstruction
+          fetch-depth: 1
+      - name: Apply exact Hotfix3 diagnostic formatting
+        run: python3 tools/phase4_fix_env_error_format.py
+      - name: Commit diagnostic formatting fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          path='src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java'
+          if git diff --quiet -- "$path"; then
+            echo 'No source changes required.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$path"
+          git commit -m 'Phase 4: align EnvironmentSmoother error formatting'
+          git push origin HEAD:beta11-source-reconstruction
