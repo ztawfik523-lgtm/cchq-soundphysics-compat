@@ -5,8 +5,7 @@ on:
     branches:
       - phase5-test-extended
     paths:
-      - tools/phase5_apply_batch1.py
-      - src/main/java/dev/cchqphysics/compat/config/ExtendedClientConfigAccess.java
+      - tools/phase5_apply_batch2.py
       - .github/workflows/phase5-apply-and-build.yml
   workflow_dispatch:
 
@@ -32,8 +31,8 @@ jobs:
       - name: Validate Gradle wrapper
         uses: gradle/actions/wrapper-validation@v4
 
-      - name: Apply deterministic Phase 5 batch 1 patch
-        run: python3 tools/phase5_apply_batch1.py
+      - name: Apply deterministic Phase 5 batch 2 patch
+        run: python3 tools/phase5_apply_batch2.py
 
       - name: Commit patched sources
         run: |
@@ -44,14 +43,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/main/java
-          git commit -m "Phase 5: wire advanced controls and diagnostics"
+          git commit -m "Phase 5: add sync controls and advanced validation UI"
           git push origin HEAD:phase5-test-extended
 
       - name: Clean compile extended source
-        run: ./gradlew clean compileJava --stacktrace
+        run: ./gradlew --no-configuration-cache clean compileJava --stacktrace
 
       - name: Build extended test JAR
-        run: ./gradlew jar --stacktrace
+        run: ./gradlew --no-configuration-cache jar --stacktrace
 
       - name: List test artifact
         run: |
