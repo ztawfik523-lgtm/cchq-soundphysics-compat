@@ -1,0 +1,42 @@
+name: Phase 4 semantic alignment batch 2
+
+on:
+  push:
+    branches:
+      - beta11-source-reconstruction
+    paths:
+      - 'tools/phase4_semantic_alignment_batch2.py'
+      - '.github/workflows/phase4-apply-semantic-batch2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out reconstruction branch
+        uses: actions/checkout@v4
+        with:
+          ref: beta11-source-reconstruction
+          fetch-depth: 1
+
+      - name: Apply authoritative Hotfix3 semantics
+        run: python3 tools/phase4_semantic_alignment_batch2.py
+
+      - name: Commit aligned source
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- src/main/java; then
+            echo 'No source changes required.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java \
+                  src/main/java/dev/cchqphysics/compat/audio/Beta10Optimizer.java \
+                  src/main/java/dev/cchqphysics/compat/audio/ProgressiveOcclusionModel.java \
+                  src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java
+          git commit -m 'Phase 4: align Hotfix3 runtime semantics batch 2'
+          git push origin HEAD:beta11-source-reconstruction
