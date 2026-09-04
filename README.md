@@ -10,7 +10,7 @@ Compatibility layer between **CC:HQ Speakers** and **Sound Physics Remastered (S
 - NeoForge 21.1.248
 - Java 21
 - CC:Tweaked 1.120.2
-- CC:HQ Speakers tested artifact resolving as `ygA78R8l-u5PEI5Ax.jar`
+- CC:HQ Speakers tested artifact `ygA78R8l-u5PEI5Ax.jar`
 - Sound Physics Remastered 1.21.1-1.5.1
 - client-only compatibility mod
 
@@ -18,7 +18,7 @@ Authoritative baseline artifact SHA-256:
 
 `83500f182fc9829aa1a5a51fbfa11ba6cdfb645699b25d1c445167666dabc1ef`
 
-The exact Hotfix3 JAR was independently reverified on 2026-09-04 and remains the behavioral authority while source reconstruction is in progress.
+The exact Hotfix3 JAR was independently reverified on 2026-09-04 and remains the behavioral authority through runtime validation.
 
 ## Reconstruction state
 
@@ -28,24 +28,29 @@ Canonical status:
 
 - Phase 1 — **complete / JAR-rechecked**
 - Phase 2 — **complete / JAR-rechecked**
-- Phase 3 — **in progress**
-- Phase 4 — not started
+- Phase 3 — **complete**
+- Phase 4 — **next / not started**
 - Phase 5 — not started
 
-The current known top-level authored Java gaps are:
+Phase 3 final source gate:
 
-- `SoundPhysicsBridge`
-- `ClothConfigScreen`
+- workflow run `33867207760` — **success**;
+- clean `compileJava` — pass;
+- reconstructed JAR task — pass;
+- Hotfix3 compiled class topology — **60 expected / 60 reconstructed / no path diff**;
+- all five source-relevant processed resources — pass.
 
-`SoundPhysicsBridge` is the current runtime/compile blocker. The latest JAR-backed build probe reaches javac with only references to that missing class; the earlier SPR private-access errors have been eliminated by the Phase 2 compile-time AT preprocessing fix.
+Final Phase 3 authored closures:
+
+- `SoundPhysicsBridge.java` — commit `91d70508a04001da788ac7520e09955d5f753b09`;
+- `ClothConfigScreen.java` — commit `d336bdea9d39be801360b1f286d67f29d6333772`.
 
 See:
 
 - `RECONSTRUCTION_STATUS.md`
 - `docs/BETA11_RECONSTRUCTION_HANDOFF.md`
 - `docs/RECONSTRUCTION_PHASES.md`
-- `docs/PHASE2_BUILD_AUDIT.md`
-- `docs/PHASE3_START_AUDIT.md`
+- `docs/PHASE3_FINAL_VERIFICATION.md`
 
 ## Build-project note
 
@@ -84,14 +89,20 @@ The tested baseline preserves these rules:
 
 - Beta10 exact direct-occlusion reuse for HQ-owned SPR calls.
 - Exact same-clone room/bounce ray memoization in SPR `evaluateEnvironment`.
-- Room-ray diagnostics including cross-clone reuse potential telemetry.
+- Room-ray diagnostics including cross-clone reuse-potential telemetry.
 - Batched PCM mono conversion writes.
 - OpenAL `alSourcePlayv` synchronized group start.
 - Hotfix3 pending-INITIAL protection and partial-group grace behavior.
 
+## Next work: Phase 4
+
+Phase 4 is a structural and behavioral equivalence audit, not feature development. It must compare reconstructed output against the exact Hotfix3 JAR for class/method descriptors, constants, mixins, OpenAL ordering, source lifecycle, sync logic, direct/room caches, EFX behavior, scheduler/stamp/sentinel semantics, position handling and config/resources.
+
+Do not treat the Phase 3 green build as runtime equivalence proof.
+
 ## Development roadmap
 
-Do not start this roadmap until Phases 3–5 close and reconstructed source becomes authoritative.
+Do not start this roadmap until Phases 4–5 close and reconstructed source becomes authoritative.
 
 1. **Beta11.1 — exact cleanup (B)**
    - remove redundant decode/probe work safely;
@@ -121,4 +132,4 @@ Later: optional HQ enhanced/music spatial mode. Adaptive quality reduction remai
 
 ## Repository rule
 
-Do not assume reconstructed source is equivalent merely because it compiles. Do not merge `beta11-source-reconstruction` to `main` until Phase 4 structural/behavioral auditing and Phase 5 runtime validation are complete.
+Do not merge `beta11-source-reconstruction` to `main` until Phase 4 structural/behavioral auditing and Phase 5 runtime validation are complete.
