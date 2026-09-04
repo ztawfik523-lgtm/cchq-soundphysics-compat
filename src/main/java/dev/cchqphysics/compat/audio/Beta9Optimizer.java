@@ -510,8 +510,8 @@ final class Beta9Optimizer {
         boolean haveSource;
         double x, y, z;
         boolean audibleKnown;
-        boolean audible;
-        float gain;
+        boolean audible = true;
+        float gain = 1.0F;
         boolean haveDistance;
         double distanceRatio;
         boolean haveRoom;

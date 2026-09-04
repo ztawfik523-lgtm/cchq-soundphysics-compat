@@ -259,9 +259,11 @@ public final class EnvironmentSmoother {
 
     private static final class State {
         boolean initialized;
-        float r0, r1, r2, r3, h0, h1, h2, h3, cutoff, gain;
+        float r0, r1, r2, r3, h0, h1, h2, h3;
+        float cutoff = 1.0F;
+        float gain = 1.0F;
         long lastLogNs;
-        float lastLoggedTargetCutoff;
+        float lastLoggedTargetCutoff = Float.NaN;
         boolean failureLogged, privateEfxReady, privateEfxFailed;
         int directFilter;
         final int[] sendFilters = new int[4];

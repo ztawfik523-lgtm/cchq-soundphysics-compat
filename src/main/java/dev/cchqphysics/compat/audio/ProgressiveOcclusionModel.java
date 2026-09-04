@@ -416,12 +416,12 @@ public final class ProgressiveOcclusionModel {
         boolean sourceRingsValid;
         Vec3[] innerSourcePositions;
         Vec3[] outerSourcePositions;
-        double cachedInnerVariation;
-        double cachedOuterVariation;
+        double cachedInnerVariation = Double.NaN;
+        double cachedOuterVariation = Double.NaN;
         boolean ringsValid;
         double innerSum;
         double outerSum;
-        boolean refreshInnerNext;
+        boolean refreshInnerNext = true;
         double centerAtLastFull;
         boolean hasFullListener;
         double fullListenerX;
