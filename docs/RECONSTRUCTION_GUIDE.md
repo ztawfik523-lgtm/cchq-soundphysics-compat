@@ -1,6 +1,6 @@
 # Beta11 Hotfix3 Reconstruction Guide
 
-This is the durable operating guide for reconstructing the tested **CC:HQ Sound Physics Compat Beta11 Hotfix3** source tree.
+This is the durable operating guide for the tested **CC:HQ Sound Physics Compat Beta11 Hotfix3** source baseline.
 
 ## 1. Authority and branch
 
@@ -16,13 +16,13 @@ Repository:
 
 `ztawfik523-lgtm/cchq-soundphysics-compat`
 
-Reconstruction branch:
+Working branch:
 
 `beta11-source-reconstruction`
 
-The exact JAR was re-supplied and independently verified on 2026-09-04. It is the source of truth through Phase 5.
+The exact JAR was re-supplied and independently verified on 2026-09-04. It remains the source of truth through Phase 5.
 
-The goal is not character-for-character recovery of lost Java. The goal is a complete, readable, rebuildable source project whose behavior matches Hotfix3 closely enough to become the safe development base for later work.
+The goal is not character-for-character recovery of lost Java. The goal is a readable, rebuildable source project whose structure and behavior are proven against Hotfix3 closely enough to become the safe development base for later work.
 
 ## 2. Canonical phases
 
@@ -38,11 +38,11 @@ Current state:
 
 - Phase 1: **COMPLETE / JAR-RECHECKED**
 - Phase 2: **COMPLETE / JAR-RECHECKED**
-- Phase 3: **IN PROGRESS**
-- Phase 4: not started
+- Phase 3: **COMPLETE**
+- Phase 4: **NEXT / NOT STARTED**
 - Phase 5: not started
 
-The older seven-pass/ad-hoc sequence previously written in this guide is obsolete.
+The older seven-pass/ad-hoc sequence is obsolete.
 
 ## 3. Target environment
 
@@ -52,41 +52,41 @@ The older seven-pass/ad-hoc sequence previously written in this guide is obsolet
 - ModDevGradle 2.0.144
 - Gradle 9.2.1
 - CC:Tweaked 1.120.2
-- CC:HQ Speakers tested artifact resolving as `ygA78R8l-u5PEI5Ax.jar`
-- Sound Physics Remastered 1.21.1-1.5.1 resolving as `qyVF9oeo-Dd2tmpsk.jar`
+- CC:HQ Speakers tested artifact `ygA78R8l-u5PEI5Ax.jar`
+- Sound Physics Remastered 1.21.1-1.5.1 artifact `qyVF9oeo-Dd2tmpsk.jar`
 - optional Cloth Config UI
-- compat is client-only
+- client-only compat
 
-## 4. Reconstruction rules
+## 4. Working rules
 
-Every working session must:
+Every session must:
 
-1. read `RECONSTRUCTION_STATUS.md` and `docs/BETA11_RECONSTRUCTION_HANDOFF.md` first;
-2. inspect current branch/CI state;
-3. treat Hotfix3 bytecode/decompile as authoritative;
+1. read `RECONSTRUCTION_STATUS.md`, `docs/BETA11_RECONSTRUCTION_HANDOFF.md`, and the final verification for the last completed phase;
+2. inspect current branch and CI state;
+3. treat Hotfix3 bytecode/classfile metadata as authoritative;
 4. stay inside the current canonical phase;
-5. do not optimize, simplify, redesign, or silently "improve" behavior;
-6. preserve descriptors, annotations, mixin targets, constants, OpenAL ordering, lifecycle ordering and scheduler/cache semantics;
-7. record uncertainty rather than guessing;
-8. commit coherent source/build/documentation changes;
+5. do not optimize, simplify, redesign, or silently improve behavior;
+6. preserve descriptors, annotations, mixin targets, constants, OpenAL/lifecycle ordering and scheduler/cache semantics unless the baseline proves otherwise;
+7. record discrepancies and uncertainty explicitly;
+8. commit coherent code/build/documentation changes;
 9. update affected documentation before ending the run;
 10. do not merge to `main` or start Beta11.1/B until Phase 5 closes.
 
 ## 5. Evidence precedence
 
-Use evidence in this order:
+For Phase 4 use:
 
-1. exact Hotfix3 class bytecode/decompile;
-2. exact Hotfix3 runtime Mixin metadata/descriptors;
-3. already-audited reconstructed source and local call sites;
-4. version-matched upstream dependency source/signatures;
-5. historical handoffs only as supporting architectural context.
+1. exact Hotfix3 bytecode/classfile metadata;
+2. reconstructed compiled output;
+3. exact Hotfix3 runtime Mixin metadata/log evidence;
+4. version-matched external dependency source/signatures;
+5. historical handoffs only as supporting context.
 
-Never invent large runtime bodies from prose merely to remove compiler errors.
+Do not change source because a decompiler output merely looks cleaner. Explain and fix only behaviorally/structurally justified differences.
 
-## 6. Phase 1 baseline
+## 6. Phase 1 baseline — complete
 
-The exact-JAR recheck confirms:
+Exact-JAR recheck confirms:
 
 - 75 ZIP entries;
 - 10 directories;
@@ -102,31 +102,70 @@ See:
 - `docs/baseline/PHASE1_FINAL_VERIFICATION.md`
 - `docs/baseline/PHASE1_JAR_RECHECK_2026-09-04.md`
 
-## 7. Phase 2 build contract
+## 7. Phase 2 build contract — complete
 
-The exact Hotfix3 source directly invokes SPR members widened by this mod's access transformer. Therefore runtime AT registration alone is insufficient for source compilation.
+Exact Hotfix3 source directly invokes SPR members widened by this mod's access transformer. Runtime AT registration alone is insufficient for javac.
 
 Current build contract:
 
-- runtime keeps the untouched tested SPR JAR;
-- `prepareSprCompileJar` transforms an isolated compile-only SPR copy with the exact Hotfix3 AT;
+- runtime keeps untouched tested SPR;
+- `prepareSprCompileJar` transforms an isolated compile-only SPR copy using the exact Hotfix3 AT;
 - javac uses `sound-physics-remastered-at.jar`;
 - raw SPR is forbidden from compileClasspath;
 - AT CLI 10.0.6 is used only as the Java-21-capable preprocessing tool.
 
-Current Phase 2 proof:
+Phase 2 proof:
 
 - classpath run `33864425672`: success;
-- full finish-gate run `33864425687`: success;
-- commit `cef50d04fbb03b4f523961aeb95f2f0377856994`;
+- finish-gate run `33864425687`: success;
 - compileClasspath: 90 files;
 - NeoForge artifact pipeline passes;
-- resource/mixin/AT wiring passes;
-- current javac private-access errors are gone.
+- resource/mixin/AT wiring passes.
 
-The current compile probe has 17 errors, all caused by missing `SoundPhysicsBridge` references. That is a Phase 3 source boundary, not a build-system failure.
+## 8. Phase 3 source reconstruction — complete
 
-## 8. Frozen runtime/acoustic invariants
+Final authored source closures:
+
+- `SoundPhysicsBridge.java` — commit `91d70508a04001da788ac7520e09955d5f753b09`;
+- `ClothConfigScreen.java` — commit `d336bdea9d39be801360b1f286d67f29d6333772`.
+
+Strict source-closure workflow:
+
+`.github/workflows/phase3-source-closure.yml`
+
+Workflow commit:
+
+`e918e3199b98332c0320eb4cd07e34740d1ec8ec`
+
+Definitive run:
+
+`33867207760` — **SUCCESS**.
+
+The gate ran a clean build and proved:
+
+```text
+compileJava: PASS
+jar: PASS
+Hotfix3 60-class topology: PASS
+source-relevant processed resources: PASS
+```
+
+Exact class-path counts:
+
+```text
+Hotfix3 expected classes: 60
+Reconstructed classes:    60
+```
+
+The expected/actual class-path diff is empty.
+
+Important final source detail confirmed from the classfile:
+
+`cchq_soundphysics_compat:hq_speaker/<speaker UUID without dashes>`
+
+See `docs/PHASE3_FINAL_VERIFICATION.md`.
+
+## 9. Frozen runtime/acoustic invariants
 
 ### Playback / decode
 
@@ -150,45 +189,43 @@ The current compile probe has 17 errors, all caused by missing `SoundPhysicsBrid
 - 17 conceptual paths: center + 8 inner + 8 outer.
 - Full refresh uses all 17.
 - Progressive refresh alternates center+inner and center+outer 9-path work while reusing the opposite ring.
-- Preserve exact Hotfix3 weights, ring scales and invalidation thresholds from reconstructed source.
+- Preserve exact Hotfix3 weights, ring scales and invalidation thresholds.
 - Beta9/Beta10 exact direct reuse remains part of the baseline.
 
 ### SPR integration
 
 - Do not cancel/replace SPR `calculateOcclusion()`.
-- `SoundPhysicsOcclusionMemoMixin` redirects SPR's internal `runOcclusion(...)` invocation inside `calculateOcclusion(...)` rather than replacing the whole method.
+- `SoundPhysicsOcclusionMemoMixin` redirects SPR's internal `runOcclusion(...)` invocation inside `calculateOcclusion(...)`.
 - No worker-thread SPR world/geometry raycasts.
-- Safe-clone/world access rules must remain as Hotfix3 implements them.
+- Preserve safe-clone/world access rules.
 
 ### Room/bounce cache
 
 - Beta11 room cache applies only to the intended source-centered environment/bounce raycast callsites in SPR `evaluateEnvironment`.
 - Exact same-clone reuse only.
 - Preserve current/previous bank behavior and `BlockGetter` identity scope.
-- Shared-airspace/listener-dependent work remains live.
-- Cross-clone room reuse remains telemetry-only in Hotfix3.
+- Shared-airspace/listener-dependent work stays live.
+- Cross-clone room reuse remains telemetry-only.
 
 ### EFX
 
 - Private per-source EFX isolation is required.
 - **Every actual environment application must reattach direct/aux EFX.**
 - Parameter-write suppression is allowed; attachment suppression is not.
-- Do not create private EFX while the source is `AL_INITIAL`.
-- Native SPR environment fallback remains available if isolated EFX fails.
+- Do not create private EFX while a source is `AL_INITIAL`.
+- Native SPR fallback remains available if isolated EFX fails.
 
 ### Position / distance
 
 - Preserve `PositionStabilizer` semantics.
 - Preserve approved `SoundSource.BLOCKS` distance behavior.
-- Preserve Hotfix3 reflected/apparent-position restoration/stabilization behavior.
+- Preserve reflected/apparent-position restoration/stabilization behavior.
 
-## 9. Important historical failures to avoid
+## 10. Important historical failures to audit against
 
 ### Original Beta11 verifier failure
 
-A manually patched `Beta10Optimizer.beta11RoomCacheActive()` lacked a required stack-map frame and caused a `VerifyError`. Reconstructed source must express the working logic as normal Java so javac emits verifier-safe frames.
-
-Working semantics:
+A manually patched `Beta10Optimizer.beta11RoomCacheActive()` lacked a stack-map frame and caused a `VerifyError`. Reconstructed normal Java must retain the working semantics:
 
 ```java
 Context context = CONTEXT.get();
@@ -198,100 +235,48 @@ return false;
 
 ### Incomplete sync-group no-sound bug
 
-A declared group size could exceed the number of sources that actually arrived. Without Hotfix3 grace handling, sources remained `AL_INITIAL` and were later destroyed. Preserve the 100 ms partial flush and pending-initial protection.
+Declared group size can exceed actually arrived sources. Preserve Hotfix3's 100 ms partial flush and pending-initial protection.
 
 ### Alpha13 direct-occlusion replacement
 
-Do not replace/cancel `calculateOcclusion()`. That strategy caused severe sound-thread stalls after geometry changes.
+Do not replace/cancel `calculateOcclusion()`; that strategy caused severe sound-thread stalls after geometry changes.
 
 ### Beta2 EFX attach-once
 
-Do not suppress EFX reattachment because parameters are unchanged. That broke muffling.
+Do not suppress EFX reattachment because parameters are unchanged; that broke muffling.
 
-## 10. Current Phase 3 source state
+## 11. Phase 4 scope — current work
 
-Most top-level Java source has been reconstructed, including:
+No feature work. Audit reconstructed output against the exact Hotfix3 binary for:
 
-- `CompatAudioManager`
-- `SyncStartCoordinator`
-- `AcousticCapture`
-- `EnvironmentSmoother`
-- `AttenuationBridge`
-- `PositionStabilizer`
-- `ProgressiveOcclusionModel`
-- `PerformanceStats`
-- `Beta9Optimizer`
-- `Beta10Optimizer`
-- `ClientConfig`
-- `ClientConfigAccess`
-- all currently configured mixin/accessor source counterparts
-
-The two known top-level authored gaps are:
-
-1. `SoundPhysicsBridge`
-2. `ClothConfigScreen`
-
-`SoundPhysicsBridge` is the current compile blocker.
-
-Required nested topology:
-
-- `SoundPhysicsBridge$Candidate`
-- `SoundPhysicsBridge$RoomEnvironmentAccess`
-- `SoundPhysicsBridge$RoomEnvironmentAccess$ConfigStamp`
-- `SoundPhysicsBridge$RoomStamp`
-- `SoundPhysicsBridge$SourceState`
-
-Do not add a compile-only stub. Recover from exact Hotfix3 classfile/decompile:
-
-- registration/unregistration/state ownership;
-- `available()`;
-- `apply(...)`;
-- `schedulerTick()`;
-- Beta9 capture-stamp/logging seams;
-- room/config stamps;
-- stationary exact reuse;
-- clearing/sentinel transition path;
-- candidate urgency/fairness scheduling;
-- room environment capture/application;
-- exact scheduler timing and age thresholds;
-- integration with Beta9/Beta10/ProgressiveOcclusionModel/EnvironmentSmoother/Beta11RoomRayCache.
-
-Then reconstruct `ClothConfigScreen` and reconcile every Phase 1 class/nested class against authored or compiler-generated source before closing Phase 3.
-
-## 11. Definition of Phase 3 complete
-
-Phase 3 closes only when:
-
-- every meaningful Hotfix3 class has an intentional source counterpart or documented compiler-generated origin;
-- nested classes/constants/descriptors/annotations/mixin targets are intentional;
-- hand-patched bytecode semantics are represented as verifier-safe Java;
-- `SoundPhysicsBridge` and `ClothConfigScreen` are reconstructed;
-- full Java compilation succeeds.
-
-A green compile does not make the reconstruction authoritative; Phase 4 and Phase 5 still remain.
-
-## 12. Phase 4 expectations
-
-No feature work. Compare reconstructed output against Hotfix3 for:
-
-- class/method inventory and descriptors;
-- nested-class topology;
+- all 60 class paths, meaningful method descriptors/access flags and nested/enclosing metadata;
+- annotations;
 - constants and thresholds;
-- mixin targets/descriptors/ordinals/require values;
-- config defaults;
-- OpenAL call ordering/ownership;
-- sync grace/lifecycle behavior;
-- EFX reattachment semantics;
-- distance/direct/room formulas;
-- cache sizes/probe counts/ages;
-- scheduler fairness/age ceilings/stamps/sentinel transitions;
-- stop/reload teardown.
+- mixin targets, injection methods/descriptors, ordinals, `require`, cancellation and remap flags;
+- config defaults/ranges;
+- OpenAL call inventory, ordering and sound-thread ownership;
+- source creation/start/stop/refcount/lifecycle ordering;
+- sync group grace/start/cleanup behavior;
+- direct distance and progressive occlusion formulas;
+- Beta9/Beta10 cache keys/reuse/write suppression;
+- room scheduler stamps, age/fairness rules, sentinel transitions and exact reuse gates;
+- Beta11 room-ray cache size/probes/banks/keys/scope;
+- private-EFX allocation/application/mandatory reattachment;
+- position stabilization;
+- stop/reload/session teardown;
+- source-relevant resources.
 
-Fix only baseline discrepancies.
+Fix only concrete baseline discrepancies. Record any intentional compiler/decompiler differences that are not behaviorally meaningful.
+
+## 12. Phase 4 completion rule
+
+Phase 4 closes only when no unexplained behaviorally meaningful source-level difference remains between reconstructed output and Hotfix3 for the audited surfaces.
+
+A matching 60-class path set from Phase 3 is necessary but is **not** sufficient for Phase 4.
 
 ## 13. Phase 5 expectations
 
-Run the reconstructed mod in the lightweight test environment and validate at least:
+After Phase 4 closes, run the reconstructed mod in the lightweight test environment and validate at least:
 
 - startup;
 - one speaker;
@@ -305,9 +290,9 @@ Run the reconstructed mod in the lightweight test environment and validate at le
 - no VerifyError/mixin target/OpenAL/EFX failure;
 - logs/acoustics consistent with known Hotfix3 behavior.
 
-Only after Phase 5 passes should source become authoritative and a Beta11.1/B development branch be created.
+Only after Phase 5 passes should source become authoritative and a Beta11.1/B branch be created.
 
-## 14. Future roadmap — not for reconstruction
+## 14. Future roadmap — not current work
 
 After validated source handover:
 
@@ -320,4 +305,6 @@ After validated source handover:
 
 ## 15. Exact next prerequisite
 
-Reconstruct `SoundPhysicsBridge` from the exact Hotfix3 classfile/decompile, rerun the compile gate, then reconstruct `ClothConfigScreen` and close the Phase 3 inventory deliberately.
+Begin **Phase 4 — Structural and behavioral equivalence audit** against the exact Hotfix3 JAR.
+
+Do not reopen Phase 3 unless Phase 4 identifies a concrete source reconstruction discrepancy.
