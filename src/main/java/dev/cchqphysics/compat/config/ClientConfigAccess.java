@@ -1,0 +1,60 @@
+package dev.cchqphysics.compat.config;
+
+import net.neoforged.neoforge.common.ModConfigSpec;
+
+import java.lang.reflect.Field;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+public final class ClientConfigAccess {
+    private static final Map<String, ModConfigSpec.ConfigValue<?>> CACHE = new ConcurrentHashMap<>();
+
+    private ClientConfigAccess() {}
+
+    private static ModConfigSpec.ConfigValue<?> value(String name) {
+        return CACHE.computeIfAbsent(name, key -> {
+            try {
+                Field field = ClientConfig.class.getDeclaredField(key);
+                field.setAccessible(true);
+                return (ModConfigSpec.ConfigValue<?>) field.get(null);
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException("Could not access config value " + key, e);
+            }
+        });
+    }
+
+    public static boolean bool(String name, boolean fallback) {
+        try {
+            Object raw = value(name).getRaw();
+            return raw instanceof Boolean b ? b : fallback;
+        } catch (Throwable ignored) {
+            return fallback;
+        }
+    }
+
+    public static double dbl(String name, double fallback) {
+        try {
+            Object raw = value(name).getRaw();
+            return raw instanceof Number n ? n.doubleValue() : fallback;
+        } catch (Throwable ignored) {
+            return fallback;
+        }
+    }
+
+    public static int integer(String name, int fallback) {
+        try {
+            Object raw = value(name).getRaw();
+            return raw instanceof Number n ? n.intValue() : fallback;
+        } catch (Throwable ignored) {
+            return fallback;
+        }
+    }
+
+    public static void set(String name, Object newValue) {
+        value(name).set(newValue);
+    }
+
+    public static void save() {
+        ClientConfig.SPEC.save();
+    }
+}
