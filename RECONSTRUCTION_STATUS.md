@@ -77,6 +77,24 @@ Therefore `CompatAudioManager` and `SyncStartCoordinator` are currently **behavi
 
 Pass 2 must also verify the exact acoustic/capture teardown calls surrounding source creation/destruction once `SoundPhysicsBridge` and `AcousticCapture` are reconstructed. The current manager intentionally does not invent undocumented capture cleanup calls.
 
+### Scheduled Phase 1 verification
+
+Re-read the durable handoff, current branch history, `CompatAudioManager`, and `SyncStartCoordinator` before touching code. No source rewrite was justified in this bounded verification pass: the existing implementation already matches every Phase 1 behavior currently evidenced by the Hotfix3 handoff and runtime history.
+
+Verified without speculative changes:
+
+- complete sync groups are launched through one `AL10.alSourcePlayv(int[])` call;
+- partial groups use the documented `100_000_000L` first-arrival grace and also launch the arrived set through one `playv` call;
+- pending membership is indexed by source id, allowing `AL_INITIAL` sources to survive maintenance while waiting for the grace/full group;
+- source replacement/explicit stop removes pending sync membership before deleting the source;
+- `stopAllSources()` clears sync state before walking active sources;
+- buffer refs are incremented before source installation and released on failed installation or source destruction;
+- OpenAL source create/start/stop/delete work is scheduled/owned on the Minecraft sound thread;
+- world/session invalidation clears decode/ready/generation state and clears `Beta11RoomRayCache` / resets `RoomSchedulerClient`;
+- no Beta11.1/B optimization was introduced.
+
+Remaining uncertainty is unchanged and explicit: because the complete Hotfix3 reference JAR is not staged, exact private descriptors, exact nested `GroupState` layout, and exact acoustic/capture register/destroy hooks cannot yet be bytecode-verified. Those items must remain audit/Phase 2 work rather than being guessed here.
+
 ## Project/build skeleton
 
 Added a Java 21 / NeoForge 1.21.1 ModDevGradle project skeleton targeting NeoForge 21.1.248, CC:Tweaked 1.120.2, SPR 1.5.1, and the tested local CC:HQ Speakers jar.
