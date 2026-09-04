@@ -1,0 +1,39 @@
+name: Phase 4 semantic alignment batch 3 Beta9
+
+on:
+  push:
+    branches:
+      - beta11-source-reconstruction
+    paths:
+      - 'tools/phase4_semantic_alignment_batch3_beta9.py'
+      - '.github/workflows/phase4-apply-semantic-batch3-beta9.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out reconstruction branch
+        uses: actions/checkout@v4
+        with:
+          ref: beta11-source-reconstruction
+          fetch-depth: 1
+
+      - name: Apply authoritative Beta9 semantics
+        run: python3 tools/phase4_semantic_alignment_batch3_beta9.py
+
+      - name: Commit aligned source
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- src/main/java; then
+            echo 'No source changes required.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/main/java/dev/cchqphysics/compat/audio/Beta9Optimizer.java
+          git commit -m 'Phase 4: align exact Beta9 Hotfix3 semantics'
+          git push origin HEAD:beta11-source-reconstruction
