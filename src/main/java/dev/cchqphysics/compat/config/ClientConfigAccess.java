@@ -50,8 +50,9 @@ public final class ClientConfigAccess {
         }
     }
 
+    @SuppressWarnings({"rawtypes", "unchecked"})
     public static void set(String name, Object newValue) {
-        value(name).set(newValue);
+        ((ModConfigSpec.ConfigValue) value(name)).set(newValue);
     }
 
     public static void save() {
