@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
@@ -34,7 +34,7 @@ jobs:
           gradle --version
 
       - name: Resolve reconstruction compile classpath
-        run: gradle --no-daemon --stacktrace verifyReconstructionClasspath
+        run: gradle --no-daemon --no-configuration-cache --stacktrace verifyReconstructionClasspath
 
       - name: Validate Gradle project model
-        run: gradle --no-daemon --stacktrace tasks --all
+        run: gradle --no-daemon --no-configuration-cache --stacktrace tasks --all
