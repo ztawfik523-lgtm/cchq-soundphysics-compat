@@ -63,7 +63,16 @@ public final class EnvironmentSmoother {
             if (state == null) return false;
         }
         if (!ExtendedClientConfig.privateEfxEnabled()) {
-            DebugDiagnostics.efx("source={} private EFX disabled; using native SPR fallback", sourceId);
+            if (state.privateEfxReady || state.directFilter != 0
+                    || state.sendFilters[0] != 0 || state.sendFilters[1] != 0
+                    || state.sendFilters[2] != 0 || state.sendFilters[3] != 0) {
+                destroyPrivateEfx(sourceId, state);
+            }
+            // Turning the feature off is also an explicit retry boundary: if it
+            // is enabled again later, allow a fresh isolated-EFX setup attempt.
+            state.privateEfxFailed = false;
+            state.failureLogged = false;
+            DebugDiagnostics.efx("source={} private EFX disabled; detached compat filters and using native SPR fallback", sourceId);
             return false;
         }
         float[] adjusted = ProgressiveOcclusionModel.adjust(sourceId, directCutoff, directGain);
@@ -113,6 +122,31 @@ public final class EnvironmentSmoother {
         } catch (Throwable t) {
             failPrivateEfx(sourceId, state, t);
             return false;
+        }
+    }
+
+    static synchronized void debugResetEfx() {
+        for (Map.Entry<Integer, State> entry : STATES.entrySet()) {
+            int sourceId = entry.getKey();
+            State state = entry.getValue();
+            destroyPrivateEfx(sourceId, state);
+            state.privateEfxFailed = false;
+            state.failureLogged = false;
+        }
+        DebugDiagnostics.efx("manual private EFX reset completed for {} tracked sources", STATES.size());
+    }
+
+    static synchronized void debugDumpEfx() {
+        for (Map.Entry<Integer, State> entry : STATES.entrySet()) {
+            State state = entry.getValue();
+            SoundPhysicsBridge.beta9Log("[phase5/source-efx] source=" + entry.getKey()
+                    + " initialized=" + state.initialized
+                    + " ready=" + state.privateEfxReady
+                    + " failed=" + state.privateEfxFailed
+                    + " directFilter=" + state.directFilter
+                    + " maxAux=" + state.maxAuxSends
+                    + " cutoff=" + round3(state.cutoff)
+                    + " gain=" + round3(state.gain));
         }
     }
 

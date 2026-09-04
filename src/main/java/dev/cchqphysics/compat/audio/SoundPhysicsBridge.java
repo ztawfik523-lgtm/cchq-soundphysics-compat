@@ -545,6 +545,30 @@ final class SoundPhysicsBridge {
         }
     }
 
+    static synchronized void debugDumpSources() {
+        long now = System.nanoTime();
+        for (SourceState state : STATES.values()) {
+            double raw = ProgressiveOcclusionModel.currentRawOcclusion(state.sourceId);
+            double center = ProgressiveOcclusionModel.currentCenterOcclusion(state.sourceId);
+            long roomAgeMs = state.lastRoomNs == 0L ? -1L : Math.max(0L, now - state.lastRoomNs) / 1_000_000L;
+            long seenAgeMs = state.lastSeenNs == 0L ? -1L : Math.max(0L, now - state.lastSeenNs) / 1_000_000L;
+            beta9Log("[phase5/source] source=" + state.sourceId
+                    + " generation=" + state.generation
+                    + " uuid=" + state.uuid
+                    + " playing=" + state.playing
+                    + " inRange=" + state.inRange
+                    + " urgent=" + state.urgent
+                    + " room=" + (state.room != null)
+                    + " roomAgeMs=" + roomAgeMs
+                    + " seenAgeMs=" + seenAgeMs
+                    + " raw=" + raw
+                    + " center=" + center
+                    + " directCutoff=" + state.directCutoff
+                    + " directGain=" + state.directGain
+                    + " pos=" + state.x + "," + state.y + "," + state.z);
+        }
+    }
+
     static synchronized String debugSummary() {
         int playing = 0;
         int inRange = 0;

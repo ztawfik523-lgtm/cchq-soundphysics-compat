@@ -10,6 +10,7 @@ package dev.cchqphysics.compat.audio;
 final class DebugControl {
     private static volatile boolean roomRefreshRequested;
     private static volatile boolean cacheResetRequested;
+    private static volatile boolean efxResetRequested;
 
     private DebugControl() {}
 
@@ -21,7 +22,15 @@ final class DebugControl {
         cacheResetRequested = true;
     }
 
+    static void requestEfxReset() {
+        efxResetRequested = true;
+    }
+
     static void consumeSoundThreadRequests() {
+        if (efxResetRequested) {
+            efxResetRequested = false;
+            EnvironmentSmoother.debugResetEfx();
+        }
         if (cacheResetRequested) {
             cacheResetRequested = false;
             Beta9Optimizer.debugResetCaches();

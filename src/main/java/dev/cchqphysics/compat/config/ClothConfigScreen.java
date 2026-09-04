@@ -473,7 +473,7 @@ public final class ClothConfigScreen {
                 .setColor(DESCRIPTION)
                 .build());
         category.addEntry(entries.startTextDescription(
-                        t("Client commands: /cchqphysics status | dump | refresh_rooms | reset_caches | config"))
+                        t("Client commands: /cchqphysics status | dump | refresh_rooms | reset_caches | reset_efx | config"))
                 .setColor(8374527)
                 .build());
 

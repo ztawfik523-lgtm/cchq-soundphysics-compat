@@ -33,6 +33,8 @@ public final class DebugCommands {
                         .executes(context -> {
                             LOGGER.info("[phase5/dump] config {}", ExtendedClientConfig.summary());
                             LOGGER.info("[phase5/dump] {}", DebugControl.compactStatus());
+                            SoundPhysicsBridge.debugDumpSources();
+                            EnvironmentSmoother.debugDumpEfx();
                             context.getSource().sendSuccess(
                                     () -> Component.literal("CC:HQ Physics snapshot written to latest.log"), false);
                             return 1;
@@ -49,6 +51,13 @@ public final class DebugCommands {
                             DebugControl.requestCacheReset();
                             context.getSource().sendSuccess(
                                     () -> Component.literal("CC:HQ Physics safe cache reset queued on the sound thread"), false);
+                            return 1;
+                        }))
+                .then(Commands.literal("reset_efx")
+                        .executes(context -> {
+                            DebugControl.requestEfxReset();
+                            context.getSource().sendSuccess(
+                                    () -> Component.literal("CC:HQ Physics private EFX reset queued on the sound thread"), false);
                             return 1;
                         }))
                 .then(Commands.literal("config")
