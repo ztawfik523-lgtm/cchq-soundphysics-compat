@@ -86,8 +86,9 @@ Authoritative SHA-256:
 
 ## Counts
 
+- 60 class files total
 - 1 top-level main class
-- 43 class files in `dev.cchqphysics.compat.audio` including nested classes
+- 44 class files in `dev.cchqphysics.compat.audio` including nested classes
 - 11 mixin/accessor class files
 - 4 config class files
 - 5 source-relevant top-level resources
