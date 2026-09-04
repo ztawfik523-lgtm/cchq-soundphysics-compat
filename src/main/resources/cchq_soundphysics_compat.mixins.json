@@ -1,0 +1,22 @@
+{
+  "required": true,
+  "minVersion": "0.8.7",
+  "package": "dev.cchqphysics.compat.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "HQSpeakerClientHandlerMixin",
+    "HQSpeakerStopPacketMixin",
+    "SoundPhysicsEnvironmentMixin",
+    "SoundPhysicsPositionMixin",
+    "SoundPhysicsOcclusionMemoMixin",
+    "SoundPhysicsRoomRayMemoMixin",
+    "MinecraftMixin",
+    "MinecraftRoomSchedulerMixin",
+    "SoundEngineAccessor",
+    "SoundManagerAccessor",
+    "SoundEngineLifecycleMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
