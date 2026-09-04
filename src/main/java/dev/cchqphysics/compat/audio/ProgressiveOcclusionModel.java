@@ -96,15 +96,21 @@ public final class ProgressiveOcclusionModel {
         final double x;
         final double y;
         final double z;
+        boolean haveSource;
         synchronized (ProgressiveOcclusionModel.class) {
             State state = STATES.get(sourceId);
-            if (state == null || !state.hasSource) {
-                Beta9Optimizer.endSentinelTimer();
-                return Double.NaN;
+            haveSource = state != null && state.hasSource;
+            if (haveSource) {
+                x = state.sourceX;
+                y = state.sourceY;
+                z = state.sourceZ;
+            } else {
+                x = y = z = 0.0D;
             }
-            x = state.sourceX;
-            y = state.sourceY;
-            z = state.sourceZ;
+        }
+        if (!haveSource) {
+            Beta9Optimizer.endSentinelTimer();
+            return Double.NaN;
         }
         PerformanceStats.recordSentinelPath();
         double value = SoundPhysics.runOcclusion(new Vec3(x, y, z), listener);

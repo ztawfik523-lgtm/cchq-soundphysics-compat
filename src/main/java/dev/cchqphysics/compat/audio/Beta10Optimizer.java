@@ -486,15 +486,23 @@ public final class Beta10Optimizer {
     private static void maybeReportLocked(long now) {
         long elapsed = now - reportStartNs;
         if (elapsed < REPORT_NS) return;
-        double seconds = elapsed / 1.0E9D;
+        if (!ClientConfig.diagnosticsEnabled()) {
+            reportStartNs = now;
+            rayHits = rayMisses = rayActualNs = 0L;
+            directRayHits = directRayMisses = sprRayHits = sprRayMisses = directToSprHits = 0L;
+            filterWrites = filterSkips = sourceWrites = sourceSkips = controllerIdleResets = 0L;
+            maxActiveSources = activeSources.size();
+            return;
+        }
+        double seconds = Math.max(0.001D, elapsed / 1.0E9D);
         long total = rayHits + rayMisses;
-        double hitRate = total == 0L ? 0.0D : 100.0D * rayHits / total;
+        double hitRate = total == 0L ? 0.0D : rayHits * 100.0D / total;
         String report = String.format(Locale.ROOT,
-                "[CC:HQ Sound Physics Compat] beta10 window=%.1fs rayHit=%d rayMiss=%d hitRate=%.1f%% actualRay=%.2fms/s directHit=%d directMiss=%d sprHit=%d sprMiss=%d directToSpr=%d active=%d eligible=%d maxActive=%d filterWrites=%d filterSkips=%d sourceWrites=%d sourceSkips=%d idleResets=%d",
-                seconds, rayHits, rayMisses, hitRate, (rayActualNs / 1_000_000.0D) / seconds,
-                directRayHits, directRayMisses, sprRayHits, sprRayMisses, directToSprHits,
-                activeSources.size(), activeSources.size() - inaudibleSources.size(), maxActiveSources,
-                filterWrites, filterSkips, sourceWrites, sourceSkips, controllerIdleResets);
+                "[CC:HQ Sound Physics Compat] beta11 direct-ray window=%.1fs active=%d eligible=%d maxActive=%d rayHit=%d (%.1f/s) rayMiss=%d (%.1f/s) hitRate=%.1f%% actualRay=%.1fms/s direct=%d/%d spr=%d/%d directToSpr=%d filterWrite=%d filterSkip=%d sourceWrite=%d sourceSkip=%d idleResets=%d",
+                seconds, activeSources.size(), Math.max(0, activeSources.size() - inaudibleSources.size()), maxActiveSources,
+                rayHits, rayHits / seconds, rayMisses, rayMisses / seconds, hitRate,
+                (rayActualNs / 1_000_000.0D) / seconds, directRayHits, directRayMisses, sprRayHits, sprRayMisses,
+                directToSprHits, filterWrites, filterSkips, sourceWrites, sourceSkips, controllerIdleResets);
         SoundPhysicsBridge.beta9Log(report);
         reportStartNs = now;
         rayHits = rayMisses = rayActualNs = 0L;

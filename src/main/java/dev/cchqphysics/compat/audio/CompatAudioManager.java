@@ -256,10 +256,12 @@ public final class CompatAudioManager {
                 double dx = mc.player.getX() - active.audio.x();
                 double dy = mc.player.getY() - active.audio.y();
                 double dz = mc.player.getZ() - active.audio.z();
-                double distanceSquared = dx * dx + dy * dy + dz * dz;
-                double maxDistanceSquared = AttenuationBridge.maxDistanceSquared(active.audio);
-                Beta9Optimizer.updateDistance(active.sourceId, distanceSquared, maxDistanceSquared);
-                if (distanceSquared > maxDistanceSquared) {
+                boolean outside = dx * dx + dy * dy + dz * dz
+                        > AttenuationBridge.maxDistanceSquared(active.audio);
+                Beta9Optimizer.updateDistance(active.sourceId,
+                        dx * dx + dy * dy + dz * dz,
+                        AttenuationBridge.maxDistanceSquared(active.audio));
+                if (outside) {
                     gain = 0.0F;
                 }
             }
@@ -268,7 +270,7 @@ public final class CompatAudioManager {
             Beta10Optimizer.updateAudibility(active.sourceId, gain);
             if (gain > 0.0F) {
                 AL10.alSource3f(active.sourceId, AL10.AL_POSITION, active.audio.x(), active.audio.y(), active.audio.z());
-                SoundPhysicsBridge.apply(active.sourceId, entry.getKey(), active.audio.x(), active.audio.y(), active.audio.z());
+                SoundPhysicsBridge.apply(active.sourceId, active.audio.source(), active.audio.x(), active.audio.y(), active.audio.z());
             }
         }
     }

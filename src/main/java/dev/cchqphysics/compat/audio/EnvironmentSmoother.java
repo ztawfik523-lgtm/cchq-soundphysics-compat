@@ -73,15 +73,14 @@ public final class EnvironmentSmoother {
                 state.gain = targetGain;
                 state.initialized = true;
             } else {
-                float reverbAlpha = ClientConfig.reverbAlpha();
-                state.r0 = approach(state.r0, r0, reverbAlpha);
-                state.r1 = approach(state.r1, r1, reverbAlpha);
-                state.r2 = approach(state.r2, r2, reverbAlpha);
-                state.r3 = approach(state.r3, r3, reverbAlpha);
-                state.h0 = approach(state.h0, h0, reverbAlpha);
-                state.h1 = approach(state.h1, h1, reverbAlpha);
-                state.h2 = approach(state.h2, h2, reverbAlpha);
-                state.h3 = approach(state.h3, h3, reverbAlpha);
+                state.r0 = approach(state.r0, r0, ClientConfig.reverbAlpha());
+                state.r1 = approach(state.r1, r1, ClientConfig.reverbAlpha());
+                state.r2 = approach(state.r2, r2, ClientConfig.reverbAlpha());
+                state.r3 = approach(state.r3, r3, ClientConfig.reverbAlpha());
+                state.h0 = approach(state.h0, h0, ClientConfig.reverbAlpha());
+                state.h1 = approach(state.h1, h1, ClientConfig.reverbAlpha());
+                state.h2 = approach(state.h2, h2, ClientConfig.reverbAlpha());
+                state.h3 = approach(state.h3, h3, ClientConfig.reverbAlpha());
                 state.cutoff = targetCutoff < state.cutoff
                         ? approach(state.cutoff, targetCutoff, ClientConfig.muffleAlpha())
                         : approachLog(state.cutoff, targetCutoff, ClientConfig.clearCutoffAlpha());
