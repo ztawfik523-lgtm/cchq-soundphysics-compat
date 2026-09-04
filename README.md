@@ -2,9 +2,9 @@
 
 Compatibility layer between **CC:HQ Speakers** and **Sound Physics Remastered (SPR)** for Minecraft 1.21.1 / NeoForge.
 
-## Current known-good baseline
+## Authoritative baseline
 
-**Beta11 Hotfix3**
+**Beta11 Hotfix3** remains the behavioral authority for the frozen reconstruction.
 
 - Minecraft 1.21.1
 - NeoForge 21.1.248
@@ -14,126 +14,134 @@ Compatibility layer between **CC:HQ Speakers** and **Sound Physics Remastered (S
 - Sound Physics Remastered 1.21.1-1.5.1
 - client-only compatibility mod
 
-Authoritative baseline artifact SHA-256:
+Authoritative Hotfix3 SHA-256:
 
 `83500f182fc9829aa1a5a51fbfa11ba6cdfb645699b25d1c445167666dabc1ef`
 
-The exact Hotfix3 JAR was independently reverified on 2026-09-04 and remains the behavioral authority through runtime validation.
+## Reconstruction status
 
-## Reconstruction state
+- Phase 1 — **COMPLETE / JAR-RECHECKED**
+- Phase 2 — **COMPLETE / JAR-RECHECKED**
+- Phase 3 — **COMPLETE / RECHECKED**
+- Phase 4 — **COMPLETE / RECHECKED / FROZEN**
+- Phase 5 — **IN PROGRESS — VERIFIED TEST CANDIDATE READY / AWAITING USER RUNTIME TEST**
 
-Work is isolated on `beta11-source-reconstruction`.
+Detailed status: `RECONSTRUCTION_STATUS.md`
 
-Canonical status:
+## Frozen Phase 4 parity build
 
-- Phase 1 — **complete / JAR-rechecked**
-- Phase 2 — **complete / JAR-rechecked**
-- Phase 3 — **complete / rechecked**
-- Phase 4 — **in progress**
-- Phase 5 — not started
+The exact reconstruction proved in Phase 4 is preserved separately and is not modified by Phase 5 feature/debug work.
 
-Phase 3 was rechecked before opening Phase 4 on branch head `70d37a3e6b072a6e215cecf3c4299b96e0276968`. Hard closure run `33867785411` passed complete build, exact 60/60 class-path topology and processed resources.
+- branch: `phase4-hotfix3-parity`
+- frozen branch head: `79eed29767343ee34022e8f6268b386f75e84c9f`
+- final audited code/build head: `98e7dedb7ecf6fda22008b084b6bb41956edff78`
+- final verification: `docs/PHASE4_FINAL_VERIFICATION.md`
 
-Phase 4 is now performing a stricter structural/behavioral comparison against the exact Hotfix3 classfiles. It has already corrected exact HQ Mixin descriptor/field metadata and one avoidable sync-source iteration drift that Phase 3's class-path topology check could not detect.
+Phase 4 established 60/60 class-path and structural-ABI agreement, exact compiled constants/bootstrap recipes, reconciled Mixin/accessor metadata, byte-exact non-class Hotfix3 resources, and a 550-method control-flow review with no unresolved proven Hotfix3 behavior discrepancy.
 
-See:
+## Phase 5 test candidate
 
-- `RECONSTRUCTION_STATUS.md`
-- `docs/BETA11_RECONSTRUCTION_HANDOFF.md`
-- `docs/RECONSTRUCTION_PHASES.md`
-- `docs/PHASE3_FINAL_VERIFICATION.md`
-- `docs/PHASE4_START_AUDIT.md`
+Phase 5 deliberately leaves the actual Minecraft/audio test to the user. The automated preparation adds diagnostics and tunable controls, then performs build/static verification only.
 
-## Phase 4 structural audit
+Working branch:
 
-The repository now contains a 60-class structural ABI baseline and deterministic comparator:
+`phase5-test-extended`
 
-- `tools/class_abi.py`
-- `docs/baseline/HOTFIX3_STRUCTURAL_ABI_SHA256.txt`
-- `.github/workflows/phase4-structural-abi.yml`
+Frozen test candidate:
 
-The comparator checks Java major version, class access/super/interfaces, field descriptors/access/constants, and method descriptors/access flags across every compat class. Method-body/control-flow equivalence is audited separately.
+`phase5-test-candidate-1`
 
-The first structural CI attempts were blocked before comparison by an HTTP 502 from NeoForged's Maven endpoint while resolving `net.neoforged:minecraft-dependencies:1.21.1`; that external outage is not treated as either a structural pass or mismatch.
+Verified candidate commit:
 
-## Build-project note
+`44612192d875e43ecef66ca51798cab7adb17020`
 
-Hotfix3 directly calls SPR members widened by this mod's access transformer. The reconstructed build therefore:
+Verified JAR:
 
-- keeps the untouched tested SPR artifact at runtime;
-- creates an isolated access-transformed SPR copy for javac;
-- compiles against `sound-physics-remastered-at.jar`;
-- explicitly rejects the raw private-member SPR JAR from compileClasspath.
+`cchq_soundphysics_compat-0.1.0-beta11-phase5-test.jar`
 
-The JAR-backed Phase 2 recheck succeeded in GitHub Actions runs `33864425672` and `33864425687`.
+SHA-256:
+
+`6d782812f7915de1870a8b5ae0f619556e7ec1d24ef2eaffa7b5b225aa00bd93`
+
+Verification run `33927205360` — **SUCCESS**.
+
+No Minecraft launch was performed by that workflow.
+
+Full preparation/test guide:
+
+`docs/PHASE5_TEST_BUILD_PREP.md`
+
+## Phase 5 configuration
+
+The original Hotfix3 `ClientConfig.java` remains unchanged. Phase 5 adds a second client config:
+
+`cchq_soundphysics_compat-advanced.toml`
+
+All behavior-changing advanced options default to the values already verified in Phase 4. Non-default values intentionally diverge from Hotfix3 and exist for diagnosis/tuning.
+
+New controls cover:
+
+- room scheduler slot/staleness/recent-source thresholds;
+- listener teleport and source-movement urgency thresholds;
+- clearing-sentinel thresholds and cooldown;
+- synchronized-start partial-flush and stale-group timers;
+- private per-source EFX enable/fallback;
+- Beta9 direct reuse, stable/relevance room backoff and adaptive load contribution;
+- Beta9 movement/backoff bounds;
+- Beta10 exact direct-ray cache;
+- Beta11 same-clone room-ray memo;
+- performance-report cadence;
+- targeted logging categories.
+
+Cloth Config exposes these under **Advanced Runtime** and **Debug & Validation**.
+
+## Client-only diagnostic commands
+
+- `/cchqphysics status`
+- `/cchqphysics dump`
+- `/cchqphysics refresh_rooms`
+- `/cchqphysics reset_caches`
+- `/cchqphysics reset_efx`
+- `/cchqphysics config`
+
+Reset/refresh commands queue their work and consume it on the existing scheduler sound-thread executor path rather than modifying OpenAL from the command callback.
 
 ## Frozen acoustic/runtime invariants
 
-The tested baseline preserves these rules:
+The default Phase 5 configuration preserves the verified Hotfix3 values/rules, including:
 
-- HQ whole-file playback is intercepted without Lua-side changes.
-- Decode is off-thread; stereo/multichannel audio is downmixed to mono PCM for positional OpenAL playback.
-- Shared OpenAL buffers/refcounts are used for synchronized speakers playing the same payload.
-- Synchronized groups use `alSourcePlayv`; incomplete groups receive the Hotfix3 100 ms grace period so arrived sources are not stranded in `AL_INITIAL`.
-- Distance behavior remains based on the approved `SoundSource.BLOCKS` curve.
-- Direct occlusion uses the approved progressive 17-path model: center + 8 inner + 8 outer, with adaptive 9-path partial refreshes.
-- Private per-source EFX prevents SPR global-filter cross-source contamination.
-- **Every actual environment application must reattach direct/aux EFX. Do not optimize EFX attachment away.**
-- Private EFX is not created before the OpenAL source reaches PLAYING/PAUSED eligibility.
-- `PositionStabilizer` behavior is preserved.
-- Do not inject/cancel/replace SPR `calculateOcclusion()`.
-- `SoundPhysicsOcclusionMemoMixin` redirects the internal `runOcclusion(...)` call instead of replacing the whole calculation.
-- No worker-thread SPR world/geometry raycasts.
-- Source lifetime identity/generation semantics remain strict.
-- Physics scheduling must not alter PCM sample position, OpenAL playback clock, buffer offset or sync-group timing.
-- Beta10 exact direct reuse and bit-identical OpenAL write suppression remain intact.
-- Beta11 room-ray cache remains same-clone/exact; cross-clone reuse is telemetry-only.
+- no Lua-side changes;
+- approved `SoundSource.BLOCKS` distance behavior;
+- center + 8 inner + 8 outer progressive direct geometry;
+- per-source private EFX isolation;
+- direct/aux EFX reattachment on actual environment application;
+- no private EFX before PLAYING/PAUSED eligibility;
+- `PositionStabilizer` behavior;
+- no replacement/cancellation of SPR `calculateOcclusion()`;
+- no worker-thread SPR geometry raycasts;
+- strict source identity/generation lifetime semantics;
+- physics scheduling does not intentionally modify PCM/OpenAL playback position/clock/offset;
+- Hotfix3 synchronized-group `alSourcePlayv` and 100 ms incomplete-group grace;
+- Beta10 exact direct reuse / bit-identical OpenAL write suppression;
+- Beta11 same-clone room-ray memo scope.
 
-## Beta11 additions retained in Hotfix3
+## Build-project note
 
-- Beta10 exact direct-occlusion reuse for HQ-owned SPR calls.
-- Exact same-clone room/bounce ray memoization in SPR `evaluateEnvironment`.
-- Room-ray diagnostics including cross-clone reuse-potential telemetry.
-- Batched PCM mono conversion writes.
-- OpenAL `alSourcePlayv` synchronized group start.
-- Hotfix3 pending-INITIAL protection and partial-group grace behavior.
+Hotfix3 directly calls SPR members widened by this mod's access transformer. The build therefore keeps the untouched tested SPR artifact at runtime while producing an isolated access-transformed SPR copy for javac.
 
-## Current work: Phase 4
-
-Phase 4 is a structural and behavioral equivalence audit, not feature development. It compares reconstructed output against the exact Hotfix3 JAR for class/method/field structure, annotations/mixins, constants, OpenAL ordering, source lifecycle, sync logic, direct/room caches, EFX behavior, scheduler/stamp/sentinel semantics, position handling and config/resources.
-
-Do not treat the Phase 3 green build as runtime equivalence proof.
+The Phase 5 branch disables Gradle configuration cache because the existing `prepareSprCompileJar` execution-time preprocessing task is intentionally not configuration-cache compatible. This does not change runtime behavior.
 
 ## Development roadmap
 
-Do not start this roadmap until Phases 4–5 close and reconstructed source becomes authoritative.
+Do not begin post-reconstruction optimization work until Phase 5 runtime validation is complete and the maintained source is accepted as authoritative.
 
-1. **Beta11.1 — exact cleanup (B)**
-   - remove redundant decode/probe work safely;
-   - reduce whole-track PCM copies where practical;
-   - replace fixed-entry decoded cache with byte-budgeted LRU;
-   - add a short-lived byte-budgeted warm OpenAL buffer cache;
-   - remove repeated sound-thread allocation churn where it matters;
-   - make diagnostics-off hot paths genuinely cheap;
-   - add focused hash/decode/downmix/upload timing instrumentation.
+Planned later work remains:
 
-2. **Beta12 — Persistent Progressive Room (C1)**
-   - persistent temporal source-centered room/bounce state;
-   - budgeted subset refresh using the current SPR clone;
-   - current listener/shared-airspace work stays fresh;
-   - change detection can force urgent/full room refresh.
-
-3. **Beta12.x — Acoustic work scheduler (C2)**
-   - schedule room branch/ray work instead of whole-room jobs;
-   - fairness, age ceilings and bounded per-tick acoustic work.
-
-4. **Beta13 — Sparse Adaptive Room Map (D)**
-   - room-only spatial memory;
-   - direct occlusion remains exact/current;
-   - sparse adaptive listener cells across the speaker's audible range.
-
-Later: optional HQ enhanced/music spatial mode. Adaptive quality reduction remains shelved.
+1. Beta11.1 exact cleanup/performance housekeeping.
+2. Beta12 persistent progressive room state.
+3. Beta12.x acoustic work scheduler.
+4. Beta13 sparse adaptive room map.
 
 ## Repository rule
 
-Do not merge `beta11-source-reconstruction` to `main` until Phase 4 structural/behavioral auditing and Phase 5 runtime validation are complete.
+Do not merge the reconstruction/Phase 5 work to `main` until the real-game Phase 5 validation is complete and reviewed.
