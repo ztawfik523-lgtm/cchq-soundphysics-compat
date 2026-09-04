@@ -1,12 +1,8 @@
 name: Decompile Beta11 Hotfix3 baseline
 
+# Manual only until every reference chunk is present and the concatenated JAR
+# has been verified against the tested Hotfix3 SHA-256.
 on:
-  push:
-    branches:
-      - beta11-source-reconstruction
-    paths:
-      - 'reference/beta11-hotfix3.jar.b64.part*'
-      - '.github/workflows/decompile-baseline.yml'
   workflow_dispatch:
 
 permissions:
