@@ -1,0 +1,107 @@
+name: Phase 2 finish gate
+
+on:
+  push:
+    branches:
+      - beta11-source-reconstruction
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: phase2-finish-beta11-source-reconstruction
+  cancel-in-progress: true
+
+jobs:
+  finish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out reconstruction branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up pinned Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+          cache-read-only: true
+
+      - name: Generate complete Gradle wrapper
+        run: |
+          gradle --no-daemon --no-configuration-cache wrapper --gradle-version 9.2.1 --distribution-type bin
+          chmod +x gradlew
+          test -f gradlew
+          test -f gradlew.bat
+          test -f gradle/wrapper/gradle-wrapper.properties
+          test -f gradle/wrapper/gradle-wrapper.jar
+
+      - name: Commit wrapper if missing or changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add gradlew gradlew.bat gradle/wrapper/gradle-wrapper.properties gradle/wrapper/gradle-wrapper.jar
+          if ! git diff --cached --quiet; then
+            git commit -m "Phase 2: commit reproducible Gradle wrapper"
+            git push origin HEAD:beta11-source-reconstruction
+          else
+            echo "Gradle wrapper already committed and unchanged."
+          fi
+
+      - name: Validate wrapper toolchain
+        run: |
+          ./gradlew --version
+          grep -F 'gradle-9.2.1-bin.zip' gradle/wrapper/gradle-wrapper.properties
+
+      - name: Resolve reconstruction classpath through wrapper
+        run: ./gradlew --no-daemon --no-configuration-cache --stacktrace verifyReconstructionClasspath
+
+      - name: Exercise NeoForge artifact and access-transformer setup
+        run: ./gradlew --no-daemon --no-configuration-cache --stacktrace createMinecraftArtifacts
+
+      - name: Exercise processed resource and mixin wiring
+        run: ./gradlew --no-daemon --no-configuration-cache --stacktrace verifyResourceWiring
+
+      - name: Probe Java compilation boundary
+        id: compile_probe
+        shell: bash
+        run: |
+          set +e
+          ./gradlew --no-daemon --no-configuration-cache compileJava > phase2-compile.log 2>&1
+          status=$?
+          set -e
+          cat phase2-compile.log
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+          if [ "$status" -eq 0 ]; then
+            echo "Java sources currently compile successfully."
+            exit 0
+          fi
+
+          if grep -Eqi 'Could not resolve|Could not find .*jar|Could not download|Plugin .* not found|Could not determine the dependencies|Could not create task|access[ -]?transformer.*(invalid|error|fail)|invalid access transformer' phase2-compile.log; then
+            echo "Build-system/dependency/access-transformer failure detected; Phase 2 cannot close."
+            exit 1
+          fi
+
+          if ! grep -Eqi '(^|[[:space:]])error:|Compilation failed|cannot find symbol|package .* does not exist' phase2-compile.log; then
+            echo "Compilation failed for an unclassified reason; Phase 2 cannot close."
+            exit 1
+          fi
+
+          echo "Compilation reached javac with dependencies resolved; remaining errors are source-level and will be reviewed as the Phase 3 boundary."
+
+      - name: Phase 2 gate summary
+        run: |
+          echo "Wrapper: OK"
+          echo "Classpath: OK"
+          echo "NeoForge artifacts / access transformer setup: OK"
+          echo "Processed resources / mixin registration: OK"
+          echo "compileJava exit status: ${{ steps.compile_probe.outputs.status }}"
