@@ -1,5 +1,6 @@
 name: Phase 4 structural export
 
+# Produces a fresh reconstructed binary plus normalized javap evidence for Phase 4.
 on:
   workflow_dispatch:
   push:
