@@ -393,7 +393,7 @@ public final class ProgressiveOcclusionModel {
         return applyOverrideSource;
     }
 
-    private static final class State {
+    static final class State {
         boolean hasSource;
         double sourceX;
         double sourceY;

@@ -399,7 +399,45 @@ public final class Beta10Optimizer {
     }
 
     private static synchronized void resetBeta9Controller() {
-        Beta9Optimizer.resetControllerForHotfix3();
+        try {
+            if (!resetReflectionReady) {
+                Class<?> owner = Beta9Optimizer.class;
+                beta9AdaptiveField = privateField(owner, "adaptiveFactor");
+                beta9ReportMinField = privateField(owner, "reportMinAdaptive");
+                beta9ReportMaxField = privateField(owner, "reportMaxAdaptive");
+                beta9PressureField = privateField(owner, "pressureWindows");
+                beta9HealthyField = privateField(owner, "healthyWindows");
+                beta9CtrlAcousticField = privateField(owner, "ctrlAcousticNs");
+                beta9CtrlSprField = privateField(owner, "ctrlSprNs");
+                beta9CtrlQueueField = privateField(owner, "ctrlQueueNs");
+                beta9CtrlQueueMaxField = privateField(owner, "ctrlQueueMaxNs");
+                beta9CtrlQueueSamplesField = privateField(owner, "ctrlQueueSamples");
+                beta9CtrlSprCallsField = privateField(owner, "ctrlSprCalls");
+                beta9LastAcousticField = privateField(owner, "lastAcousticMsPerSec");
+                beta9LastSprField = privateField(owner, "lastSprMsPerSec");
+                beta9LastQueueAvgField = privateField(owner, "lastQueueAvgMs");
+                beta9LastQueueMaxField = privateField(owner, "lastQueueMaxMs");
+                beta9ControlStartField = privateField(owner, "controlStartNs");
+                resetReflectionReady = true;
+            }
+            beta9AdaptiveField.setDouble(null, 1.0D);
+            beta9ReportMinField.setDouble(null, 1.0D);
+            beta9ReportMaxField.setDouble(null, 1.0D);
+            beta9PressureField.setInt(null, 0);
+            beta9HealthyField.setInt(null, 0);
+            beta9CtrlAcousticField.setLong(null, 0L);
+            beta9CtrlSprField.setLong(null, 0L);
+            beta9CtrlQueueField.setLong(null, 0L);
+            beta9CtrlQueueMaxField.setLong(null, 0L);
+            beta9CtrlQueueSamplesField.setLong(null, 0L);
+            beta9CtrlSprCallsField.setLong(null, 0L);
+            beta9LastAcousticField.setDouble(null, 0.0D);
+            beta9LastSprField.setDouble(null, 0.0D);
+            beta9LastQueueAvgField.setDouble(null, 0.0D);
+            beta9LastQueueMaxField.setDouble(null, 0.0D);
+            beta9ControlStartField.setLong(null, System.nanoTime());
+        } catch (Throwable ignored) {
+        }
     }
 
     @SuppressWarnings("unused")

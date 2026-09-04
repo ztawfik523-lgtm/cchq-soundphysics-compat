@@ -70,8 +70,6 @@ final class Beta9Optimizer {
     static synchronized void registerSource(int sourceId) {
         META.put(sourceId, new SourceMeta());
         DIRECT.remove(sourceId);
-        PendingDirect pending = PENDING.get();
-        if (pending != null && pending.sourceId == sourceId) PENDING.remove();
     }
 
     static synchronized void unregisterSource(int sourceId) {
@@ -97,12 +95,11 @@ final class Beta9Optimizer {
 
     static synchronized void updateAudibility(int sourceId, float gain) {
         SourceMeta meta = META.computeIfAbsent(sourceId, ignored -> new SourceMeta());
-        boolean wasKnown = meta.audibleKnown;
-        boolean wasAudible = meta.audible;
+        boolean wasAudible = !meta.audibleKnown || meta.audible;
         meta.gain = Math.max(0.0F, gain);
         meta.audibleKnown = true;
-        meta.audible = meta.gain > 1.0E-4F;
-        if (wasKnown && wasAudible && !meta.audible) meta.stableCount = 0;
+        meta.audible = gain > 1.0E-4F;
+        if (wasAudible && !meta.audible) meta.stableCount = 0;
         maybeReportAndControl(System.nanoTime());
     }
 
@@ -111,8 +108,6 @@ final class Beta9Optimizer {
         if (Double.isFinite(distanceSq) && Double.isFinite(maxDistanceSq) && maxDistanceSq > 1.0E-9D) {
             meta.distanceRatio = Math.sqrt(Math.max(0.0D, distanceSq) / maxDistanceSq);
             meta.haveDistance = true;
-        } else {
-            meta.haveDistance = false;
         }
     }
 
@@ -501,15 +496,6 @@ final class Beta9Optimizer {
     static synchronized int stableCountForTest(int sourceId) {
         SourceMeta meta = META.get(sourceId);
         return meta == null ? 0 : meta.stableCount;
-    }
-
-    static synchronized void resetControllerForHotfix3() {
-        adaptiveFactor = reportMinAdaptive = reportMaxAdaptive = 1.0D;
-        pressureWindows = healthyWindows = 0;
-        controllerUps = controllerDowns = 0L;
-        lastAcousticMsPerSec = lastSprMsPerSec = lastQueueAvgMs = lastQueueMaxMs = 0.0D;
-        ctrlAcousticNs = ctrlSprNs = ctrlQueueNs = ctrlQueueMaxNs = ctrlQueueSamples = ctrlSprCalls = 0L;
-        controlStartNs = System.nanoTime();
     }
 
     private static String avgMs(long ns, long count) {
