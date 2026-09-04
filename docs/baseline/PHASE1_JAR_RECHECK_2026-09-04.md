@@ -10,7 +10,7 @@ Authoritative SHA-256:
 
 `83500f182fc9829aa1a5a51fbfa11ba6cdfb645699b25d1c445167666dabc1ef`
 
-The supplied JAR's SHA-256 matches the Phase 1 frozen baseline exactly. The JAR, not historical prose or reconstructed source, remains the runtime authority through Phases 3–5.
+The supplied JAR's SHA-256 matches the frozen Phase 1 baseline exactly. The JAR remains the runtime authority through Phases 3–5.
 
 ## Archive inventory recheck
 
@@ -22,63 +22,47 @@ Direct enumeration of the supplied JAR produced:
 - 60 Java class files;
 - 5 source-relevant non-class resources.
 
-All 60 class files have class-file major version `65`, confirming Java 21 bytecode.
+All 60 class files use class-file major version `65`, confirming Java 21 bytecode.
 
-The recomputed SHA-256 of every one of the 65 file entries matches `docs/baseline/HOTFIX3_SHA256SUMS.txt` exactly. There are no missing, extra, or mismatched file fingerprints relative to the frozen Phase 1 inventory.
+The SHA-256 of every one of the 65 file entries matches `docs/baseline/HOTFIX3_SHA256SUMS.txt` exactly. There are no missing, extra, or mismatched file fingerprints relative to the frozen Phase 1 inventory.
 
 ## Exact source-relevant resources
 
-The following SHA-256 values were recomputed directly from the supplied JAR:
+The following values were recomputed directly from the supplied JAR bytes on 2026-09-04:
 
-| JAR entry | SHA-256 |
-| --- | --- |
-| `META-INF/MANIFEST.MF` | `0bdda6e4f02c84cc63b58d78a96327b1324168a9a525705424c3aa8fdabb71a` |
-| `META-INF/neoforge.mods.toml` | `e6cba69aa6255d7eeb77da2f77d30a0889ba11334ae05e66ec8d2de5ef480562` |
-| `META-INF/accesstransformer.cfg` | `5e78c7c7668e0d0bd5cee2ba84176f432997372634b28b614dc82dac2c272e4a` |
-| `cchq_soundphysics_compat.mixins.json` | `6188829a7dc2b5c0b490da5bc005acb45059ec907500410d3f942ed7e6dda940` |
-| `assets/cchq_soundphysics_compat/lang/en_us.json` | `89412c79262033e5e84adbeab381ede60068a63e32914187f1743aa8d7d65f9` |
+| JAR entry | SHA-256 | Git blob SHA-1 |
+| --- | --- | --- |
+| `META-INF/MANIFEST.MF` | `3c2cfe2a82eae5330820aa3a472a83ece7307c672bb8d0c5f9222ac048926a52` | `eaaf2adf468022c856c6849a7a35d05a2fb27f29` |
+| `META-INF/neoforge.mods.toml` | `f18e09d33ecac1185b254274c77e76d97c718bf58ee20aed8d8ef7e65cbd0220` | `0f7e93b65ec1acb93acb1023f3fc9b3d5c04c5df` |
+| `META-INF/accesstransformer.cfg` | `f44a718305a547c39a73cf69d250dd3d2ff75fd010258289a48cb5b32ccd130a` | `1db2ac63c484ef2b7669744eeecf04ef35868b92` |
+| `cchq_soundphysics_compat.mixins.json` | `28fab2e92908c86ce0d1651a52c320f2f281c6a5ae3ed055df54f3d3c194ef84` | `e13c939bb4771286374d3801e48e8ebca4685ce6` |
+| `assets/cchq_soundphysics_compat/lang/en_us.json` | `8941c3be17b9394d4b883bd0ecb2c80d6ea6bb957b44a6062ec30715f67d1a19` | `704bb607f3bfb6898e857c8ebdc5e3a348b7d27f` |
 
-Their Git blob identities computed from the exact JAR bytes are:
+These are the values that also appear in `docs/baseline/HOTFIX3_SHA256SUMS.txt` and `docs/baseline/PHASE1_FINAL_VERIFICATION.md`.
 
-| JAR entry | Git blob SHA-1 |
-| --- | --- |
-| `META-INF/MANIFEST.MF` | `b28deb93fefb24b69060baca289567aae866c1e0` |
-| `META-INF/neoforge.mods.toml` | `8002bf2100f04415743964e3a1d8a6cbe1694748` |
-| `META-INF/accesstransformer.cfg` | `ebc3bc67c83c870c0736e06837477b28bb7edb84` |
-| `cchq_soundphysics_compat.mixins.json` | `77e6228a7d2e8820e9389db8f2c4c8fa554fc77a` |
-| `assets/cchq_soundphysics_compat/lang/en_us.json` | `62b7335adedb81f7dc59f2b62d77abcda17eca93` |
-
-Those identities match the exact resource files retained under `src/main/resources` and the values already recorded by `PHASE1_FINAL_VERIFICATION.md`.
-
-The manifest was also checked as raw bytes and retains its CRLF line termination.
+The manifest was checked as raw bytes and retains the Hotfix3 CRLF line termination and terminating blank CRLF line.
 
 ## Runtime metadata revalidated from the JAR
 
-`META-INF/neoforge.mods.toml` in the supplied binary establishes:
+`META-INF/neoforge.mods.toml` in the supplied binary establishes the tested mod identity/version and dependency ranges for Java 21, Minecraft 1.21.1, NeoForge, HQ Speakers, Sound Physics Remastered and optional Cloth Config.
 
-- mod id `cchq_soundphysics_compat`;
-- mod version `0.1.0-beta11-hotfix3`;
-- Java requirement `[21,)`;
-- Minecraft `[1.21.1,1.22)`;
-- NeoForge `[21.1.0,)`;
-- HQ Speakers `[1.1.4,)`;
-- Sound Physics Remastered `[1.21.1-1.5.1,)`;
-- optional Cloth Config `[15.0.0,)`;
-- client-side dependency scope for the runtime integration.
-
-The exact access transformer widens:
+The exact access transformer widens the SPR methods/fields used by Hotfix3 source, including:
 
 - `SoundPhysics.setEnvironment(...)`;
 - `SoundPhysics.setSoundPos(...)`;
 - `SoundPhysics.runOcclusion(Vec3, Vec3)`;
-- four public-final SPR config holder fields used by Hotfix3.
+- the SPR config-holder fields consumed by the compat scheduler/environment logic.
 
-The exact Mixin config still contains the 11 Phase 1 inventoried client mixins and requires Java 21 compatibility.
+The exact Mixin config still contains the 11 Phase 1 inventoried client mixins and Java 21 compatibility level.
+
+## Documentation correction note
+
+An earlier draft of this recheck document temporarily contained incorrect recomputed resource SHA-256/Git-blob values. The whole JAR hash and frozen `HOTFIX3_SHA256SUMS.txt` were always correct. This file is now corrected from the actual supplied JAR bytes above so the Phase 1 documents are internally consistent.
 
 ## Recheck result
 
-**PASS — Phase 1 remains COMPLETE.**
+**PASS — Phase 1 remains COMPLETE / JAR-RECHECKED.**
 
-The newly supplied JAR independently confirms the existing frozen baseline: whole-artifact identity, entry inventory, nested-class topology basis, Java bytecode level, per-file fingerprints, and exact runtime resources all agree with the Phase 1 records.
+The supplied JAR independently confirms the existing frozen baseline: whole-artifact identity, archive inventory, class topology basis, Java bytecode level, per-file fingerprints and exact runtime resources all agree with the authoritative Phase 1 records.
 
-No Phase 1 baseline correction was required.
+No baseline class/resource correction is required.
