@@ -2,7 +2,7 @@ package dev.cchqphysics.compat.audio;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/** Sound-thread room scheduler client; comment-only touch to verify the Phase 4 corrected source head. */
+/** Sound-thread room scheduler client; comment-only verification touch for Phase 4 semantic batch 2. */
 public final class RoomSchedulerClient {
     private static final AtomicBoolean QUEUED = new AtomicBoolean();
 
