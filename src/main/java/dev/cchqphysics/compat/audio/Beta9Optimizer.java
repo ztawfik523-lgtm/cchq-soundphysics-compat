@@ -253,11 +253,23 @@ final class Beta9Optimizer {
             return;
         }
 
-        Vec3 reflected = result.reflectedWrite();
-        boolean haveReflected = reflected != null;
-        double rx = haveReflected ? reflected.x : Double.NaN;
-        double ry = haveReflected ? reflected.y : Double.NaN;
-        double rz = haveReflected ? reflected.z : Double.NaN;
+        double rx = Double.NaN;
+        double ry = Double.NaN;
+        double rz = Double.NaN;
+        boolean haveReflected = false;
+        try {
+            Object reflected = result.reflectedWrite();
+            if (reflected != null) {
+                var xField = reflected.getClass().getField("x");
+                var yField = reflected.getClass().getField("y");
+                var zField = reflected.getClass().getField("z");
+                rx = ((Number) xField.get(reflected)).doubleValue();
+                ry = ((Number) yField.get(reflected)).doubleValue();
+                rz = ((Number) zField.get(reflected)).doubleValue();
+                haveReflected = true;
+            }
+        } catch (Throwable ignored) {
+        }
         float wetEnergy = maxAbs(result.r0(), result.r1(), result.r2(), result.r3());
 
         boolean stable = meta.haveRoom
@@ -452,31 +464,31 @@ final class Beta9Optimizer {
         long elapsed = now - reportStartNs;
         if (elapsed < REPORT_NS) return;
         double seconds = elapsed / 1.0E9D;
-        String report = "[CC:HQ Sound Physics Compat] beta9 controller window=" + round1(seconds)
+        String report = "[CC:HQ Sound Physics Compat] beta9 extra window=" + round1(seconds)
                 + "s directReal=" + directReal + " (" + round1(directReal / seconds) + "/s)"
-                + " directReuse=" + directReuse + " (" + round1(directReuse / seconds) + "/s)"
-                + " directAvg=" + avgMs(directTotalNs, directReal + directReuse)
-                + " directMax=" + ms(directMaxNs)
-                + " directRealAgeAvg=" + avgMs(directRealAgeTotalNs, directRealAgeSamples)
-                + " directRealAgeMax=" + ms(directRealAgeMaxNs)
-                + " validationGapAvg=" + avgMs(directValidationGapTotalNs, directValidationSamples)
-                + " validationGapMax=" + ms(directValidationGapMaxNs)
-                + " sentinelAvg=" + avgMs(sentinelTotalNs, sentinelCalls)
-                + " sentinelMax=" + ms(sentinelMaxNs)
-                + " efxAvg=" + avgMs(efxTotalNs, efxPasses)
-                + " efxMax=" + ms(efxMaxNs)
+                + " directReuses=" + directReuse + " (" + round1(directReuse / seconds) + "/s)"
+                + " directAvg=" + avgMs(directTotalNs, directReal + directReuse) + "ms"
+                + " directMax=" + ms(directMaxNs) + "ms"
+                + " realAgeAvg=" + avgMs(directRealAgeTotalNs, directRealAgeSamples) + "ms"
+                + " realAgeMax=" + ms(directRealAgeMaxNs) + "ms"
+                + " validateGapAvg=" + avgMs(directValidationGapTotalNs, directValidationSamples) + "ms"
+                + " validateGapMax=" + ms(directValidationGapMaxNs) + "ms"
+                + " sentinelAvg=" + avgMs(sentinelTotalNs, sentinelCalls) + "ms"
+                + " sentinelMax=" + ms(sentinelMaxNs) + "ms"
+                + " efxAvg=" + avgMs(efxTotalNs, efxPasses) + "ms"
+                + " efxMax=" + ms(efxMaxNs) + "ms"
                 + " inaudibleSkips=" + inaudibleSkips
                 + " stableBackoffs=" + stableBackoffs
                 + " relevanceBackoffs=" + relevanceBackoffs
                 + " adaptiveBackoffs=" + adaptiveBackoffs
                 + " movementResets=" + movementResets
                 + " roomStable=" + roomStableObservations + "/" + roomObservations
-                + " adaptive=" + round2(adaptiveFactor)
-                + " range=" + round2(reportMinAdaptive) + ".." + round2(reportMaxAdaptive)
-                + " acousticMs/s=" + round1(lastAcousticMsPerSec)
-                + " sprMs/s=" + round1(lastSprMsPerSec)
-                + " queueAvg=" + round3(lastQueueAvgMs) + "ms"
-                + " queueMax=" + round3(lastQueueMaxMs) + "ms"
+                + " loadFactor=" + round2(adaptiveFactor)
+                + " loadRange=" + round2(reportMinAdaptive) + "-" + round2(reportMaxAdaptive)
+                + " acoustic=" + round1(lastAcousticMsPerSec) + "ms/s"
+                + " sprLoad=" + round1(lastSprMsPerSec) + "ms/s"
+                + " qCtrlAvg=" + round3(lastQueueAvgMs) + "ms"
+                + " qCtrlMax=" + round3(lastQueueMaxMs) + "ms"
                 + " ctrlUp=" + controllerUps + " ctrlDown=" + controllerDowns;
         SoundPhysicsBridge.beta9Log(report);
 
@@ -499,9 +511,9 @@ final class Beta9Optimizer {
     }
 
     private static String avgMs(long ns, long count) {
-        return count <= 0L ? "0.000ms" : round3((ns / 1_000_000.0D) / count) + "ms";
+        return count <= 0L ? "0.000" : String.format(Locale.ROOT, "%.3f", (ns / 1_000_000.0D) / count);
     }
-    private static String ms(long ns) { return round3(ns / 1_000_000.0D) + "ms"; }
+    private static String ms(long ns) { return String.format(Locale.ROOT, "%.3f", ns / 1_000_000.0D); }
     private static String round1(double value) { return String.format(Locale.ROOT, "%.1f", value); }
     private static String round2(double value) { return String.format(Locale.ROOT, "%.2f", value); }
     private static String round3(double value) { return String.format(Locale.ROOT, "%.3f", value); }
