@@ -1,0 +1,156 @@
+name: Phase 4 apply exact ABI fixes
+
+on:
+  push:
+    branches:
+      - beta11-source-reconstruction
+    paths:
+      - '.github/workflows/phase4-apply-exact-fixes.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: beta11-source-reconstruction
+          fetch-depth: 0
+
+      - name: Apply exact Hotfix3 corrections
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_exact(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              if old not in text:
+                  raise SystemExit(f'expected block not found in {path}')
+              if text.count(old) != 1:
+                  raise SystemExit(f'expected block not unique in {path}: {text.count(old)}')
+              p.write_text(text.replace(old, new, 1))
+
+          b9 = 'src/main/java/dev/cchqphysics/compat/audio/Beta9Optimizer.java'
+          replace_exact(b9,
+          '''    static synchronized void registerSource(int sourceId) {
+                  META.put(sourceId, new SourceMeta());
+                  DIRECT.remove(sourceId);
+                  PendingDirect pending = PENDING.get();
+                  if (pending != null && pending.sourceId == sourceId) PENDING.remove();
+              }
+          ''',
+          '''    static synchronized void registerSource(int sourceId) {
+                  META.put(sourceId, new SourceMeta());
+                  DIRECT.remove(sourceId);
+              }
+          ''')
+
+          replace_exact(b9,
+          '''        boolean wasKnown = meta.audibleKnown;
+                  boolean wasAudible = meta.audible;
+                  meta.gain = Math.max(0.0F, gain);
+                  meta.audibleKnown = true;
+                  meta.audible = meta.gain > 1.0E-4F;
+                  if (wasKnown && wasAudible && !meta.audible) meta.stableCount = 0;
+          ''',
+          '''        boolean wasAudible = !meta.audibleKnown || meta.audible;
+                  meta.gain = Math.max(0.0F, gain);
+                  meta.audibleKnown = true;
+                  meta.audible = gain > 1.0E-4F;
+                  if (wasAudible && !meta.audible) meta.stableCount = 0;
+          ''')
+
+          replace_exact(b9,
+          '''        if (Double.isFinite(distanceSq) && Double.isFinite(maxDistanceSq) && maxDistanceSq > 1.0E-9D) {
+                      meta.distanceRatio = Math.sqrt(Math.max(0.0D, distanceSq) / maxDistanceSq);
+                      meta.haveDistance = true;
+                  } else {
+                      meta.haveDistance = false;
+                  }
+          ''',
+          '''        if (Double.isFinite(distanceSq) && Double.isFinite(maxDistanceSq) && maxDistanceSq > 1.0E-9D) {
+                      meta.distanceRatio = Math.sqrt(Math.max(0.0D, distanceSq) / maxDistanceSq);
+                      meta.haveDistance = true;
+                  }
+          ''')
+
+          replace_exact(b9,
+          '''    static synchronized void resetControllerForHotfix3() {
+                  adaptiveFactor = reportMinAdaptive = reportMaxAdaptive = 1.0D;
+                  pressureWindows = healthyWindows = 0;
+                  controllerUps = controllerDowns = 0L;
+                  lastAcousticMsPerSec = lastSprMsPerSec = lastQueueAvgMs = lastQueueMaxMs = 0.0D;
+                  ctrlAcousticNs = ctrlSprNs = ctrlQueueNs = ctrlQueueMaxNs = ctrlQueueSamples = ctrlSprCalls = 0L;
+                  controlStartNs = System.nanoTime();
+              }
+
+          ''', '')
+
+          b10 = 'src/main/java/dev/cchqphysics/compat/audio/Beta10Optimizer.java'
+          replace_exact(b10,
+          '''    private static synchronized void resetBeta9Controller() {
+                  Beta9Optimizer.resetControllerForHotfix3();
+              }
+          ''',
+          '''    private static synchronized void resetBeta9Controller() {
+                  try {
+                      if (!resetReflectionReady) {
+                          Class<?> owner = Beta9Optimizer.class;
+                          beta9AdaptiveField = privateField(owner, "adaptiveFactor");
+                          beta9ReportMinField = privateField(owner, "reportMinAdaptive");
+                          beta9ReportMaxField = privateField(owner, "reportMaxAdaptive");
+                          beta9PressureField = privateField(owner, "pressureWindows");
+                          beta9HealthyField = privateField(owner, "healthyWindows");
+                          beta9CtrlAcousticField = privateField(owner, "ctrlAcousticNs");
+                          beta9CtrlSprField = privateField(owner, "ctrlSprNs");
+                          beta9CtrlQueueField = privateField(owner, "ctrlQueueNs");
+                          beta9CtrlQueueMaxField = privateField(owner, "ctrlQueueMaxNs");
+                          beta9CtrlQueueSamplesField = privateField(owner, "ctrlQueueSamples");
+                          beta9CtrlSprCallsField = privateField(owner, "ctrlSprCalls");
+                          beta9LastAcousticField = privateField(owner, "lastAcousticMsPerSec");
+                          beta9LastSprField = privateField(owner, "lastSprMsPerSec");
+                          beta9LastQueueAvgField = privateField(owner, "lastQueueAvgMs");
+                          beta9LastQueueMaxField = privateField(owner, "lastQueueMaxMs");
+                          beta9ControlStartField = privateField(owner, "controlStartNs");
+                          resetReflectionReady = true;
+                      }
+                      beta9AdaptiveField.setDouble(null, 1.0D);
+                      beta9ReportMinField.setDouble(null, 1.0D);
+                      beta9ReportMaxField.setDouble(null, 1.0D);
+                      beta9PressureField.setInt(null, 0);
+                      beta9HealthyField.setInt(null, 0);
+                      beta9CtrlAcousticField.setLong(null, 0L);
+                      beta9CtrlSprField.setLong(null, 0L);
+                      beta9CtrlQueueField.setLong(null, 0L);
+                      beta9CtrlQueueMaxField.setLong(null, 0L);
+                      beta9CtrlQueueSamplesField.setLong(null, 0L);
+                      beta9CtrlSprCallsField.setLong(null, 0L);
+                      beta9LastAcousticField.setDouble(null, 0.0D);
+                      beta9LastSprField.setDouble(null, 0.0D);
+                      beta9LastQueueAvgField.setDouble(null, 0.0D);
+                      beta9LastQueueMaxField.setDouble(null, 0.0D);
+                      beta9ControlStartField.setLong(null, System.nanoTime());
+                  } catch (Throwable ignored) {
+                  }
+              }
+          ''')
+
+          prog = 'src/main/java/dev/cchqphysics/compat/audio/ProgressiveOcclusionModel.java'
+          replace_exact(prog, '    private static final class State {\n', '    static final class State {\n')
+          PY
+
+      - name: Commit exact corrections
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/main/java/dev/cchqphysics/compat/audio/Beta9Optimizer.java \
+                  src/main/java/dev/cchqphysics/compat/audio/Beta10Optimizer.java \
+                  src/main/java/dev/cchqphysics/compat/audio/ProgressiveOcclusionModel.java
+          git diff --cached --check
+          git commit -m 'Phase 4: align optimizer and progressive ABI with Hotfix3'
+          git push origin HEAD:beta11-source-reconstruction
