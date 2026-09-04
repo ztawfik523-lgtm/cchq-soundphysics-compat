@@ -1,6 +1,7 @@
 name: Phase 4 structural export
 
 # Produces a fresh reconstructed binary plus normalized javap evidence for Phase 4.
+# Re-run after every baseline-equivalence source correction so behavioral audits use the current head.
 on:
   workflow_dispatch:
   push:
