@@ -90,9 +90,9 @@ final class SyncStartCoordinator {
     }
 
     static synchronized void removeSource(int sourceId) {
-        Iterator<Map.Entry<UUID, Group>> iterator = GROUPS.entrySet().iterator();
+        Iterator<Group> iterator = GROUPS.values().iterator();
         while (iterator.hasNext()) {
-            Group group = iterator.next().getValue();
+            Group group = iterator.next();
             group.sources.remove((Integer) sourceId);
             if (group.sources.isEmpty()) {
                 iterator.remove();
