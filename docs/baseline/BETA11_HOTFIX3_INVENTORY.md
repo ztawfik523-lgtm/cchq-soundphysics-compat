@@ -4,6 +4,8 @@ Authoritative SHA-256:
 
 `83500f182fc9829aa1a5a51fbfa11ba6cdfb645699b25d1c445167666dabc1ef`
 
+This inventory was independently revalidated from the exact supplied Hotfix3 JAR on 2026-09-04. The archive counts/class topology below still match exactly. See `PHASE1_JAR_RECHECK_2026-09-04.md`.
+
 ## Top-level resources
 
 - `META-INF/MANIFEST.MF`
@@ -91,6 +93,15 @@ Authoritative SHA-256:
 - 44 class files in `dev.cchqphysics.compat.audio` including nested classes
 - 11 mixin/accessor class files
 - 4 config class files
-- 5 source-relevant top-level resources
+- 5 source-relevant non-class resources
 
-This inventory is taken directly from the tested Hotfix3 JAR. The exact binary JAR remains the authority if this document and a future reconstructed source tree ever disagree.
+## Current reconstruction note
+
+As of 2026-09-04, the known top-level authored source gaps corresponding to this inventory are only:
+
+- `SoundPhysicsBridge`
+- `ClothConfigScreen`
+
+The five `SoundPhysicsBridge` nested classes listed above must still be intentionally regenerated from the reconstructed outer/source structure and checked during Phase 4.
+
+The exact binary JAR remains the authority if this document and any future reconstructed source tree disagree.
