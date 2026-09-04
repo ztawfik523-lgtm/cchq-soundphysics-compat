@@ -14,8 +14,8 @@ Hotfix3 remains the behavioral authority until Phase 5 closes. Do not optimize d
 | --- | --- |
 | Phase 1 — Freeze and inventory binary baseline | **COMPLETE / JAR-RECHECKED** |
 | Phase 2 — Reconstruct build project | **COMPLETE / JAR-RECHECKED** |
-| Phase 3 — Reconstruct every Java class | **COMPLETE** |
-| Phase 4 — Structural and behavioral equivalence audit | **NEXT / NOT STARTED** |
+| Phase 3 — Reconstruct every Java class | **COMPLETE / RECHECKED** |
+| Phase 4 — Structural and behavioral equivalence audit | **IN PROGRESS** |
 | Phase 5 — Runtime validation and source handover | Not started |
 
 Canonical plan: `docs/RECONSTRUCTION_PHASES.md`.
@@ -69,79 +69,95 @@ JAR-backed Phase 2 evidence:
 
 See `docs/PHASE2_BUILD_AUDIT.md`.
 
-## Phase 3 — COMPLETE
+## Phase 3 — COMPLETE / RECHECKED
 
-Phase 3 source reconstruction is closed against the exact Hotfix3 class inventory.
+Phase 3 source reconstruction remains closed against the exact Hotfix3 class inventory.
 
-Final missing authored sources were reconstructed directly from the Hotfix3 classfiles:
+Final authored closures were:
 
 - `SoundPhysicsBridge.java` — commit `91d70508a04001da788ac7520e09955d5f753b09`;
 - `ClothConfigScreen.java` — commit `d336bdea9d39be801360b1f286d67f29d6333772`.
 
-A strict Phase 3 closure workflow was added in commit:
+The original strict closure run `33867207760` passed clean build, JAR build, exact 60/60 class-path topology and processed resources.
 
-`e918e3199b98332c0320eb4cd07e34740d1ec8ec`
+Before opening Phase 4, the same hard Phase 3 closure workflow was rechecked on the fully documented branch head:
 
-Definitive closure run:
+- head `70d37a3e6b072a6e215cecf3c4299b96e0276968`;
+- run `33867785411`;
+- job `101006475065`;
+- result **SUCCESS**.
 
-`33867207760`
+All hard closure steps passed again. This confirms Phase 3 remains complete under its intended source-completeness/build/topology definition.
 
-Result: **SUCCESS**.
-
-The hard gate ran a clean Java 21 build and reported:
-
-```text
-compileJava: PASS
-jar: PASS
-Hotfix3 60-class topology: PASS
-source-relevant processed resources: PASS
-```
-
-Class topology reconciliation was exact by class path:
-
-```text
-Hotfix3 expected classes: 60
-Reconstructed classes:    60
-```
-
-`diff -u` between the frozen Hotfix3 class-path list and compiled source output produced no differences. Therefore no baseline compat class path is missing and no extra nested/synthetic class path was introduced.
-
-The five source-relevant processed resources are also present:
-
-- `META-INF/MANIFEST.MF`
-- `META-INF/neoforge.mods.toml`
-- `META-INF/accesstransformer.cfg`
-- `cchq_soundphysics_compat.mixins.json`
-- `assets/cchq_soundphysics_compat/lang/en_us.json`
-
-Important `SoundPhysicsBridge` source topology now intentionally produces:
-
-- `SoundPhysicsBridge$Candidate`
-- `SoundPhysicsBridge$RoomEnvironmentAccess`
-- `SoundPhysicsBridge$RoomEnvironmentAccess$ConfigStamp`
-- `SoundPhysicsBridge$RoomStamp`
-- `SoundPhysicsBridge$SourceState`
-
-The classfile also confirmed the stable HQ sound identity path:
-
-`cchq_soundphysics_compat:hq_speaker/<speaker UUID without dashes>`
-
-`ClothConfigScreen` was reconstructed with the tested binary's UI strings/defaults/ranges, including title `CC:HQ × Sound Physics` and the interval separator `•`.
+Phase 4 is stricter and may legitimately find field, descriptor, annotation or behavioral drift that Phase 3's class-path topology gate could not detect. Such Phase 4 corrections do not retroactively change the Phase 3 definition.
 
 Full Phase 3 evidence:
 
 `docs/PHASE3_FINAL_VERIFICATION.md`
 
-## Phase 3 completion boundary
+## Phase 4 — IN PROGRESS
 
-Phase 3 completion means:
+Phase 4 started with a whole-project structural ABI layer plus exact bytecode/annotation spot checks.
 
-- every meaningful Hotfix3 class path has an intentional source/compiler-generated origin;
-- the full project compiles;
-- the reconstructed build emits exactly the 60 baseline compat class paths;
-- all source-relevant resources are present in processed output.
+Durable start record:
 
-It does **not** mean structural/behavioral equivalence has already been proven method-by-method, and it does not mean the reconstructed build has passed runtime validation. Those are Phases 4 and 5.
+`docs/PHASE4_START_AUDIT.md`
+
+### Structural ABI tooling
+
+Added:
+
+- `tools/class_abi.py` — commit `115375d76df09dcc9ab9f468f892a294a5810192`;
+- `docs/baseline/HOTFIX3_STRUCTURAL_ABI_SHA256.txt` — commit `7eda5a4ef95bc3cd547a5914227e304634ad0a7b`;
+- `.github/workflows/phase4-structural-abi.yml` — commit `36fa51b90496bc4cac6de6fe947e4ea0bb45244b`.
+
+The structural fingerprint covers all 60 compat classes and includes class/field/method access flags, superclass/interfaces, field descriptors and constants, method descriptors and Java major version.
+
+The first two CI attempts (`33869660406`, `33869841129`) did not reach ABI comparison because NeoForged's Maven endpoint returned HTTP 502 while resolving `net.neoforged:minecraft-dependencies:1.21.1`. This is an external dependency-service failure, not an ABI result.
+
+### First exact discrepancies found and corrected
+
+Phase 4 has already found source details that compilation and class-path topology could not see:
+
+1. `HQSpeakerClientHandlerMixin`
+   - restored exact `receive(Lcom/tom/hqspeaker/network/HQSpeakerAudioPacket;)V` injection descriptor;
+   - restored nested `@At(..., remap=false)` metadata;
+   - restored Hotfix3 field `private static boolean cchqphysics$reportedHook` and its first-entry write;
+   - commit `3a3cb6c9fdb383ea72e5b2b5dce80c7a3c926987`.
+
+2. `HQSpeakerStopPacketMixin`
+   - pinned exact `handle(Lcom/tom/hqspeaker/network/HQSpeakerStopPacket;Lnet/neoforged/neoforge/network/handling/IPayloadContext;)V` descriptor;
+   - restored nested `@At(..., remap=false)` metadata;
+   - commit `e9240528965c1fc0a31af22fb80a65b42720205e`.
+
+3. `SyncStartCoordinator.removeSource`
+   - aligned its group iteration shape from `entrySet()` to the Hotfix3 `GROUPS.values().iterator()` form;
+   - commit `7ac821eaa2dfe73dec7703ec1ba4d7fcf9761acc`.
+
+### Opening Phase 4 checks already confirmed
+
+No correction was required for:
+
+- `SoundPhysicsRoomRayMemoMixin`: exact redirect target, `remap=false`, `require=2`;
+- `SoundPhysicsOcclusionMemoMixin`: exact internal `runOcclusion` redirect, `remap=false`, `require=1`;
+- exact environment/position injection descriptors;
+- six sound-engine lifecycle HEAD hooks;
+- Hotfix3 sync constants and grouped `alSourcePlayv` behavior;
+- pending-INITIAL lifecycle protection;
+- EnvironmentSmoother PLAYING/PAUSED EFX creation gate;
+- mandatory auxiliary/direct EFX reattachment on every successful environment apply;
+- opening `SoundPhysicsBridge` scheduler/sentinel constants and static collection implementations.
+
+### Phase 4 next audit order
+
+1. Complete the 60-class structural ABI comparison once the external NeoForge endpoint permits compilation.
+2. Finish exact annotation/Mixin metadata comparison for all 11 configured mixin/accessor classes.
+3. Audit `SoundPhysicsBridge` scheduler/stamps/room reuse/sentinel/fairness control flow.
+4. Audit Beta9/Beta10 direct cache, controller state, stamp gates and OpenAL write suppression.
+5. Audit progressive occlusion, position stabilization, distance/reflection and EFX formulas/order.
+6. Audit playback/decode/source lifetime/sync/lifecycle cleanup.
+7. Audit config defaults/ranges and Cloth Config UI constants.
+8. Close Phase 4 only after every proven discrepancy is resolved and the structural/behavioral evidence is green.
 
 ## Frozen invariants for Phases 4–5
 
@@ -164,6 +180,4 @@ Preserve and audit:
 
 ## Exact next prerequisite
 
-Begin **Phase 4 only**: structural and behavioral equivalence audit against the exact Hotfix3 JAR.
-
-Do not start Phase 5 runtime claims or Beta11.1/B optimization until Phase 4 closes.
+Continue **Phase 4 only**. Do not begin Phase 5 runtime validation or Beta11.1/B optimization until Phase 4 closes.
