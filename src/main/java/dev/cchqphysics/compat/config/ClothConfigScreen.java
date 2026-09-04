@@ -36,7 +36,11 @@ public final class ClothConfigScreen {
                 .setShouldListSmoothScroll(true)
                 .setAlwaysShowTabs(true)
                 .setDoesConfirmSave(false)
-                .setSavingRunnable(ClientConfigAccess::save);
+                .setSavingRunnable(() -> {
+                    ClientConfigAccess.save();
+                    ExtendedClientConfigAccess.save();
+                    MixClientConfig.save();
+                });
 
         ConfigEntryBuilder entries = builder.entryBuilder();
         general(builder, entries);
@@ -390,6 +394,40 @@ public final class ClothConfigScreen {
                 "OFF disables exact direct/SPR occlusion-ray reuse."));
         category.addEntry(extendedBoolEntry(entries, "Beta11 room-ray memo", "BETA11_ROOM_RAY_MEMO", true,
                 "OFF disables same-clone environment/bounce ray memoization."));
+
+        SubCategoryBuilder synchronizedMix = entries.startSubCategory(t("Synchronized multi-speaker mixing"))
+                .setExpanded(false)
+                .setTooltip(tip(
+                        "Optional post-parity feature for several synchronized copies of the same payload.",
+                        "OFF preserves the already-validated Hotfix3/Phase-5 behavior."));
+        synchronizedMix.add(entries.startBooleanToggle(
+                        t("Reduce occluded synchronized copies"), MixClientConfig.enabled())
+                .setDefaultValue(false)
+                .setTooltip(tip(
+                        "When several compat sources share the same sync group and payload, add extra gain attenuation only to occluded copies.",
+                        "Clear copies are untouched. OFF preserves Hotfix3 behavior."))
+                .setSaveConsumer(MixClientConfig::setEnabled)
+                .build());
+        synchronizedMix.add(entries.startDoubleField(
+                        t("Suppression strength"), MixClientConfig.strength())
+                .setDefaultValue(0.55D).setMin(0.0D).setMax(3.0D)
+                .setTooltip(tip("Higher values make clear synchronized speakers dominate the combined mix more strongly."))
+                .setSaveConsumer(MixClientConfig::setStrength)
+                .build());
+        synchronizedMix.add(entries.startDoubleField(
+                        t("Occlusion threshold"), MixClientConfig.threshold())
+                .setDefaultValue(0.075D).setMin(0.0D).setMax(4.0D)
+                .setTooltip(tip("Raw progressive occlusion below this threshold receives no extra synchronized-mix attenuation."))
+                .setSaveConsumer(MixClientConfig::setThreshold)
+                .build());
+        synchronizedMix.add(entries.startIntSlider(
+                        t("Minimum blocked-source gain"), pct(MixClientConfig.minimumGainFactor()), 0, 100)
+                .setDefaultValue(30)
+                .setTextGetter(value -> t(value + "%"))
+                .setTooltip(tip("Floor for the extra attenuation so blocked copies still contribute some room/reverb character."))
+                .setSaveConsumer(value -> MixClientConfig.setMinimumGainFactor(value / 100.0D))
+                .build());
+        category.addEntry(synchronizedMix.build());
 
         SubCategoryBuilder scheduler = entries.startSubCategory(t("Room scheduler"))
                 .setExpanded(false)

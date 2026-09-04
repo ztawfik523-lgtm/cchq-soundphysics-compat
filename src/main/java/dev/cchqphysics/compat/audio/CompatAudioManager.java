@@ -1,12 +1,15 @@
 package dev.cchqphysics.compat.audio;
 
 import dev.cchqphysics.compat.config.ClientConfig;
+import dev.cchqphysics.compat.config.MixClientConfig;
 import dev.cchqphysics.compat.mixin.SoundEngineAccessor;
 import dev.cchqphysics.compat.mixin.SoundManagerAccessor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.sounds.SoundEngine;
 import net.minecraft.client.sounds.SoundEngineExecutor;
 import org.lwjgl.openal.AL10;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -31,6 +34,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /** Client-owned CC:HQ whole-file playback bridge reconstructed against Beta11 Hotfix3 bytecode. */
 public final class CompatAudioManager {
+    private static final Logger LOGGER = LoggerFactory.getLogger("CC:HQ Sound Physics Compat");
     private static final ExecutorService DECODER = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "CC-HQ SoundPhysics decoder");
         t.setDaemon(true);
@@ -271,6 +275,10 @@ public final class CompatAudioManager {
             if (gain > 0.0F) {
                 AL10.alSource3f(active.sourceId, AL10.AL_POSITION, active.audio.x(), active.audio.y(), active.audio.z());
                 SoundPhysicsBridge.apply(active.sourceId, active.audio.source(), active.audio.x(), active.audio.y(), active.audio.z());
+                if (MixClientConfig.enabled()) {
+                    float mixedGain = synchronizedMixGain(active, gain);
+                    Beta10Optimizer.alSourcefStable(active.sourceId, AL10.AL_GAIN, mixedGain);
+                }
             }
         }
     }
@@ -289,6 +297,50 @@ public final class CompatAudioManager {
 
     private static float effectiveGain(HQPayloadView.Audio audio) {
         return DistanceBridge.effectiveGain(audio);
+    }
+
+    private static float synchronizedMixGain(ActiveSource active, float baseGain) {
+        if (!MixClientConfig.enabled() || baseGain <= 0.0F) return baseGain;
+        UUID groupId = active.audio.syncGroupId();
+        if (groupId == null) return baseGain;
+        int peers = synchronizedPeerCount(active);
+        if (peers <= 0) return baseGain;
+        double raw = ProgressiveOcclusionModel.currentRawOcclusion(active.sourceId);
+        double excess = Math.max(0.0D, raw - MixClientConfig.threshold());
+        if (excess <= 0.0D) return baseGain;
+        double factor = Math.exp(-excess * MixClientConfig.strength());
+        factor = Math.max(MixClientConfig.minimumGainFactor(), Math.min(1.0D, factor));
+        return (float) (baseGain * factor);
+    }
+
+    private static int synchronizedPeerCount(ActiveSource active) {
+        UUID groupId = active.audio.syncGroupId();
+        if (groupId == null) return 0;
+        int peers = 0;
+        for (ActiveSource other : ACTIVE.values()) {
+            if (other.sourceId == active.sourceId) continue;
+            if (!active.key.equals(other.key)) continue;
+            if (groupId.equals(other.audio.syncGroupId())) peers++;
+        }
+        return peers;
+    }
+
+    static void debugDumpMixing() {
+        onSoundThread(() -> {
+            if (ACTIVE.isEmpty()) {
+                LOGGER.info("[phase5/dump] mix active=0 {}", MixClientConfig.summary());
+                return;
+            }
+            for (ActiveSource active : ACTIVE.values()) {
+                float baseGain = effectiveGain(active.audio);
+                int peers = synchronizedPeerCount(active);
+                double raw = ProgressiveOcclusionModel.currentRawOcclusion(active.sourceId);
+                float mixedGain = synchronizedMixGain(active, baseGain);
+                double factor = baseGain > 0.0F ? mixedGain / baseGain : 1.0D;
+                LOGGER.info("[phase5/dump] mix source={} group={} peers={} rawOcclusion={} baseGain={} factor={} finalGain={} enabled={}",
+                        active.sourceId, active.audio.syncGroupId(), peers, raw, baseGain, factor, mixedGain, MixClientConfig.enabled());
+            }
+        });
     }
 
     private static void stopSource(UUID source) {
