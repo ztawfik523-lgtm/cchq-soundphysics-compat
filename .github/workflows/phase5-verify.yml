@@ -50,6 +50,7 @@ jobs:
           set -euo pipefail
           grep -Fx 'mod_version=0.1.0-beta11-phase5-test' gradle.properties
           grep -F 'VERSION = "0.1.0-beta11-phase5-test"' src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java
+          grep -F 'version="0.1.0-beta11-phase5-test"' src/main/resources/META-INF/neoforge.mods.toml
           grep -F 'cchq_soundphysics_compat-advanced.toml' src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java
 
       - name: Audit Hotfix3-equivalent advanced defaults
@@ -86,6 +87,7 @@ jobs:
             dev/cchqphysics/compat/audio/DebugCommands.class; do
             grep -Fx "$class" phase5-jar-contents.txt
           done
+          unzip -p "$jar" META-INF/neoforge.mods.toml | grep -F 'version="0.1.0-beta11-phase5-test"'
           sha256sum "$jar" | tee phase5-jar-sha256.txt
           printf '%s\n' "source_commit=${GITHUB_SHA}" > phase5-build-info.txt
           printf '%s\n' "phase4_frozen=79eed29767343ee34022e8f6268b386f75e84c9f" >> phase5-build-info.txt
