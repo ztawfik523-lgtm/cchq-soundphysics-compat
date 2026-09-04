@@ -1,6 +1,7 @@
 package dev.cchqphysics.compat.audio;
 
 import com.sonicether.soundphysics.SoundPhysics;
+import dev.cchqphysics.compat.config.ClientConfig;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.phys.Vec3;
