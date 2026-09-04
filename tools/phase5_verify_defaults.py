@@ -52,7 +52,7 @@ for key, value in expected.items():
     if not re.search(pattern, source):
         failures.append(f"{key} expected default {value}")
 
-# Runtime normalization must remain present for the two order-sensitive pairs.
+# Runtime normalization must remain present for the order-sensitive pairs.
 required_snippets = [
     "return Math.min(a, b) * 1_000_000L;",
     "return Math.max(a, b) * 1_000_000L;",
@@ -62,12 +62,11 @@ for snippet in required_snippets:
     if snippet not in source:
         failures.append(f"missing safety normalization: {snippet}")
 
-# The primary reconstructed config remains the Hotfix3 front panel; Phase 5
-# adds a second spec instead of silently changing its baseline defaults.
+# Lightweight markers complement the workflow's exact git diff of ClientConfig.
 main_config = (root / "src/main/java/dev/cchqphysics/compat/config/ClientConfig.java").read_text(encoding="utf-8")
 for marker in [
     'define("enabled", true)',
-    'define("progressive_occlusion", true)',
+    'define("progressive", true)',
     'defineInRange("audible_range_multiplier", 1.0D',
 ]:
     if marker not in main_config:
