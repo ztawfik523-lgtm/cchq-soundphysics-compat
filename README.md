@@ -28,22 +28,13 @@ Canonical status:
 
 - Phase 1 — **complete / JAR-rechecked**
 - Phase 2 — **complete / JAR-rechecked**
-- Phase 3 — **complete**
-- Phase 4 — **next / not started**
+- Phase 3 — **complete / rechecked**
+- Phase 4 — **in progress**
 - Phase 5 — not started
 
-Phase 3 final source gate:
+Phase 3 was rechecked before opening Phase 4 on branch head `70d37a3e6b072a6e215cecf3c4299b96e0276968`. Hard closure run `33867785411` passed complete build, exact 60/60 class-path topology and processed resources.
 
-- workflow run `33867207760` — **success**;
-- clean `compileJava` — pass;
-- reconstructed JAR task — pass;
-- Hotfix3 compiled class topology — **60 expected / 60 reconstructed / no path diff**;
-- all five source-relevant processed resources — pass.
-
-Final Phase 3 authored closures:
-
-- `SoundPhysicsBridge.java` — commit `91d70508a04001da788ac7520e09955d5f753b09`;
-- `ClothConfigScreen.java` — commit `d336bdea9d39be801360b1f286d67f29d6333772`.
+Phase 4 is now performing a stricter structural/behavioral comparison against the exact Hotfix3 classfiles. It has already corrected exact HQ Mixin descriptor/field metadata and one avoidable sync-source iteration drift that Phase 3's class-path topology check could not detect.
 
 See:
 
@@ -51,6 +42,19 @@ See:
 - `docs/BETA11_RECONSTRUCTION_HANDOFF.md`
 - `docs/RECONSTRUCTION_PHASES.md`
 - `docs/PHASE3_FINAL_VERIFICATION.md`
+- `docs/PHASE4_START_AUDIT.md`
+
+## Phase 4 structural audit
+
+The repository now contains a 60-class structural ABI baseline and deterministic comparator:
+
+- `tools/class_abi.py`
+- `docs/baseline/HOTFIX3_STRUCTURAL_ABI_SHA256.txt`
+- `.github/workflows/phase4-structural-abi.yml`
+
+The comparator checks Java major version, class access/super/interfaces, field descriptors/access/constants, and method descriptors/access flags across every compat class. Method-body/control-flow equivalence is audited separately.
+
+The first structural CI attempts were blocked before comparison by an HTTP 502 from NeoForged's Maven endpoint while resolving `net.neoforged:minecraft-dependencies:1.21.1`; that external outage is not treated as either a structural pass or mismatch.
 
 ## Build-project note
 
@@ -94,9 +98,9 @@ The tested baseline preserves these rules:
 - OpenAL `alSourcePlayv` synchronized group start.
 - Hotfix3 pending-INITIAL protection and partial-group grace behavior.
 
-## Next work: Phase 4
+## Current work: Phase 4
 
-Phase 4 is a structural and behavioral equivalence audit, not feature development. It must compare reconstructed output against the exact Hotfix3 JAR for class/method descriptors, constants, mixins, OpenAL ordering, source lifecycle, sync logic, direct/room caches, EFX behavior, scheduler/stamp/sentinel semantics, position handling and config/resources.
+Phase 4 is a structural and behavioral equivalence audit, not feature development. It compares reconstructed output against the exact Hotfix3 JAR for class/method/field structure, annotations/mixins, constants, OpenAL ordering, source lifecycle, sync logic, direct/room caches, EFX behavior, scheduler/stamp/sentinel semantics, position handling and config/resources.
 
 Do not treat the Phase 3 green build as runtime equivalence proof.
 
