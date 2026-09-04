@@ -43,7 +43,7 @@ replace(p,
     private static final long CLEAR_TRIGGER_COOLDOWN_NS = 300_000_000L;
 ''',
 '''    // Phase 5 exposes the former Hotfix3 scheduler/sentinel constants through
-    // ExtendedClientConfig. Its defaults are byte-for-byte behavioral parity values.
+    // ExtendedClientConfig. Its defaults are the verified Phase-4 parity values.
 ''')
 replacements = {
     "SOURCE_MOVE_URGENT_SQ": "ExtendedClientConfig.sourceMoveUrgentSq()",
@@ -81,13 +81,17 @@ replace(p,
         DebugDiagnostics.source("unregister source={} tracked={}", sourceId, STATES.size());
 ''')
 replace(p,
-'''                state.urgent = true;
+'''            if (state.hasPosition && distanceSq(x, y, z, state.x, state.y, state.z) >= ExtendedClientConfig.sourceMoveUrgentSq()) {
+                state.urgent = true;
                 state.roomStamp = null;
+            }
 ''',
-'''                state.urgent = true;
+'''            if (state.hasPosition && distanceSq(x, y, z, state.x, state.y, state.z) >= ExtendedClientConfig.sourceMoveUrgentSq()) {
+                state.urgent = true;
                 state.roomStamp = null;
                 DebugDiagnostics.room("source={} movement marked room urgent", sourceId);
-''', count=1)
+            }
+''')
 replace(p,
 '''            PerformanceStats.recordSentinelCandidate(confirmed);
 ''',
@@ -131,13 +135,25 @@ replace(p,
     }
 ''', count=1)
 replace(p,
-'''                    state.urgent = true;
+'''        if (haveSchedulerListener && movementSq >= ExtendedClientConfig.teleportDistanceSq()) {
+            for (SourceState state : STATES.values()) {
+                if (state.playing && state.inRange) {
+                    state.urgent = true;
                     state.roomStamp = null;
+                }
+            }
+        }
 ''',
-'''                    state.urgent = true;
+'''        if (haveSchedulerListener && movementSq >= ExtendedClientConfig.teleportDistanceSq()) {
+            for (SourceState state : STATES.values()) {
+                if (state.playing && state.inRange) {
+                    state.urgent = true;
                     state.roomStamp = null;
                     DebugDiagnostics.room("source={} listener teleport forced room urgent", state.sourceId);
-''', count=1)
+                }
+            }
+        }
+''')
 
 # ---------------------------------------------------------------------------
 # EnvironmentSmoother: private-EFX diagnostic switch + targeted logs.
