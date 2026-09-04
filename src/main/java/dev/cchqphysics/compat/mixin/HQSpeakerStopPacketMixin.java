@@ -10,7 +10,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /** Mirrors CC:HQ stop packets into compat-owned raw OpenAL source cleanup. */
 @Mixin(targets = "com.tom.hqspeaker.network.HQSpeakerStopPacket", remap = false)
 public abstract class HQSpeakerStopPacketMixin {
-    @Inject(method = "handle", at = @At("HEAD"), remap = false)
+    @Inject(
+            method = "handle(Lcom/tom/hqspeaker/network/HQSpeakerStopPacket;Lnet/neoforged/neoforge/network/handling/IPayloadContext;)V",
+            at = @At(value = "HEAD", remap = false),
+            remap = false
+    )
     private static void cchqphysics$stop(@Coerce Object payload, @Coerce Object context, CallbackInfo ci) {
         CompatAudioManager.tryHandleStopPayload(payload);
     }
