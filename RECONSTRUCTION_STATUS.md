@@ -6,6 +6,8 @@ SHA-256: `83500f182fc9829aa1a5a51fbfa11ba6cdfb645699b25d1c445167666dabc1ef`
 
 This branch is intentionally separated from `main` until the reconstructed source tree can reproduce the tested baseline closely enough to continue development safely.
 
+**Durable handoff/context for all scheduled reconstruction runs:** [`docs/RECONSTRUCTION_GUIDE.md`](docs/RECONSTRUCTION_GUIDE.md). Scheduled runs should read that guide and this status file before making changes.
+
 ## Recovered exactly from the tested artifact
 
 Resources copied from Hotfix3 itself:
