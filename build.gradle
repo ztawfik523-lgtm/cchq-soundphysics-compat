@@ -60,22 +60,46 @@ configurations {
     runtimeClasspath.extendsFrom localRuntime
 }
 
-dependencies {
-    // Exact SPR build used by the tested Beta11 Hotfix3 baseline.
-    implementation 'maven.modrinth:qyVF9oeo:Dd2tmpsk'
+def sprDependency = "maven.modrinth:qyVF9oeo:${spr_modrinth_version_id}"
+def hqSpeakerDependency = "maven.modrinth:cchq-speakers:${hqspeaker_modrinth_selector}"
+def clothConfigDependency = "curse.maven:cloth-config-348521:${cloth_config_curse_file}"
+def ccTweakedApiDependency = "cc.tweaked:cc-tweaked-${minecraft_version}-common-api:${cc_tweaked_version}"
 
-    // Optional config UI used by the baseline.
-    implementation 'curse.maven:cloth-config-348521:5729127'
+dependencies {
+    // Exact SPR release used by the tested Beta11 Hotfix3 environment.
+    implementation sprDependency
+
+    // Optional config UI used by the baseline source/config classes.
+    implementation clothConfigDependency
 
     // CC:Tweaked API version present in the tested environment.
-    compileOnly 'cc.tweaked:cc-tweaked-1.21.1-common-api:1.120.2'
+    compileOnly ccTweakedApiDependency
 
-    // CC:HQ Speakers 1.1.4 is not currently sourced from a public Maven in this
-    // reconstruction. Put the tested JAR at this path when compiling/running.
-    compileOnly files('libs/hqspeaker-1.0.1-Neoforge1.21.1.jar')
-    localRuntime files('libs/hqspeaker-1.0.1-Neoforge1.21.1.jar')
+    // Tested runtime target: CC:HQ Speakers 1.1.4 / NeoForge / MC 1.21.1.
+    // Modrinth Maven's loader/game filter removes the old incorrect 1.0.1
+    // local-file dependency from the reconstruction build.
+    compileOnly hqSpeakerDependency
+    localRuntime hqSpeakerDependency
 }
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+}
+
+// Phase 2 deliberately separates dependency/build-system validation from the
+// still-incomplete Phase 3 Java reconstruction. This task must succeed before
+// Phase 2 can be closed.
+tasks.register('verifyReconstructionClasspath') {
+    group = 'verification'
+    description = 'Resolve and print the reconstruction compile classpath without compiling incomplete Phase 3 sources.'
+
+    doLast {
+        def resolved = configurations.compileClasspath.resolve().toList().sort { a, b -> a.name <=> b.name }
+        if (resolved.isEmpty()) {
+            throw new GradleException('compileClasspath resolved to no files')
+        }
+
+        println "Resolved compileClasspath (${resolved.size()} files):"
+        resolved.each { println " - ${it.name}" }
+    }
 }
