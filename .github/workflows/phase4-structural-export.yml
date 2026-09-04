@@ -1,0 +1,68 @@
+name: Phase 4 structural export
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - beta11-source-reconstruction
+    paths:
+      - 'src/**'
+      - 'build.gradle'
+      - 'gradle.properties'
+      - '.github/workflows/phase4-structural-export.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  structural-export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out reconstruction branch
+        uses: actions/checkout@v4
+        with:
+          ref: beta11-source-reconstruction
+          fetch-depth: 1
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Rebuild reconstructed jar from clean source
+        shell: bash
+        run: ./gradlew --no-daemon --no-configuration-cache clean compileJava processResources jar
+
+      - name: Export class topology and javap signatures
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/phase4/javap
+          find build/classes/java/main -type f -name '*.class' -printf '%P\n' | sort > build/phase4/reconstructed-classes.txt
+          while IFS= read -r path; do
+            cls="${path%.class}"
+            cls="${cls//\//.}"
+            out="build/phase4/javap/${path%.class}.txt"
+            mkdir -p "$(dirname "$out")"
+            javap -classpath build/classes/java/main -p -s -constants "$cls" > "$out"
+          done < build/phase4/reconstructed-classes.txt
+          test "$(wc -l < build/phase4/reconstructed-classes.txt)" -eq 60
+          sha256sum build/libs/*.jar > build/phase4/reconstructed-jar.sha256
+
+      - name: Upload Phase 4 structural evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase4-structural-evidence
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            build/libs/*.jar
+            build/phase4/reconstructed-classes.txt
+            build/phase4/reconstructed-jar.sha256
+            build/phase4/javap/**
