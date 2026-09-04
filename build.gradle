@@ -1,0 +1,81 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.144'
+}
+
+version = mod_version
+group = mod_group_id
+
+base {
+    archivesName = mod_id
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+repositories {
+    mavenCentral()
+
+    maven {
+        name = 'CC-Tweaked'
+        url = 'https://maven.squiddev.cc'
+        content { includeGroup 'cc.tweaked' }
+    }
+
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'Modrinth'
+                url = 'https://api.modrinth.com/maven'
+            }
+        }
+        filter { includeGroup 'maven.modrinth' }
+    }
+
+    maven {
+        name = 'CurseMaven'
+        url = 'https://www.cursemaven.com'
+    }
+}
+
+neoForge {
+    version = neo_version
+    validateAccessTransformers = true
+
+    runs {
+        client {
+            client()
+            gameDirectory = file('run')
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+configurations {
+    localRuntime
+    runtimeClasspath.extendsFrom localRuntime
+}
+
+dependencies {
+    // Exact SPR build used by the tested Beta11 Hotfix3 baseline.
+    implementation 'maven.modrinth:qyVF9oeo:Dd2tmpsk'
+
+    // Optional config UI used by the baseline.
+    implementation 'curse.maven:cloth-config-348521:5729127'
+
+    // CC:Tweaked API version present in the tested environment.
+    compileOnly 'cc.tweaked:cc-tweaked-1.21.1-common-api:1.120.2'
+
+    // CC:HQ Speakers 1.1.4 is not currently sourced from a public Maven in this
+    // reconstruction. Put the tested JAR at this path when compiling/running.
+    compileOnly files('libs/hqspeaker-1.0.1-Neoforge1.21.1.jar')
+    localRuntime files('libs/hqspeaker-1.0.1-Neoforge1.21.1.jar')
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
