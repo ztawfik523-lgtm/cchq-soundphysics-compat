@@ -162,7 +162,8 @@ final class Beta9Optimizer {
         synchronized (Beta9Optimizer.class) {
             SourceMeta meta = META.get(sourceId);
             DirectEntry entry = DIRECT.get(sourceId);
-            if (meta != null && meta.haveSource && entry != null
+            if (ExtendedClientConfig.beta9DirectReuseEnabled()
+                    && meta != null && meta.haveSource && entry != null
                     && entry.inputCutoffBits == Float.floatToIntBits(inputCutoff)
                     && entry.inputGainBits == Float.floatToIntBits(inputGain)
                     && same(meta.x, entry.x) && same(meta.y, entry.y) && same(meta.z, entry.z)

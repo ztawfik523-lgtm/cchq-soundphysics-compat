@@ -29,7 +29,11 @@ public final class ExtendedClientConfig {
     private static final ModConfigSpec.DoubleValue CONFIRM_CUTOFF_RISE;
     private static final ModConfigSpec.IntValue CLEAR_TRIGGER_COOLDOWN_MS;
 
+    private static final ModConfigSpec.IntValue SYNC_PARTIAL_FLUSH_MS;
+    private static final ModConfigSpec.IntValue SYNC_STALE_GROUP_MS;
+
     private static final ModConfigSpec.BooleanValue PRIVATE_EFX;
+    private static final ModConfigSpec.BooleanValue BETA9_DIRECT_REUSE;
     private static final ModConfigSpec.BooleanValue BETA10_RAY_CACHE;
     private static final ModConfigSpec.BooleanValue BETA11_ROOM_RAY_MEMO;
     private static final ModConfigSpec.IntValue PERFORMANCE_REPORT_MS;
@@ -94,10 +98,22 @@ public final class ExtendedClientConfig {
                 .defineInRange("clear_trigger_cooldown_ms", 300, 0, 5000);
         builder.pop();
 
+        builder.push("sync");
+        SYNC_PARTIAL_FLUSH_MS = builder
+                .comment("Grace before an incomplete synchronized-start group is flushed. Hotfix3 = 100 ms.")
+                .defineInRange("partial_flush_ms", 100, 0, 2000);
+        SYNC_STALE_GROUP_MS = builder
+                .comment("Age after which abandoned sync groups are discarded. Hotfix3 = 5000 ms.")
+                .defineInRange("stale_group_ms", 5000, 250, 30000);
+        builder.pop();
+
         builder.push("features");
         PRIVATE_EFX = builder
                 .comment("Use compat-owned per-source EFX filters. Disable only for diagnosis; native SPR fallback is then used. Hotfix3 = true.")
                 .define("private_efx", true);
+        BETA9_DIRECT_REUSE = builder
+                .comment("Enable exact whole-direct-result reuse when source/environment inputs are unchanged. Hotfix3 = true.")
+                .define("beta9_direct_reuse", true);
         BETA10_RAY_CACHE = builder
                 .comment("Enable exact direct/SPR occlusion-ray reuse when the room stamp is reusable. Hotfix3 = true.")
                 .define("beta10_ray_cache", true);
@@ -183,7 +199,11 @@ public final class ExtendedClientConfig {
     public static float confirmCutoffRise() { return (float) d(CONFIRM_CUTOFF_RISE, 0.055D); }
     public static long clearTriggerCooldownNs() { return i(CLEAR_TRIGGER_COOLDOWN_MS, 300) * 1_000_000L; }
 
+    public static long syncPartialFlushNs() { return i(SYNC_PARTIAL_FLUSH_MS, 100) * 1_000_000L; }
+    public static long syncStaleGroupNs() { return i(SYNC_STALE_GROUP_MS, 5000) * 1_000_000L; }
+
     public static boolean privateEfxEnabled() { return b(PRIVATE_EFX, true); }
+    public static boolean beta9DirectReuseEnabled() { return b(BETA9_DIRECT_REUSE, true); }
     public static boolean beta10RayCacheEnabled() { return b(BETA10_RAY_CACHE, true); }
     public static boolean beta11RoomRayMemoEnabled() { return b(BETA11_ROOM_RAY_MEMO, true); }
     public static long performanceReportNs() { return i(PERFORMANCE_REPORT_MS, 10000) * 1_000_000L; }
@@ -196,4 +216,18 @@ public final class ExtendedClientConfig {
     public static boolean logSync() { return b(LOG_SYNC, false); }
     public static boolean logTransitions() { return b(LOG_TRANSITIONS, false); }
     public static boolean logConfig() { return b(LOG_CONFIG, false); }
+
+    public static String summary() {
+        return "roomSlotMs=" + roomSlotNs() / 1_000_000L
+                + " minHardStaleMs=" + minHardStaleNs() / 1_000_000L
+                + " maxHardStaleMs=" + maxHardStaleNs() / 1_000_000L
+                + " recentSourceMs=" + recentSourceNs() / 1_000_000L
+                + " syncPartialMs=" + syncPartialFlushNs() / 1_000_000L
+                + " syncStaleMs=" + syncStaleGroupNs() / 1_000_000L
+                + " privateEfx=" + privateEfxEnabled()
+                + " beta9DirectReuse=" + beta9DirectReuseEnabled()
+                + " beta10RayCache=" + beta10RayCacheEnabled()
+                + " beta11RoomRayMemo=" + beta11RoomRayMemoEnabled()
+                + " perfReportMs=" + performanceReportNs() / 1_000_000L;
+    }
 }

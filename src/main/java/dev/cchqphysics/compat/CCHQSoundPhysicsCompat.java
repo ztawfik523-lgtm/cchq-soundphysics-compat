@@ -22,5 +22,8 @@ public final class CCHQSoundPhysicsCompat {
         container.registerConfig(ModConfig.Type.CLIENT, ExtendedClientConfig.SPEC, "cchq_soundphysics_compat-advanced.toml");
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigScreenFactory::create);
         LOGGER.info("CC:HQ Sound Physics Compat {} initialized; Phase 4 parity defaults preserved; Phase 5 advanced/debug controls available", VERSION);
+        if (ExtendedClientConfig.logConfig()) {
+            LOGGER.info("Phase 5 advanced config: {}", ExtendedClientConfig.summary());
+        }
     }
 }

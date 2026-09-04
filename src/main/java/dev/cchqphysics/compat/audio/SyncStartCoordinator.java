@@ -1,5 +1,6 @@
 package dev.cchqphysics.compat.audio;
 
+import dev.cchqphysics.compat.config.ExtendedClientConfig;
 import org.lwjgl.openal.AL10;
 
 import java.util.ArrayList;
@@ -12,8 +13,7 @@ import java.util.UUID;
 /** Sound-thread-owned synchronized-start coordinator reconstructed from Beta11 Hotfix3 bytecode. */
 final class SyncStartCoordinator {
     private static final Map<UUID, Group> GROUPS = new HashMap<>();
-    private static final long PARTIAL_FLUSH_NS = 100_000_000L;
-    private static final long STALE_GROUP_NS = 5_000_000_000L;
+    // Phase 5 exposes the two Hotfix3 sync timers through ExtendedClientConfig.
 
     private SyncStartCoordinator() {
     }
@@ -21,21 +21,28 @@ final class SyncStartCoordinator {
     static synchronized void play(int sourceId, HQPayloadView.Audio audio) {
         long now = System.nanoTime();
         flushExpired(now);
-        GROUPS.entrySet().removeIf(entry -> now - entry.getValue().createdNs > STALE_GROUP_NS);
+        GROUPS.entrySet().removeIf(entry -> now - entry.getValue().createdNs > ExtendedClientConfig.syncStaleGroupNs());
 
         UUID groupId = audio.syncGroupId();
         int expected = audio.syncGroupSize();
         if (groupId == null || expected <= 1) {
+            DebugDiagnostics.sync("source={} immediate start (no sync group)", sourceId);
             AL10.alSourcePlay(sourceId);
             return;
         }
 
-        Group group = GROUPS.computeIfAbsent(groupId, ignored -> new Group(expected));
+        Group group = GROUPS.get(groupId);
+        if (group == null) {
+            group = new Group(expected);
+            GROUPS.put(groupId, group);
+            DebugDiagnostics.sync("group={} created expected={}", groupId, expected);
+        }
         if (expected > group.expected) {
             group.expected = expected;
         }
         if (!group.sources.contains(sourceId)) {
             group.sources.add(sourceId);
+            DebugDiagnostics.sync("group={} queued source={} count={}/{}", groupId, sourceId, group.sources.size(), group.expected);
         }
         if (group.sources.size() >= group.expected) {
             startAndRemove(groupId, group);
@@ -66,7 +73,9 @@ final class SyncStartCoordinator {
         while (iterator.hasNext()) {
             Map.Entry<UUID, Group> entry = iterator.next();
             Group group = entry.getValue();
-            if (!group.sources.isEmpty() && now - group.createdNs >= PARTIAL_FLUSH_NS) {
+            if (!group.sources.isEmpty() && now - group.createdNs >= ExtendedClientConfig.syncPartialFlushNs()) {
+                DebugDiagnostics.sync("group={} partial flush count={}/{} ageMs={}", entry.getKey(), group.sources.size(), group.expected,
+                        (now - group.createdNs) / 1_000_000.0D);
                 playVector(group.sources);
                 iterator.remove();
             }
@@ -74,6 +83,7 @@ final class SyncStartCoordinator {
     }
 
     private static void startAndRemove(UUID groupId, Group group) {
+        DebugDiagnostics.sync("group={} complete start count={}/{}", groupId, group.sources.size(), group.expected);
         playVector(group.sources);
         GROUPS.remove(groupId);
     }
@@ -87,6 +97,7 @@ final class SyncStartCoordinator {
     }
 
     static synchronized void clear() {
+        DebugDiagnostics.sync("clear pending sync groups count={}", GROUPS.size());
         GROUPS.clear();
     }
 
@@ -94,7 +105,9 @@ final class SyncStartCoordinator {
         Iterator<Group> iterator = GROUPS.values().iterator();
         while (iterator.hasNext()) {
             Group group = iterator.next();
-            group.sources.remove((Integer) sourceId);
+            if (group.sources.remove((Integer) sourceId)) {
+                DebugDiagnostics.sync("removed source={} from pending group remaining={}/{}", sourceId, group.sources.size(), group.expected);
+            }
             if (group.sources.isEmpty()) {
                 iterator.remove();
             }
