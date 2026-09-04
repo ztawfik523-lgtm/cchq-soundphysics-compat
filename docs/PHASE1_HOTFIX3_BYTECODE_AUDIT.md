@@ -1,6 +1,6 @@
 # Phase 1 Hotfix3 bytecode audit
 
-This audit records the exact Phase 1 evidence obtained from the authoritative tested artifact during the bounded Phase 2 scheduled run. The run correctly fell back to Phase 1 because the previously reconstructed Phase 1 source did not match the Hotfix3 bytecode closely enough.
+This document records exact Hotfix3 bytecode findings from an early bounded reconstruction pass. The findings remain authoritative evidence for the classes described here, but the old ad-hoc pass numbering at the end of the original document is obsolete. Current work follows the five canonical phases in `docs/RECONSTRUCTION_PHASES.md`.
 
 Authoritative artifact:
 
@@ -10,9 +10,9 @@ SHA-256:
 
 `83500f182fc9829aa1a5a51fbfa11ba6cdfb645699b25d1c445167666dabc1ef`
 
-The artifact was verified locally against this hash before inspection with `javap -p -c -s` / `javap -p -v`.
+The artifact was verified against this hash before inspection with `javap -p -c -s` / `javap -p -v`. The exact JAR was independently reverified again on 2026-09-04; see `docs/baseline/PHASE1_JAR_RECHECK_2026-09-04.md`.
 
-## SyncStartCoordinator exact Hotfix3 shape
+## `SyncStartCoordinator` exact Hotfix3 shape
 
 Fields:
 
@@ -51,41 +51,48 @@ Behavior:
 - Grouped sources are deduplicated in the group's list; expected size may grow but is never shrunk.
 - Complete groups launch through one `AL10.alSourcePlayv(int[])`.
 - Incomplete groups launch through one `playv` once `now - createdNs >= 100_000_000L`.
-- `sourceState` performs the partial-group flush, reads the actual OpenAL state, and maps pending `AL_INITIAL` to `AL_PAUSED` only for `AL_SOURCE_STATE`. This is the Hotfix3 lifecycle protection.
+- `sourceState` performs the partial-group flush, reads actual OpenAL state, and maps pending `AL_INITIAL` to `AL_PAUSED` only for `AL_SOURCE_STATE`.
 - `removeSource` scans pending groups and drops empty groups.
 - `clear` clears pending groups.
 
-The older reconstructed `GroupState`/reverse-pending-map API was therefore not an exact Hotfix3 reconstruction and was replaced.
+The older reconstructed `GroupState`/reverse-pending-map API was not an exact Hotfix3 reconstruction and was replaced.
 
-## CompatAudioManager exact Phase 1 findings
+## `CompatAudioManager` exact findings
 
-The Hotfix3 manager contains these behavior-bearing details that were missing or different in the earlier reconstruction:
+The Hotfix3 manager contains these behavior-bearing details:
 
 - `MAX_DECODE_CACHE_ENTRIES = 4`.
 - listener coordinates `lastListenerX/Y/Z` initialize to `Double.NaN` and reset to NaN on session invalidation.
 - interception is gated by `ClientConfig.enabled()`.
 - `_STREAM` and `PCM_S16LE` payload formats fall back instead of taking the whole-file bridge.
-- decode identity is `format + ':' + shortHash(data)`, not sync-group/source/start-tick identity.
-- completed decode entries are age-cleaned and then capped to the four oldest/most-recently-used completed entries as represented in Hotfix3.
+- decode identity is `format + ':' + shortHash(data)`.
+- completed decode entries are age-cleaned and capped to four entries.
 - immediately after `AL10.alGenSources()`, Hotfix3 calls `EnvironmentSmoother.register(sourceId)`.
-- OpenAL reference/max distance come from `AttenuationBridge.referenceDistance(audio)` / `maxDistance(audio)` rather than fixed 1/1024 values.
+- OpenAL reference/max distance come from `AttenuationBridge.referenceDistance(audio)` / `maxDistance(audio)`.
 - initial SPR processing occurs before synchronized/native start.
-- start is delegated to `SyncStartCoordinator.play(sourceId, audio)`, followed by `checkAl("start source")`; the active-source entry is installed afterward.
-- maintenance and finished-source cleanup query state through `SyncStartCoordinator.sourceState(sourceId, AL_SOURCE_STATE)`.
+- start is delegated to `SyncStartCoordinator.play(sourceId, audio)`, followed by `checkAl("start source")`; active-source installation follows.
+- maintenance/finished-source cleanup query state through `SyncStartCoordinator.sourceState(sourceId, AL_SOURCE_STATE)`.
 - maintenance computes listener distance, calls `Beta9Optimizer.updateDistance`, gates beyond `AttenuationBridge.maxDistanceSquared`, writes gain through `Beta10Optimizer.alSourcefStable`, and calls `Beta10Optimizer.updateAudibility`.
 - audible sources retain direct `AL10.alSource3f(... AL_POSITION ...)` before `SoundPhysicsBridge.apply(...)`.
-- normal active-source destruction begins with `EnvironmentSmoother.unregister(sourceId)` before OpenAL stop/detach/delete. The smoother owns downstream acoustic/sync teardown in the baseline.
+- normal active-source destruction begins with `EnvironmentSmoother.unregister(sourceId)` before OpenAL stop/detach/delete.
 - `stopAllSources()` clears active/native buffers and `Beta11RoomRayCache`; it does not directly perform the session-wide bridge reset.
 - `invalidateSession()` clears ready/decode/generation state, calls `SyncStartCoordinator.clear()` and `SoundPhysicsBridge.clearSourceIds()`, then resets listener coordinates to NaN.
-- pause/resume use `SyncStartCoordinator.sourceState`, preserving the pending-INITIAL protection consistently.
+- pause/resume use `SyncStartCoordinator.sourceState`, preserving pending-INITIAL protection.
 - package-private `beta10OnSoundThread(Runnable)` remains a narrow scheduler seam.
 
 ## Important baseline oddity retained
 
-The Hotfix3 `startSource` failure cleanup after `EnvironmentSmoother.register(sourceId)` does not visibly call `EnvironmentSmoother.unregister` in the bytecode's `finally` cleanup path. Reconstruction should not silently redesign this during baseline recovery; any lifecycle cleanup improvement belongs to a separately justified later change, not reconstruction.
+The Hotfix3 `startSource` failure cleanup after `EnvironmentSmoother.register(sourceId)` does not visibly call `EnvironmentSmoother.unregister` in the bytecode's `finally` cleanup path. Reconstruction must not silently redesign this during baseline recovery; any cleanup improvement belongs to later, separately justified development.
 
-## Result of this bounded run
+## Current relevance
 
-Because this exact bytecode evidence proved that the existing Phase 1 source was incomplete, the run did **not** proceed into Phase 2. `SyncStartCoordinator` and `CompatAudioManager` were repaired first, in accordance with the reconstruction handoff rule.
+The exact findings above have already been incorporated into reconstructed `SyncStartCoordinator` and `CompatAudioManager` source on `beta11-source-reconstruction`.
 
-Phase 2 (`SoundPhysicsBridge`, `Beta10Optimizer`, `AcousticCapture`, `EnvironmentSmoother`, EFX/direct-cache integration) remains the next bounded phase.
+Current canonical state is:
+
+- Phase 1 — complete / JAR-rechecked;
+- Phase 2 — complete / JAR-rechecked;
+- Phase 3 — in progress;
+- remaining top-level authored gaps: `SoundPhysicsBridge` and `ClothConfigScreen`.
+
+Do not interpret the historical statement that `SoundPhysicsBridge`/`Beta10Optimizer` were the "next bounded phase" as current status. `Beta10Optimizer` and the surrounding helper stack have since been reconstructed; `SoundPhysicsBridge` is now the principal remaining runtime class.
