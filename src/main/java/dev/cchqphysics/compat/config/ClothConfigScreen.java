@@ -31,6 +31,7 @@ public final class ClothConfigScreen {
         ClientConfigAccess.save();
         ExtendedClientConfigAccess.save();
         SpectralMixConfig.save();
+        DiffractionConfig.save();
     }
 
     public static Screen create(Screen parent) {
@@ -122,6 +123,16 @@ public final class ClothConfigScreen {
                         "Adds speaker-only progressive obstruction on top of SPR.",
                         "Recommended: ON."))
                 .setSaveConsumer(value -> ClientConfigAccess.set("PROGRESSIVE_OCCLUSION", value))
+                .build());
+
+        category.addEntry(entries.startBooleanToggle(
+                        t("Vertical opening diffraction"), DiffractionConfig.enabled())
+                .setDefaultValue(true)
+                .setTooltip(tip(
+                        "Adds the approved bounded V7.1 secondary aperture-energy path for vertical/opening cases.",
+                        "The normal progressive direct path stays authoritative.",
+                        "Recommended: ON."))
+                .setSaveConsumer(DiffractionConfig::setEnabled)
                 .build());
 
         category.addEntry(entries.startDoubleField(
@@ -377,11 +388,11 @@ public final class ClothConfigScreen {
     private static void advancedRuntime(ConfigBuilder builder, ConfigEntryBuilder entries) {
         ConfigCategory category = builder.getOrCreateCategory(t("Advanced Runtime"));
         category.addEntry(entries.startTextDescription(
-                        t("Phase 5 test controls. Every default below is the verified Hotfix3/Phase 4 value."))
+                        t("Advanced runtime controls. Defaults preserve the verified Hotfix3-derived behavior unless explicitly noted."))
                 .setColor(DESCRIPTION)
                 .build());
         category.addEntry(entries.startTextDescription(
-                        t("Change one setting at a time while diagnosing. The frozen parity branch is not modified by these options."))
+                        t("Change advanced settings deliberately; the normal defaults are the validated compatibility profile."))
                 .setColor(8374527)
                 .build());
 
@@ -532,7 +543,7 @@ public final class ClothConfigScreen {
     private static void debugValidation(ConfigBuilder builder, ConfigEntryBuilder entries) {
         ConfigCategory category = builder.getOrCreateCategory(t("Debug & Validation"));
         category.addEntry(entries.startTextDescription(
-                        t("Targeted INFO-level diagnostics for your real-game Phase 5 test. All are OFF by default."))
+                        t("Targeted INFO-level diagnostics for troubleshooting and validation. All are OFF by default."))
                 .setColor(DESCRIPTION)
                 .build());
         category.addEntry(entries.startTextDescription(

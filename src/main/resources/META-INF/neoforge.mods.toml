@@ -4,10 +4,10 @@ license="MIT"
 
 [[mods]]
 modId="cchq_soundphysics_compat"
-version="0.1.0-beta11-phase5-diffraction-v7-1-spreading-only-test"
+version="0.1.0-beta11.1-rc1"
 displayName="CC:HQ Sound Physics Compat"
 authors="CC:HQ / Sound Physics compatibility"
-description='''Phase 5 isolated aperture-energy diffraction experiment V6 built on the runtime-approved configurable HF50 baseline. V7.1 preserves V6 portal spectral/transmission math and adds only explicit-aperture distance spreading; V6 retires the V3-V5 behavior where an alternate opening route could replace the direct occlusion result. The normal progressive direct path remains authoritative; a verified roof/open-top aperture contributes only a bounded secondary low/high energy path. Aperture strength uses the exact V6 path-length/leg-transmission model, multiplied by a softened inverse-distance spreading term for explicit roof openings and the existing smooth finite-search fade. High-band aperture energy decays faster than low-band energy. At most two candidates are acoustically verified, listener-side topology is shared, and verification legs are cached. Source position, source playback gain, PCM/OpenAL clocks, synchronized starts, reflection routing, and reverb sends are not mutated. The experiment is OFF by default.'''
+description='''Client-side compatibility layer for CC:HQ Speakers and Sound Physics Remastered on Minecraft 1.21.1 / NeoForge. Preserves the validated progressive direct-occlusion path, private per-source EFX, synchronized-start handling, approved HF50 synchronized spectral balancing, and the approved V7.1 bounded aperture-energy diffraction path. V7.1 remains a secondary energy contribution only: it never replaces the direct path and does not change source position, PCM/OpenAL playback clocks, synchronized-start timing, reflection routing, or reverb sends. This release candidate also includes performance, lifecycle, decode-backpressure, and OpenAL resource-cleanup hardening.'''
 
 [[mixins]]
 config="cchq_soundphysics_compat.mixins.json"
