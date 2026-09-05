@@ -19,26 +19,18 @@ jobs:
           ref: phase5-opening-diffraction-test-v5
           fetch-depth: 0
 
-      - name: Apply V5 aperture-throat geometry and direct relief tuning
+      - name: Apply V5 source-only aperture patch
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
-
           root = Path('.')
           probe = root / 'src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java'
           s = probe.read_text()
-
           replacements = [
-              (
-                  'double waypointY = topology.barrierY + DiffractionConfig.escapeClearance();',
-                  '''// V5: verify each side of the aperture without forcing a diagonal ray through the roof plane.\n            double lowerWaypointY = topology.barrierY - 0.25D;\n            double upperWaypointY = topology.barrierY + Math.max(1.0D, DiffractionConfig.escapeClearance());'''
-              ),
-              (
-                  'Vec3 waypoint = new Vec3(candidate.x + 0.5D, waypointY, candidate.z + 0.5D);',
-                  '''Vec3 lowerWaypoint = new Vec3(candidate.x + 0.5D, lowerWaypointY, candidate.z + 0.5D);\n            Vec3 upperWaypoint = new Vec3(candidate.x + 0.5D, upperWaypointY, candidate.z + 0.5D);'''
-              ),
+              ('double waypointY = topology.barrierY + DiffractionConfig.escapeClearance();', '// V5: verify each side of the aperture without forcing a diagonal ray through the roof plane.\n            double lowerWaypointY = topology.barrierY - 0.25D;\n            double upperWaypointY = topology.barrierY + Math.max(1.0D, DiffractionConfig.escapeClearance());'),
+              ('Vec3 waypoint = new Vec3(candidate.x + 0.5D, waypointY, candidate.z + 0.5D);', 'Vec3 lowerWaypoint = new Vec3(candidate.x + 0.5D, lowerWaypointY, candidate.z + 0.5D);\n            Vec3 upperWaypoint = new Vec3(candidate.x + 0.5D, upperWaypointY, candidate.z + 0.5D);'),
               ('double radius = horizontalDistance(listener, waypoint);', 'double radius = horizontalDistance(listener, lowerWaypoint);'),
               ('sampleLowerLeg(candidate, topology.barrierY, listener, waypoint)', 'sampleLowerLeg(candidate, topology.barrierY, listener, lowerWaypoint)'),
               ('sampleCrossLeg(sourceId, candidate, topology.barrierY, source, waypoint)', 'sampleCrossLeg(sourceId, candidate, topology.barrierY, source, upperWaypoint)'),
@@ -56,46 +48,21 @@ jobs:
           cfg = root / 'src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java'
           c = cfg.read_text()
           old = '.defineInRange("diffraction_penalty", 1.0D, 0.0D, 8.0D);'
-          if c.count(old) != 1:
-              raise SystemExit(f'diffraction penalty definition match count={c.count(old)}')
+          if c.count(old) != 1: raise SystemExit(f'penalty definition matches={c.count(old)}')
           c = c.replace(old, '.defineInRange("diffraction_penalty", 0.5D, 0.0D, 8.0D);', 1)
           old = 'public static double diffractionPenalty() { return d(DIFFRACTION_PENALTY, 1.0D); }'
-          if c.count(old) != 1:
-              raise SystemExit(f'diffraction penalty fallback match count={c.count(old)}')
+          if c.count(old) != 1: raise SystemExit(f'penalty fallback matches={c.count(old)}')
           c = c.replace(old, 'public static double diffractionPenalty() { return d(DIFFRACTION_PENALTY, 0.5D); }', 1)
           cfg.write_text(c)
 
-          for rel in [
-              'gradle.properties',
-              'src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java',
-              'src/main/resources/META-INF/neoforge.mods.toml',
-          ]:
+          for rel in ['gradle.properties', 'src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java', 'src/main/resources/META-INF/neoforge.mods.toml']:
               p = root / rel
-              t = p.read_text()
-              t = t.replace('phase5-diffraction-v4-opening-test', 'phase5-diffraction-v5-aperture-test')
+              t = p.read_text().replace('phase5-diffraction-v4-opening-test', 'phase5-diffraction-v5-aperture-test')
               t = t.replace('diffraction-v4-opening-test.toml', 'diffraction-v5-aperture-test.toml')
               p.write_text(t)
-
-          oldwf = root / '.github/workflows/phase5-opening-diffraction-v4.yml'
-          newwf = root / '.github/workflows/phase5-opening-diffraction-v5.yml'
-          w = oldwf.read_text().replace('V4', 'V5').replace('v4', 'v5')
-          w = w.replace(
-              "grep -F '.defineInRange(\"base_penalty\", 0.75D' \"$cfg\"",
-              "grep -F '.defineInRange(\"base_penalty\", 0.75D' \"$cfg\"\n          grep -F '.defineInRange(\"diffraction_penalty\", 0.5D' \"$cfg\""
-          )
-          w = w.replace(
-              "grep -F 'applied-nearby-opening' \"$probe\"",
-              "grep -F 'applied-nearby-opening-v5' \"$probe\"\n          grep -F 'lowerWaypointY = topology.barrierY - 0.25D' \"$probe\"\n          grep -F 'upperWaypointY = topology.barrierY + Math.max(1.0D, DiffractionConfig.escapeClearance())' \"$probe\""
-          )
-          w = w.replace(
-              "echo 'direct_open_top_behavior_preserved=true'",
-              "echo 'direct_open_top_structure_preserved=true'\n            echo 'direct_open_top_penalty=0.5'\n            echo 'nearby_opening_geometry=split_aperture_throat'"
-          )
-          newwf.write_text(w)
-          oldwf.unlink()
           PY
 
-      - name: Assert V5 patch before commit
+      - name: Assert V5 source patch
         shell: bash
         run: |
           set -euo pipefail
@@ -108,17 +75,14 @@ jobs:
           grep -F 'applied-nearby-opening-v5' "$probe"
           grep -F '.defineInRange("diffraction_penalty", 0.5D' "$cfg"
           grep -Fx 'mod_version=0.1.0-beta11-phase5-diffraction-v5-aperture-test' gradle.properties
-          test -f .github/workflows/phase5-opening-diffraction-v5.yml
-          test ! -e .github/workflows/phase5-opening-diffraction-v4.yml
 
-      - name: Remove one-shot workflow and commit V5 source
+      - name: Commit V5 source
         shell: bash
         run: |
           set -euo pipefail
-          rm .github/workflows/phase5-v5-wire-aperture.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
+          git add gradle.properties src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java src/main/resources/META-INF/neoforge.mods.toml
           git diff --cached --check
           git commit -m 'Phase 5: split nearby-opening aperture verification'
           git push origin HEAD:phase5-opening-diffraction-test-v5
