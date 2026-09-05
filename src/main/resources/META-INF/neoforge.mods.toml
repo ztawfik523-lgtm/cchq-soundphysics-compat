@@ -4,10 +4,10 @@ license="MIT"
 
 [[mods]]
 modId="cchq_soundphysics_compat"
-version="0.1.0-beta11-phase5-mixv2-test"
+version="0.1.0-beta11-phase5-sync-hf50-test"
 displayName="CC:HQ Sound Physics Compat"
 authors="CC:HQ / Sound Physics compatibility"
-description='''Phase 5 spectral-mix v2 experiment branched from the known-good validated candidate. Defaults preserve the previously validated behavior. The optional synchronized spectral-mud compensation changes only the direct low-pass cutoff target of heavily occluded synchronized copies when a clear peer exists; it never changes OpenAL source gain, position, or reverb-send filters. Advanced/debug controls remain available for validation.'''
+description='''Phase 5 synchronized direct-HF candidate derived from the user's HF dose A/B. When a synchronized source is strongly low-passed, a clear synchronized peer exists, and the spectral gap is large, the candidate lifts only that source's direct low-pass cutoff halfway toward the clearest peer, capped for safety. It never changes source gain, source position, reverb-send filters, PCM timing, or synchronized start behavior.'''
 
 [[mixins]]
 config="cchq_soundphysics_compat.mixins.json"
