@@ -1,0 +1,134 @@
+name: Release candidate build
+
+on:
+  push:
+    branches:
+      - phase5-v7-1-release-candidate
+    paths:
+      - '.github/workflows/release-candidate-build.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release candidate branch
+        uses: actions/checkout@v4
+        with:
+          ref: phase5-v7-1-release-candidate
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Apply release surface promotion
+        run: python3 .github/release_candidate_surface_patch.py
+
+      - name: Assert release surface and frozen acoustic equations
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          grep -F 'mod_version=0.1.0-beta11.1-rc1' gradle.properties
+          grep -F 'public static final String VERSION = "0.1.0-beta11.1-rc1";' src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java
+          grep -F '"cchq_soundphysics_compat-diffraction.toml"' src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java
+          grep -F 'builder.push("portal_diffraction");' src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java
+          grep -F '.define("enabled", true);' src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java
+          grep -F 'public static boolean enabled() { return b(ENABLED, true); }' src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java
+          grep -F 't("Vertical opening diffraction"), DiffractionConfig.enabled()' src/main/java/dev/cchqphysics/compat/config/ClothConfigScreen.java
+          grep -F 'DiffractionConfig.save();' src/main/java/dev/cchqphysics/compat/config/ClothConfigScreen.java
+          grep -F 'version="0.1.0-beta11.1-rc1"' src/main/resources/META-INF/neoforge.mods.toml
+          grep -F 'return Beta9Optimizer.isAudibleAndRecord(state.sourceId) & beta9EligibleReal(state, now);' src/main/java/dev/cchqphysics/compat/audio/SoundPhysicsBridge.java
+
+          hardening='e22dbc6241555a9b17f3f2e7f570f7b943df47d4'
+          # Acoustic implementation remains byte-for-byte the hardening/frozen model.
+          git diff --exit-code "$hardening" -- \
+            src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java \
+            src/main/java/dev/cchqphysics/compat/audio/SynchronizedSpectralBalancer.java \
+            src/main/java/dev/cchqphysics/compat/audio/ProgressiveOcclusionModel.java \
+            src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java \
+            src/main/java/dev/cchqphysics/compat/audio/SoundPhysicsBridge.java \
+            src/main/java/dev/cchqphysics/compat/audio/SyncStartCoordinator.java \
+            src/main/java/dev/cchqphysics/compat/audio/PositionStabilizer.java
+          test -z "$(git diff --name-only "$hardening" -- '*.lua')"
+
+      - name: Commit release candidate source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'ztawfik523-lgtm'
+          git config user.email 'ztawfik523@gmail.com'
+          git add gradle.properties \
+            src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java \
+            src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java \
+            src/main/java/dev/cchqphysics/compat/config/ClothConfigScreen.java \
+            src/main/java/dev/cchqphysics/compat/audio/DebugCommands.java \
+            src/main/resources/META-INF/neoforge.mods.toml
+          git commit -m 'chore: promote frozen V7.1 into release candidate surface'
+          git push origin HEAD:phase5-v7-1-release-candidate
+          git rev-parse HEAD | tee rc-source-commit.txt
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Verify reconstruction classpath
+        run: ./gradlew --no-configuration-cache verifyReconstructionClasspath --stacktrace
+
+      - name: Verify resource wiring
+        run: ./gradlew --no-configuration-cache verifyResourceWiring --stacktrace
+
+      - name: Clean
+        run: ./gradlew --no-configuration-cache clean --stacktrace
+
+      - name: Compile Java 21
+        run: ./gradlew --no-configuration-cache compileJava --stacktrace
+
+      - name: Build release candidate
+        run: ./gradlew --no-configuration-cache jar --stacktrace
+
+      - name: Inspect release candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          jars=(build/libs/*.jar)
+          test "${#jars[@]}" -eq 1
+          jar="${jars[0]}"
+          test "$(basename "$jar")" = 'cchq_soundphysics_compat-0.1.0-beta11.1-rc1.jar'
+          jar tf "$jar" | sort > rc-jar-contents.txt
+          test "$(grep -c '\.class$' rc-jar-contents.txt)" -eq 81
+          unzip -p "$jar" META-INF/neoforge.mods.toml > rc-neoforge.mods.toml
+          grep -F 'version="0.1.0-beta11.1-rc1"' rc-neoforge.mods.toml
+          javap -classpath "$jar" -constants dev.cchqphysics.compat.CCHQSoundPhysicsCompat | grep -F 'VERSION = "0.1.0-beta11.1-rc1"'
+          sha256sum "$jar" | tee rc-jar-sha256.txt
+          {
+            echo "source_commit=$(cat rc-source-commit.txt)"
+            echo 'hardening_base=e22dbc6241555a9b17f3f2e7f570f7b943df47d4'
+            echo 'lifecycle_base=be03d30efe98ca03bdf27764bcea567df5ef3875'
+            echo 'performance_base=962eab8b052466ca984496a7dec0767dc65803f4'
+            echo 'frozen_acoustic_base=ffcf5f6e05d85b69f1f1dff8cfae1b082b71604d'
+            echo 'version=0.1.0-beta11.1-rc1'
+            echo 'diffraction_default_enabled=true'
+            echo 'diffraction_config=cchq_soundphysics_compat-diffraction.toml'
+            echo 'diffraction_implementation_changes=false'
+            echo 'hf50_changes=false'
+            echo 'lua_changes=false'
+            echo 'game_launch_performed=false'
+          } > rc-build-info.txt
+
+      - name: Upload release candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: cchq-beta11-1-rc1
+          path: |
+            build/libs/*.jar
+            rc-source-commit.txt
+            rc-jar-contents.txt
+            rc-jar-sha256.txt
+            rc-neoforge.mods.toml
+            rc-build-info.txt
