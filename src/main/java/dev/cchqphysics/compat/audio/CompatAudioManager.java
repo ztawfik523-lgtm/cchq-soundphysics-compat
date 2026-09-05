@@ -50,7 +50,7 @@ public final class CompatAudioManager {
     private static double lastListenerY = Double.NaN;
     private static double lastListenerZ = Double.NaN;
     private static final AtomicInteger SESSION_EPOCH = new AtomicInteger();
-    private static boolean hadLevel;
+    private static Object trackedLevel;
 
     private CompatAudioManager() {
     }
@@ -119,15 +119,22 @@ public final class CompatAudioManager {
     public static void tickClient() {
         clientTicks++;
         Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null) {
-            if (hadLevel) {
-                hadLevel = false;
+        Object level = mc.level;
+        if (level == null) {
+            if (trackedLevel != null) {
+                trackedLevel = null;
                 invalidateSession();
                 onSoundThread(CompatAudioManager::stopAllSources);
             }
             return;
         }
-        hadLevel = true;
+        if (trackedLevel == null) {
+            trackedLevel = level;
+        } else if (trackedLevel != level) {
+            trackedLevel = level;
+            invalidateSession();
+            onSoundThread(CompatAudioManager::stopAllSources);
+        }
 
         long gameTime = mc.level.getGameTime();
         ArrayList<StartRequest> deferred = new ArrayList<>();
