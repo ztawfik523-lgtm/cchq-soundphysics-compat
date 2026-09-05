@@ -1,0 +1,109 @@
+name: Config Cleanup RC1 v2
+
+on:
+  push:
+    branches:
+      - phase5-cleanup-config-first
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify performance baseline ancestry
+        run: git merge-base --is-ancestor 962eab8b052466ca984496a7dec0767dc65803f4 HEAD
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Apply asserted config cleanup
+        run: python .github/config_cleanup_patch.py
+
+      - name: Remove remaining historical GUI wording
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/main/java/dev/cchqphysics/compat/config/ClothConfigScreen.java')
+          text = p.read_text()
+          replacements = {
+              'Fairness, staleness and movement thresholds used by the Hotfix3 room scheduler.': 'Fairness, staleness and movement thresholds used by room/reverb scheduling.',
+              'Global minimum room scheduling slot. Hotfix3 = 50 ms.': 'Base room scheduling slot. Lower = more responsive but more CPU. Default: 50 ms.',
+              'Minimum age that can force a room target refresh. Hotfix3 = 500 ms.': 'Earliest age that can force a stale room result fresh. Lower = fresher but more CPU. Default: 500 ms.',
+              'Maximum room-target staleness allowed by fairness scaling. Hotfix3 = 2000 ms.': 'Longest room staleness allowed by fairness scaling. Lower = fresher but more CPU. Default: 2000 ms.',
+              'Listener movement treated as a teleport, in blocks. Hotfix3 = 4.0.': 'Listener movement treated as a teleport and forcing room refreshes. Lower = smaller jumps trigger it. Default: 4 blocks.',
+              'Speaker movement that invalidates its room stamp and marks it urgent, in blocks. Hotfix3 = 0.1.': 'Speaker movement that marks room state urgent. Lower = more sensitive. Default: 0.1 blocks.',
+              'Movement in blocks that resets stable-room counters. Hotfix3 = 0.05.': 'Movement that resets stable-room counters. Lower = more sensitive. Default: 0.05 blocks.',
+              'Maximum combined interval multiplier. Hotfix3 = 2.0×.': 'Maximum combined room interval multiplier. 2.0 means at most twice the base interval.',
+              'Absolute ceiling after all Beta9 backoff. Hotfix3 = 1500 ms.': 'Absolute ceiling after stable/load-aware slowdown. Lower = fresher; higher = cheaper. Default: 1500 ms.',
+              'Grace before an incomplete sync group is started anyway. Hotfix3 = 100 ms.': 'Grace before an incomplete synchronized group starts anyway. Higher waits longer. Default: 100 ms.',
+              'Age after which an abandoned pending group is discarded. Hotfix3 = 5000 ms.': 'Age after which an abandoned synchronized group is discarded. Default: 5000 ms.',
+              'Beta10/Beta11 cache-scope resets without per-ray spam.': 'Occlusion/room cache-scope resets without per-ray spam.',
+          }
+          for old, new in replacements.items():
+              assert old in text, f'missing expected tooltip: {old}'
+              text = text.replace(old, new, 1)
+          p.write_text(text)
+          PY
+
+      - name: Verify release config and acoustic isolation
+        run: |
+          git diff --check
+          git diff --exit-code 962eab8b052466ca984496a7dec0767dc65803f4..HEAD -- src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java
+          git diff --exit-code -- src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java
+          grep -F 'mod_version=0.1.0-beta11-rc1' gradle.properties
+          grep -F 'public static final String VERSION = "0.1.0-beta11-rc1";' src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java
+          grep -F 'cchq_soundphysics_compat-sync-balance.toml' src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java
+          grep -F 'cchq_soundphysics_compat-openings.toml' src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java
+          grep -F 'DiffractionConfig.save();' src/main/java/dev/cchqphysics/compat/config/ClothConfigScreen.java
+          grep -F 'Openings & Vertical Sound' src/main/java/dev/cchqphysics/compat/config/ClothConfigScreen.java
+          grep -F 'Synchronized Sound Balance' src/main/java/dev/cchqphysics/compat/config/ClothConfigScreen.java
+          grep -F 'Advanced / Troubleshooting' src/main/java/dev/cchqphysics/compat/config/ClothConfigScreen.java
+          grep -F '.defineInRange("effect_strength", 0.25D, 0.0D, 1.0D);' src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java
+          grep -F '.defineInRange("influence_distance", 3.0D, 0.25D, 16.0D);' src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java
+          grep -F '.defineInRange("correction_strength", 0.50D, 0.0D, 1.0D);' src/main/java/dev/cchqphysics/compat/config/SpectralMixConfig.java
+          ! grep -E 'Phase[- ]5|V7\.1|Issue-A|HF50|Beta9|Beta10|Beta11|Hotfix3' src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java src/main/java/dev/cchqphysics/compat/config/SpectralMixConfig.java src/main/java/dev/cchqphysics/compat/config/ClothConfigScreen.java src/main/resources/META-INF/neoforge.mods.toml
+
+      - name: Commit config cleanup
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add gradle.properties src/main/resources/META-INF/neoforge.mods.toml src/main/java/dev/cchqphysics/compat/config/ClientConfig.java src/main/java/dev/cchqphysics/compat/config/ExtendedClientConfig.java src/main/java/dev/cchqphysics/compat/config/ExtendedClientConfigAccess.java src/main/java/dev/cchqphysics/compat/config/ClothConfigScreen.java
+          git commit -m 'cleanup: simplify release configuration and expose opening controls'
+          git push origin HEAD:phase5-cleanup-config-first
+
+      - name: Build
+        run: ./gradlew clean build --no-daemon
+
+      - name: Inspect artifact
+        run: |
+          JAR=$(find build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*sources*' ! -name '*javadoc*' | head -n1)
+          test -n "$JAR"
+          export JAR
+          echo "JAR=$JAR" >> "$GITHUB_ENV"
+          sha256sum "$JAR"
+          python - <<'PY'
+          import os, zipfile
+          jar=os.environ['JAR']
+          with zipfile.ZipFile(jar) as z:
+              classes=[n for n in z.namelist() if n.endswith('.class')]
+              print('class_count=', len(classes))
+              assert len(classes) == 81, len(classes)
+              assert '0.1.0-beta11-rc1' in z.read('META-INF/neoforge.mods.toml').decode()
+          PY
+
+      - name: Upload RC1 config-cleanup JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: cchq-rc1-config-cleanup
+          path: ${{ env.JAR }}
+          if-no-files-found: error
