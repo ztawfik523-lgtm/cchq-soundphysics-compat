@@ -25,20 +25,42 @@ public final class DebugCommands {
         event.getDispatcher().register(Commands.literal("cchqphysics")
                 .then(Commands.literal("status")
                         .executes(context -> {
-                            String status = DebugControl.compactStatus();
+                            String status = DebugControl.compactStatus() + " " + ReflectionDiagnostics.status();
                             context.getSource().sendSuccess(() -> Component.literal("CC:HQ Physics: " + status), false);
                             return 1;
                         }))
                 .then(Commands.literal("dump")
                         .executes(context -> {
                             LOGGER.info("[phase5/dump] config {}", ExtendedClientConfig.summary());
-                            LOGGER.info("[phase5/dump] {}", DebugControl.compactStatus());
+                            LOGGER.info("[phase5/dump] {} {}", DebugControl.compactStatus(), ReflectionDiagnostics.status());
                             SoundPhysicsBridge.debugDumpSources();
                             EnvironmentSmoother.debugDumpEfx();
+                            IssueADiagnostics.dump();
                             context.getSource().sendSuccess(
                                     () -> Component.literal("CC:HQ Physics snapshot written to latest.log"), false);
                             return 1;
                         }))
+                .then(Commands.literal("reflection_redirect")
+                        .then(Commands.literal("on")
+                                .executes(context -> {
+                                    ReflectionDiagnostics.setRedirectEnabled(true);
+                                    context.getSource().sendSuccess(
+                                            () -> Component.literal("CC:HQ Physics reflection position redirection: ON (known-good default)"), false);
+                                    return 1;
+                                }))
+                        .then(Commands.literal("off")
+                                .executes(context -> {
+                                    ReflectionDiagnostics.setRedirectEnabled(false);
+                                    context.getSource().sendSuccess(
+                                            () -> Component.literal("CC:HQ Physics reflection position redirection: OFF (runtime diagnostic only)"), false);
+                                    return 1;
+                                }))
+                        .then(Commands.literal("status")
+                                .executes(context -> {
+                                    String status = ReflectionDiagnostics.status();
+                                    context.getSource().sendSuccess(() -> Component.literal("CC:HQ Physics: " + status), false);
+                                    return 1;
+                                })))
                 .then(Commands.literal("refresh_rooms")
                         .executes(context -> {
                             DebugControl.requestRoomRefresh();
@@ -62,7 +84,7 @@ public final class DebugCommands {
                         }))
                 .then(Commands.literal("config")
                         .executes(context -> {
-                            String summary = ExtendedClientConfig.summary();
+                            String summary = ExtendedClientConfig.summary() + " " + ReflectionDiagnostics.status();
                             LOGGER.info("[phase5/config] {}", summary);
                             context.getSource().sendSuccess(() -> Component.literal("CC:HQ Physics: " + summary), false);
                             return 1;
