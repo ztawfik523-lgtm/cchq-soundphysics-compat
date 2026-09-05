@@ -1,5 +1,6 @@
 package dev.cchqphysics.compat.audio;
 
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import dev.cchqphysics.compat.config.ExtendedClientConfig;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
@@ -33,26 +34,24 @@ public final class DebugCommands {
                         .executes(context -> {
                             LOGGER.info("[phase5/dump] config {}", ExtendedClientConfig.summary());
                             LOGGER.info("[phase5/dump] {} {}", DebugControl.compactStatus(), ReflectionDiagnostics.status());
-                            SoundPhysicsBridge.debugDumpSources();
-                            EnvironmentSmoother.debugDumpEfx();
                             IssueADiagnostics.dump();
                             context.getSource().sendSuccess(
-                                    () -> Component.literal("CC:HQ Physics snapshot written to latest.log"), false);
+                                    () -> Component.literal("CC:HQ Physics Issue-A snapshot written to latest.log"), false);
                             return 1;
                         }))
                 .then(Commands.literal("reflection_redirect")
                         .then(Commands.literal("on")
                                 .executes(context -> {
-                                    ReflectionDiagnostics.setRedirectEnabled(true);
+                                    ReflectionDiagnostics.setGlobalRedirectEnabled(true);
                                     context.getSource().sendSuccess(
-                                            () -> Component.literal("CC:HQ Physics reflection position redirection: ON (known-good default)"), false);
+                                            () -> Component.literal("CC:HQ Physics reflection position redirection: ON globally (known-good default)"), false);
                                     return 1;
                                 }))
                         .then(Commands.literal("off")
                                 .executes(context -> {
-                                    ReflectionDiagnostics.setRedirectEnabled(false);
+                                    ReflectionDiagnostics.setGlobalRedirectEnabled(false);
                                     context.getSource().sendSuccess(
-                                            () -> Component.literal("CC:HQ Physics reflection position redirection: OFF (runtime diagnostic only)"), false);
+                                            () -> Component.literal("CC:HQ Physics reflection position redirection: OFF globally (runtime diagnostic only)"), false);
                                     return 1;
                                 }))
                         .then(Commands.literal("status")
@@ -60,7 +59,40 @@ public final class DebugCommands {
                                     String status = ReflectionDiagnostics.status();
                                     context.getSource().sendSuccess(() -> Component.literal("CC:HQ Physics: " + status), false);
                                     return 1;
-                                })))
+                                }))
+                        .then(Commands.literal("source")
+                                .then(Commands.argument("sourceId", IntegerArgumentType.integer(0))
+                                        .then(Commands.literal("on")
+                                                .executes(context -> {
+                                                    int sourceId = IntegerArgumentType.getInteger(context, "sourceId");
+                                                    ReflectionDiagnostics.setSourceOverride(sourceId, true);
+                                                    String status = ReflectionDiagnostics.sourceStatus(sourceId);
+                                                    context.getSource().sendSuccess(() -> Component.literal("CC:HQ Physics: " + status), false);
+                                                    return 1;
+                                                }))
+                                        .then(Commands.literal("off")
+                                                .executes(context -> {
+                                                    int sourceId = IntegerArgumentType.getInteger(context, "sourceId");
+                                                    ReflectionDiagnostics.setSourceOverride(sourceId, false);
+                                                    String status = ReflectionDiagnostics.sourceStatus(sourceId);
+                                                    context.getSource().sendSuccess(() -> Component.literal("CC:HQ Physics: " + status), false);
+                                                    return 1;
+                                                }))
+                                        .then(Commands.literal("auto")
+                                                .executes(context -> {
+                                                    int sourceId = IntegerArgumentType.getInteger(context, "sourceId");
+                                                    ReflectionDiagnostics.setSourceOverride(sourceId, null);
+                                                    String status = ReflectionDiagnostics.sourceStatus(sourceId);
+                                                    context.getSource().sendSuccess(() -> Component.literal("CC:HQ Physics: " + status), false);
+                                                    return 1;
+                                                }))
+                                        .then(Commands.literal("status")
+                                                .executes(context -> {
+                                                    int sourceId = IntegerArgumentType.getInteger(context, "sourceId");
+                                                    String status = ReflectionDiagnostics.sourceStatus(sourceId);
+                                                    context.getSource().sendSuccess(() -> Component.literal("CC:HQ Physics: " + status), false);
+                                                    return 1;
+                                                }))))
                 .then(Commands.literal("refresh_rooms")
                         .executes(context -> {
                             DebugControl.requestRoomRefresh();
