@@ -37,10 +37,12 @@ final class VerticalDiffractionRelief {
     private static final int OPENING_VERTICAL_SCAN_BLOCKS = 8;
     private static final int LOWER_CACHE_SOFT_LIMIT = 128;
     private static final int CROSS_CACHE_SOFT_LIMIT = 512;
+    private static final long CACHE_PRUNE_INTERVAL_NS = 1_000_000_000L;
     private static final double SOURCE_RECHECK_DISTANCE_SQ = 0.01D;
     private static final Offset[] OPENING_OFFSETS = buildOffsets(OPENING_MAX_CONFIG_RADIUS);
 
     private static OpeningTopology topologyCache;
+    private static long lastPruneNs;
 
     private VerticalDiffractionRelief() {}
 
@@ -62,6 +64,7 @@ final class VerticalDiffractionRelief {
         CROSS_LEG_CACHE.clear();
         PRIMARY_BY_SOURCE.clear();
         topologyCache = null;
+        lastPruneNs = 0L;
     }
 
     static float[] adjust(int sourceId, float cutoff, float gain) {
@@ -224,10 +227,10 @@ final class VerticalDiffractionRelief {
     private static List<PortalCandidate> buildPortalCandidates(OpeningTopology topology,
                                                                 Vec3 listener,
                                                                 Vec3 source) {
-        List<PortalCandidate> result = new ArrayList<>();
         double directDistance = source.distanceTo(listener);
 
         if (topology.barrierY == Integer.MIN_VALUE) {
+            List<PortalCandidate> result = new ArrayList<>(1);
             // Open-top geometry is represented as an implicit aperture in the
             // listener's vertical column. It uses the same energy model as all
             // explicit roof openings; there is no separate acoustic shortcut.
@@ -241,8 +244,11 @@ final class VerticalDiffractionRelief {
             return result;
         }
 
-        if (source.y <= topology.barrierY + 0.5D) return result;
+        if (source.y <= topology.barrierY + 0.5D || topology.candidates.length == 0) {
+            return List.of();
+        }
 
+        List<PortalCandidate> result = new ArrayList<>(topology.candidates.length);
         double lowerY = topology.barrierY - 0.25D;
         double upperY = topology.barrierY + Math.max(1.0D, DiffractionConfig.escapeClearance());
         for (OpeningCandidate opening : topology.candidates) {
@@ -368,7 +374,7 @@ final class VerticalDiffractionRelief {
         PerformanceStats.recordPortalTopologyScan(blockChecks);
         synchronized (VerticalDiffractionRelief.class) {
             topologyCache = result;
-            pruneCaches(now);
+            maybePruneCaches(now);
         }
         return result;
     }
@@ -446,7 +452,16 @@ final class VerticalDiffractionRelief {
         }
     }
 
+    private static void maybePruneCaches(long now) {
+        boolean overSoftLimit = LOWER_LEG_CACHE.size() > LOWER_CACHE_SOFT_LIMIT
+                || CROSS_LEG_CACHE.size() > CROSS_CACHE_SOFT_LIMIT;
+        if (!overSoftLimit && now - lastPruneNs < CACHE_PRUNE_INTERVAL_NS) return;
+        lastPruneNs = now;
+        pruneCaches(now);
+    }
+
     private static void pruneCaches(long now) {
+        if (LOWER_LEG_CACHE.isEmpty() && CROSS_LEG_CACHE.isEmpty()) return;
         long staleNs = Math.max(1L, DiffractionConfig.openingRayCacheNs()) * 2L;
         LOWER_LEG_CACHE.entrySet().removeIf(entry -> now - entry.getValue().verifiedNs > staleNs);
         CROSS_LEG_CACHE.entrySet().removeIf(entry -> now - entry.getValue().verifiedNs > staleNs);
