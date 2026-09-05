@@ -2,7 +2,7 @@ package dev.cchqphysics.compat.config;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
 
-/** Experimental vertical/open-top diffraction relief for severe straight-ray over-occlusion. */
+/** Experimental vertical/opening diffraction relief for straight-ray over-occlusion. */
 public final class DiffractionConfig {
     public static final ModConfigSpec SPEC;
 
@@ -17,13 +17,21 @@ public final class DiffractionConfig {
     private static final ModConfigSpec.DoubleValue DIFFRACTION_PENALTY;
     private static final ModConfigSpec.DoubleValue MIN_RAW_IMPROVEMENT;
 
+    private static final ModConfigSpec.DoubleValue OPENING_RAW_OCCLUSION_GATE;
+    private static final ModConfigSpec.DoubleValue OPENING_SEARCH_RADIUS;
+    private static final ModConfigSpec.DoubleValue OPENING_LEG_GATE;
+    private static final ModConfigSpec.DoubleValue OPENING_BASE_PENALTY;
+    private static final ModConfigSpec.DoubleValue OPENING_DISTANCE_PENALTY;
+    private static final ModConfigSpec.DoubleValue OPENING_MIN_RAW_IMPROVEMENT;
+    private static final ModConfigSpec.DoubleValue OPENING_SCAN_INTERVAL_MS;
+
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
         builder.push("vertical_diffraction_test");
 
         ENABLED = builder.comment(
-                "Experimental Phase-5 open-top diffraction relief.",
-                "OFF by default. Enable only while validating the steep-elevation / open-pit over-occlusion case.",
+                "Experimental Phase-5 vertical/opening diffraction relief.",
+                "OFF by default. Enable only while validating elevation and nearby-opening leakage behavior.",
                 "Never changes source position, playback timing, synchronized starts, reflection routing, or reverb sends.")
                 .define("enabled", false);
 
@@ -33,20 +41,21 @@ public final class DiffractionConfig {
                 .defineInRange("min_vertical_separation", 0.75D, 0.0D, 32.0D);
 
         MIN_HORIZONTAL_SEPARATION = builder.comment(
-                "Minimum horizontal separation. This deliberately excludes nearly vertical floor/ceiling cases.")
+                "Minimum source/listener horizontal separation for the original direct open-top probe only.",
+                "Nearby-opening search may still run below this value so a side opening can matter while standing under a ceiling.")
                 .defineInRange("min_horizontal_separation", 1.5D, 0.0D, 32.0D);
 
         MAX_HORIZONTAL_SEPARATION = builder.comment(
-                "Maximum horizontal separation for this narrowly-scoped test path.")
+                "Maximum source/listener horizontal separation for this narrowly-scoped test path.")
                 .defineInRange("max_horizontal_separation", 12.0D, 0.5D, 64.0D);
 
         MIN_VERTICAL_HORIZONTAL_RATIO = builder.comment(
                 "Minimum |dy| / horizontal-distance ratio.",
-                "Relaxed after runtime evidence showed a 3-block-deep open pit measured only ~1.88 Y over ~7.25 horizontal (slope ~0.26).")
+                "Relaxed after runtime evidence showed a 3-block-deep open pit measured only ~1.88 Y over ~7.25 horizontal.")
                 .defineInRange("min_vertical_horizontal_ratio", 0.10D, 0.0D, 8.0D);
 
         RAW_OCCLUSION_GATE = builder.comment(
-                "Normal progressive raw occlusion must already be at least this high before extra diffraction rays are allowed.")
+                "Normal progressive raw occlusion required by the original direct open-top probe.")
                 .defineInRange("raw_occlusion_gate", 3.0D, 0.0D, 16.0D);
 
         ESCAPE_CLEARANCE = builder.comment(
@@ -54,19 +63,52 @@ public final class DiffractionConfig {
                 .defineInRange("escape_clearance", 1.5D, 0.25D, 8.0D);
 
         VERTICAL_OPEN_GATE = builder.comment(
-                "The vertical escape leg from the lower endpoint must be this clear or clearer.",
-                "This is the sealed-roof/floor safety gate: a real blocking ceiling should fail it.")
+                "A candidate escape/opening leg must be this clear or clearer.")
                 .defineInRange("vertical_open_gate", 0.25D, 0.0D, 4.0D);
 
         DIFFRACTION_PENALTY = builder.comment(
-                "Extra synthetic raw-occlusion penalty added even when the two-segment route is fully clear.",
-                "1.0 intentionally keeps an open-edge route somewhat muffled instead of making it perfectly clear.")
+                "Synthetic raw-occlusion penalty for the already-validated direct open-top route.")
                 .defineInRange("diffraction_penalty", 1.0D, 0.0D, 8.0D);
 
         MIN_RAW_IMPROVEMENT = builder.comment(
-                "Candidate route must improve raw occlusion by at least this much before relief is applied.")
+                "Direct open-top route must improve raw occlusion by at least this much.")
                 .defineInRange("min_raw_improvement", 1.0D, 0.0D, 16.0D);
 
+        builder.push("nearby_opening");
+
+        OPENING_RAW_OCCLUSION_GATE = builder.comment(
+                "Lower raw-occlusion gate for a verified nearby opening.",
+                "This lets a real aperture soften even a one- or two-block ceiling case without making a fully sealed ceiling transparent.")
+                .defineInRange("raw_occlusion_gate", 1.25D, 0.0D, 16.0D);
+
+        OPENING_SEARCH_RADIUS = builder.comment(
+                "Maximum horizontal distance, in blocks, searched around the lower endpoint for a nearby opening.",
+                "The V4 probe intentionally searches only nearby apertures; farther openings are ignored until the listener moves closer.")
+                .defineInRange("search_radius", 3.0D, 1.0D, 8.0D);
+
+        OPENING_LEG_GATE = builder.comment(
+                "Listener/lower-endpoint to opening waypoint must be this clear or clearer.")
+                .defineInRange("opening_leg_gate", 0.25D, 0.0D, 4.0D);
+
+        OPENING_BASE_PENALTY = builder.comment(
+                "Base diffraction penalty for routing through a nearby opening.")
+                .defineInRange("base_penalty", 0.75D, 0.0D, 8.0D);
+
+        OPENING_DISTANCE_PENALTY = builder.comment(
+                "Additional raw penalty per block of horizontal detour to the opening.",
+                "This is what makes the sound progressively clearer as the listener approaches the aperture.")
+                .defineInRange("distance_penalty_per_block", 0.20D, 0.0D, 4.0D);
+
+        OPENING_MIN_RAW_IMPROVEMENT = builder.comment(
+                "Nearby-opening route must beat the normal raw occlusion by at least this amount.")
+                .defineInRange("min_raw_improvement", 0.25D, 0.0D, 16.0D);
+
+        OPENING_SCAN_INTERVAL_MS = builder.comment(
+                "Minimum interval between nearby-opening scans for a source.",
+                "The scan uses SPR occlusion rays on the sound-thread path and is deliberately rate-limited.")
+                .defineInRange("scan_interval_ms", 250.0D, 50.0D, 2000.0D);
+
+        builder.pop();
         builder.pop();
         SPEC = builder.build();
     }
@@ -97,6 +139,16 @@ public final class DiffractionConfig {
     public static double diffractionPenalty() { return d(DIFFRACTION_PENALTY, 1.0D); }
     public static double minRawImprovement() { return d(MIN_RAW_IMPROVEMENT, 1.0D); }
 
+    public static double openingRawOcclusionGate() { return d(OPENING_RAW_OCCLUSION_GATE, 1.25D); }
+    public static double openingSearchRadius() { return d(OPENING_SEARCH_RADIUS, 3.0D); }
+    public static double openingLegGate() { return d(OPENING_LEG_GATE, 0.25D); }
+    public static double openingBasePenalty() { return d(OPENING_BASE_PENALTY, 0.75D); }
+    public static double openingDistancePenalty() { return d(OPENING_DISTANCE_PENALTY, 0.20D); }
+    public static double openingMinRawImprovement() { return d(OPENING_MIN_RAW_IMPROVEMENT, 0.25D); }
+    public static long openingScanIntervalNs() {
+        return Math.max(50L, Math.round(d(OPENING_SCAN_INTERVAL_MS, 250.0D))) * 1_000_000L;
+    }
+
     public static void setEnabled(boolean value) { ENABLED.set(value); }
     public static void save() { SPEC.save(); }
 
@@ -110,6 +162,13 @@ public final class DiffractionConfig {
                 + " clearance=" + escapeClearance()
                 + " verticalOpenGate=" + verticalOpenGate()
                 + " penalty=" + diffractionPenalty()
-                + " minImprove=" + minRawImprovement();
+                + " minImprove=" + minRawImprovement()
+                + " openingRawGate=" + openingRawOcclusionGate()
+                + " openingRadius=" + openingSearchRadius()
+                + " openingLegGate=" + openingLegGate()
+                + " openingBasePenalty=" + openingBasePenalty()
+                + " openingDistancePenalty=" + openingDistancePenalty()
+                + " openingMinImprove=" + openingMinRawImprovement()
+                + " openingScanMs=" + (openingScanIntervalNs() / 1_000_000L);
     }
 }
