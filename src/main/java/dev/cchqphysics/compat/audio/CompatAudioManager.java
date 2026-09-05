@@ -97,6 +97,9 @@ public final class CompatAudioManager {
                 logOnce("decode-runtime-" + audio.format(), "Decoder accepted " + audio.format() + " but failed while decoding: " + rootMessage(error));
                 return;
             }
+            if (epoch != SESSION_EPOCH.get()) return;
+            AtomicInteger currentGeneration = GENERATIONS.get(audio.source());
+            if (currentGeneration == null || currentGeneration.get() != generation) return;
             READY.add(new StartRequest(audio, key, decoded, generation, epoch));
         });
         return true;
