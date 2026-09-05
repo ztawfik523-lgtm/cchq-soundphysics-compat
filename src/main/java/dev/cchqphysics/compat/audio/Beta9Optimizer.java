@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
-/** Hotfix3 adaptive direct/room controller reconstructed from the authoritative classfile. */
+/** Adaptive direct-result reuse and room-update controller. */
 final class Beta9Optimizer {
     private static final Map<Integer, SourceMeta> META = new HashMap<>();
     private static final Map<Integer, DirectEntry> DIRECT = new HashMap<>();
@@ -16,7 +16,7 @@ final class Beta9Optimizer {
 
     private static final long REPORT_NS = 10_000_000_000L;
     private static final long CONTROL_NS = 1_000_000_000L;
-    // Phase 5 exposes the Hotfix3 movement/backoff values through ExtendedClientConfig.
+    // Movement and room-slowdown thresholds are exposed through advanced config.
 
     private static long reportStartNs = System.nanoTime();
     private static long controlStartNs = reportStartNs;
@@ -460,7 +460,7 @@ final class Beta9Optimizer {
     }
 
     static synchronized String debugSummary() {
-        return "beta9Meta=" + META.size() + " directCache=" + DIRECT.size()
+        return "optimizerMeta=" + META.size() + " directCache=" + DIRECT.size()
                 + " load=" + round2(adaptiveFactor) + " directReal=" + directReal + " directReuse=" + directReuse;
     }
 
@@ -492,7 +492,7 @@ final class Beta9Optimizer {
         long elapsed = now - reportStartNs;
         if (elapsed < ExtendedClientConfig.performanceReportNs()) return;
         double seconds = elapsed / 1.0E9D;
-        String report = "[CC:HQ Sound Physics Compat] beta9 extra window=" + round1(seconds)
+        String report = "[CC:HQ Sound Physics Compat] optimizer window=" + round1(seconds)
                 + "s directReal=" + directReal + " (" + round1(directReal / seconds) + "/s)"
                 + " directReuses=" + directReuse + " (" + round1(directReuse / seconds) + "/s)"
                 + " directAvg=" + avgMs(directTotalNs, directReal + directReuse) + "ms"

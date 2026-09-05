@@ -10,12 +10,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/** Sound-thread-owned synchronized-start coordinator reconstructed from Beta11 Hotfix3 bytecode. */
+/** Sound-thread-owned synchronized-start coordinator. */
 final class SyncStartCoordinator {
     private static final Map<UUID, Group> GROUPS = new HashMap<>();
     private static final Map<Integer, UUID> LIVE_SOURCE_GROUPS = new HashMap<>();
     private static final Map<UUID, List<Integer>> LIVE_GROUP_SOURCES = new HashMap<>();
-    // Phase 5 exposes the two Hotfix3 sync timers through ExtendedClientConfig.
+    // Synchronized-start grace and cleanup timers are exposed through advanced config.
 
     private SyncStartCoordinator() {
     }

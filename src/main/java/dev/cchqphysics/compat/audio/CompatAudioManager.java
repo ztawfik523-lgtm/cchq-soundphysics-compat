@@ -29,7 +29,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/** Client-owned CC:HQ whole-file playback bridge reconstructed against Beta11 Hotfix3 bytecode. */
+/** Client-owned bridge for CC:HQ whole-file positional playback. */
 public final class CompatAudioManager {
     private static final ExecutorService DECODER = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "CC-HQ SoundPhysics decoder");

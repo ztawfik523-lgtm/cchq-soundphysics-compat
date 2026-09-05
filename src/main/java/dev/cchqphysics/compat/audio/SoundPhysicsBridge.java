@@ -32,8 +32,8 @@ final class SoundPhysicsBridge {
     private static final int AL_PAUSED = 4115;
     private static final int AL_MAX_DISTANCE = 4131;
 
-    // Phase 5 exposes the former Hotfix3 scheduler/sentinel constants through
-    // ExtendedClientConfig. Its defaults are the verified Phase-4 parity values.
+    // Scheduler and fast-clearing thresholds are exposed through the advanced
+    // client configuration. Release defaults are the tuned runtime values.
 
     private static int rrCursor;
     private static boolean haveSchedulerListener;
@@ -555,7 +555,7 @@ final class SoundPhysicsBridge {
             double center = ProgressiveOcclusionModel.currentCenterOcclusion(state.sourceId);
             long roomAgeMs = state.lastRoomNs == 0L ? -1L : Math.max(0L, now - state.lastRoomNs) / 1_000_000L;
             long seenAgeMs = state.lastSeenNs == 0L ? -1L : Math.max(0L, now - state.lastSeenNs) / 1_000_000L;
-            beta9Log("[phase5/source] source=" + state.sourceId
+            beta9Log("[dump/source] source=" + state.sourceId
                     + " generation=" + state.generation
                     + " uuid=" + state.uuid
                     + " playing=" + state.playing

@@ -80,7 +80,7 @@ public final class Beta11RoomRayCache {
         current.clear();
         scopeGetter = getter;
         scopeResets++;
-        DebugDiagnostics.cache("beta11 room-ray scope rotated entriesPrevious={}", previous.entries);
+        DebugDiagnostics.cache("room-ray scope rotated entriesPrevious={}", previous.entries);
     }
 
     private static void maybeDiagnostics() {
@@ -96,7 +96,7 @@ public final class Beta11RoomRayCache {
         long total = hits + misses;
         double hitRate = total == 0 ? 0.0 : (100.0 * hits / total);
         SoundPhysicsBridge.beta9Log(String.format(java.util.Locale.ROOT,
-                "[CC:HQ Sound Physics Compat] beta11 room-ray window=%.1fs hit=%d (%.1f/s) miss=%d (%.1f/s) hitRate=%.1f%% actualRay=%.2fms/s crossCloneWouldReuse=%d scopeResets=%d entries=%d",
+                "[CC:HQ Sound Physics Compat] room-ray cache window=%.1fs hit=%d (%.1f/s) miss=%d (%.1f/s) hitRate=%.1f%% actualRay=%.2fms/s crossCloneWouldReuse=%d scopeResets=%d entries=%d",
                 seconds, hits, hits / seconds, misses, misses / seconds, hitRate,
                 (actualRayNs / 1_000_000.0) / seconds, crossCloneWouldReuse, scopeResets, current.entries));
         hits = misses = actualRayNs = crossCloneWouldReuse = scopeResets = 0L;
@@ -120,7 +120,7 @@ public final class Beta11RoomRayCache {
     }
 
     static synchronized String debugSummary() {
-        return "beta11Entries=" + current.entries + " hit=" + hits + " miss=" + misses
+        return "roomRayEntries=" + current.entries + " hit=" + hits + " miss=" + misses
                 + " crossCloneTelemetry=" + crossCloneWouldReuse + " scopeResets=" + scopeResets;
     }
 

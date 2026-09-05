@@ -269,13 +269,13 @@ public final class ExtendedClientConfig {
                 + " syncPartialMs=" + syncPartialFlushNs() / 1_000_000L
                 + " syncStaleMs=" + syncStaleGroupNs() / 1_000_000L
                 + " privateEfx=" + privateEfxEnabled()
-                + " beta9DirectReuse=" + beta9DirectReuseEnabled()
-                + " beta9RoomBackoff=" + beta9RoomBackoffEnabled()
-                + " beta9Adaptive=" + beta9AdaptiveControllerEnabled()
-                + " beta9MaxFactor=" + beta9MaxRoomFactor()
-                + " beta9MaxRoomMs=" + beta9MaxRoomIntervalNs() / 1_000_000L
-                + " beta10RayCache=" + beta10RayCacheEnabled()
-                + " beta11RoomRayMemo=" + beta11RoomRayMemoEnabled()
+                + " directReuse=" + beta9DirectReuseEnabled()
+                + " stableRoomSlowdown=" + beta9RoomBackoffEnabled()
+                + " loadAwareScheduling=" + beta9AdaptiveControllerEnabled()
+                + " maxRoomSlowdown=" + beta9MaxRoomFactor()
+                + " maxRoomMs=" + beta9MaxRoomIntervalNs() / 1_000_000L
+                + " occlusionRayReuse=" + beta10RayCacheEnabled()
+                + " roomRayReuse=" + beta11RoomRayMemoEnabled()
                 + " perfReportMs=" + performanceReportNs() / 1_000_000L;
     }
 }

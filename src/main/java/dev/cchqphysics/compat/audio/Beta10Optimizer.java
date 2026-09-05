@@ -18,7 +18,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-/** Hotfix3 exact direct-ray reuse and bit-identical OpenAL write suppression layer. */
+/** Exact direct-ray reuse and bit-identical OpenAL write suppression layer. */
 public final class Beta10Optimizer {
     private static final int RAY_CACHE_SIZE = 2048;
     private static final int RAY_CACHE_MASK = 2047;
@@ -82,7 +82,7 @@ public final class Beta10Optimizer {
     private static Field stampTickField;
     private static Field stampConfigField;
 
-    /* Retained because these fields are present in Hotfix3; normal source can reset Beta9 directly. */
+    /* Reflection handles for resetting the adaptive controller without changing its public surface. */
     @SuppressWarnings("unused") private static boolean resetReflectionReady;
     @SuppressWarnings("unused") private static Field beta9AdaptiveField, beta9ReportMinField, beta9ReportMaxField;
     @SuppressWarnings("unused") private static Field beta9PressureField, beta9HealthyField;
@@ -244,7 +244,7 @@ public final class Beta10Optimizer {
             scopeClone = info.cloneIdentity;
             scopeCloneTick = info.cloneTick;
             scopeConfig = info.configFingerprint;
-            DebugDiagnostics.cache("beta10 ray scope reset cloneTick={} config={}", info.cloneTick, info.configFingerprint);
+            DebugDiagnostics.cache("occlusion-ray scope reset cloneTick={} config={}", info.cloneTick, info.configFingerprint);
         }
     }
 
@@ -503,7 +503,7 @@ public final class Beta10Optimizer {
         long total = rayHits + rayMisses;
         double hitRate = total == 0L ? 0.0D : rayHits * 100.0D / total;
         String report = String.format(Locale.ROOT,
-                "[CC:HQ Sound Physics Compat] beta11 direct-ray window=%.1fs active=%d eligible=%d maxActive=%d rayHit=%d (%.1f/s) rayMiss=%d (%.1f/s) hitRate=%.1f%% actualRay=%.1fms/s direct=%d/%d spr=%d/%d directToSpr=%d filterWrite=%d filterSkip=%d sourceWrite=%d sourceSkip=%d idleResets=%d",
+                "[CC:HQ Sound Physics Compat] direct-ray cache window=%.1fs active=%d eligible=%d maxActive=%d rayHit=%d (%.1f/s) rayMiss=%d (%.1f/s) hitRate=%.1f%% actualRay=%.1fms/s direct=%d/%d spr=%d/%d directToSpr=%d filterWrite=%d filterSkip=%d sourceWrite=%d sourceSkip=%d idleResets=%d",
                 seconds, activeSources.size(), Math.max(0, activeSources.size() - inaudibleSources.size()), maxActiveSources,
                 rayHits, rayHits / seconds, rayMisses, rayMisses / seconds, hitRate,
                 (rayActualNs / 1_000_000.0D) / seconds, directRayHits, directRayMisses, sprRayHits, sprRayMisses,
@@ -541,7 +541,7 @@ public final class Beta10Optimizer {
     static synchronized String debugSummary() {
         int used = 0;
         for (boolean value : rayUsed) if (value) used++;
-        return "beta10Active=" + activeSources.size() + " inaudible=" + inaudibleSources.size()
+        return "directRayActive=" + activeSources.size() + " inaudible=" + inaudibleSources.size()
                 + " rayEntries=" + used + " rayHit=" + rayHits + " rayMiss=" + rayMisses
                 + " filterSkip=" + filterSkips + " sourceSkip=" + sourceSkips;
     }

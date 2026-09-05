@@ -16,14 +16,13 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Experimental V7.1 spreading-only opening diffraction model.
+ * Opening-aware vertical sound model.
  *
- * Unlike V3-V5, an alternate opening route never replaces the normal direct
- * occlusion result. A verified aperture contributes a bounded secondary energy
- * path. Path-length difference controls a low/high diffraction loss while the
- * two SPR legs retain their own obstruction loss. The contributions are energy
- * combined without adding playback sources, phase offsets, timing changes, or
- * position changes.
+ * A verified opening contributes a bounded secondary acoustic path while the
+ * normal direct occlusion result remains authoritative. Indirect route length
+ * and obstruction determine how much low/high-frequency energy carries through
+ * the opening. No extra playback source, phase offset, timing change or source
+ * position change is introduced.
  */
 final class VerticalDiffractionRelief {
     private static final Map<Integer, PhysicalPosition> POSITIONS = new HashMap<>();
@@ -198,7 +197,7 @@ final class VerticalDiffractionRelief {
                 .orElse(verified.get(0));
         Snapshot snapshot = Snapshot.gated(raw, center, vertical, horizontal,
                 adjustedGain > gain + 1.0E-4F || adjustedCutoff > cutoff + 1.0E-4F
-                        ? "applied-portal-energy-v7-1" : "portal-energy-negligible");
+                        ? "applied-opening-energy" : "opening-energy-negligible");
         snapshot.applied = adjustedGain > gain + 1.0E-4F || adjustedCutoff > cutoff + 1.0E-4F;
         snapshot.directDistance = best.candidate.directDistance;
         snapshot.routeDistance = best.candidate.routeDistance;
@@ -501,12 +500,12 @@ final class VerticalDiffractionRelief {
 
     static synchronized void debugDump() {
         if (LAST.isEmpty()) {
-            SoundPhysicsBridge.beta9Log("[phase5/diffraction] no snapshots " + DiffractionConfig.summary());
+            SoundPhysicsBridge.beta9Log("[dump/openings] no snapshots " + DiffractionConfig.summary());
             return;
         }
         for (Map.Entry<Integer, Snapshot> entry : LAST.entrySet()) {
             Snapshot s = entry.getValue();
-            SoundPhysicsBridge.beta9Log("[phase5/diffraction] source=" + entry.getKey()
+            SoundPhysicsBridge.beta9Log("[dump/openings] source=" + entry.getKey()
                     + " reason=" + s.reason
                     + " applied=" + s.applied
                     + " raw=" + r3(s.raw)

@@ -283,7 +283,7 @@ public final class ProgressiveOcclusionModel {
                         && (Double.isNaN(state.lastLoggedRaw)
                         || Math.abs(raw - state.lastLoggedRaw) >= 0.20D
                         || now - state.lastLogNs > 2_000_000_000L)) {
-                    LOGGER.debug("beta9 progressive source={} center={} ringScale={} raw={} cutoffOcc={} gainOcc={} cutoff={} gain={} moved={} paths={} full={} weights=center:{},inner:{},outer:{}",
+                    LOGGER.debug("progressive occlusion source={} center={} ringScale={} raw={} cutoffOcc={} gainOcc={} cutoff={} gain={} moved={} paths={} full={} weights=center:{},inner:{},outer:{}",
                             sourceId, round3(center), round3(ringScale), round3(raw), round3(cutoffOcclusion),
                             round3(gainOcclusion), round3(cutoff), round3(gain), moved, paths, fullRefresh,
                             centerWeight, innerWeight, outerWeight);
@@ -296,7 +296,7 @@ public final class ProgressiveOcclusionModel {
             synchronized (ProgressiveOcclusionModel.class) {
                 if (!state.failureLogged) {
                     state.failureLogged = true;
-                    LOGGER.warn("beta9 progressive occlusion disabled for source {} after safe fallback", sourceId, throwable);
+                    LOGGER.warn("progressive occlusion disabled for source {} after safe fallback", sourceId, throwable);
                 }
             }
             return pair(directCutoff, directGain);

@@ -64,10 +64,9 @@ configurations {
     localRuntime
     runtimeClasspath.extendsFrom localRuntime
 
-    // The tested Hotfix3 directly invokes SPR members which are private in the
-    // published SPR JAR and are widened by this mod's access transformer. Keep
-    // the untouched SPR artifact for runtime, but preprocess an isolated copy
-    // for javac so source compilation sees the same accessibility contract.
+    // The compat invokes SPR members widened by this mod's access transformer.
+    // Keep the upstream SPR artifact untouched at runtime, while javac uses an
+    // isolated access-transformed copy with the required accessibility contract.
     sprCompileInput {
         canBeConsumed = false
         canBeResolved = true
@@ -87,7 +86,7 @@ def ccTweakedApiDependency = "cc.tweaked:cc-tweaked-${minecraft_version}-common-
 def sprCompileJar = layout.buildDirectory.file('reconstruction/compile/sound-physics-remastered-at.jar')
 
 dependencies {
-    // Exact SPR release used by the tested Beta11 Hotfix3 environment.
+    // Pinned SPR release used by the supported runtime environment.
     // Runtime remains the untouched upstream JAR; javac receives only the
     // access-transformed compile copy produced by prepareSprCompileJar.
     sprCompileInput sprDependency
@@ -116,7 +115,7 @@ dependencies {
 
 tasks.register('prepareSprCompileJar', Exec) {
     group = 'build setup'
-    description = 'Apply the Hotfix3 access transformer to an isolated SPR copy used only by javac.'
+    description = 'Apply the compat access transformer to an isolated SPR copy used only by javac.'
 
     inputs.files(configurations.sprCompileInput)
     inputs.file('src/main/resources/META-INF/accesstransformer.cfg')
@@ -159,9 +158,9 @@ tasks.named('jar') {
 
 tasks.register('verifyReconstructionClasspath') {
     group = 'verification'
-    description = 'Resolve and print the reconstruction compile classpath without compiling incomplete Phase 3 sources.'
+    description = 'Resolve and print the release compile classpath and verify the transformed SPR dependency.'
     dependsOn tasks.named('prepareSprCompileJar')
-    notCompatibleWithConfigurationCache('This audit task intentionally resolves and enumerates the live dependency graph.')
+    notCompatibleWithConfigurationCache('This verification task intentionally resolves and enumerates the live dependency graph.')
 
     doLast {
         def resolved = configurations.compileClasspath.resolve().toList().sort { a, b -> a.name <=> b.name }
@@ -188,9 +187,9 @@ tasks.register('verifyReconstructionClasspath') {
 
 tasks.register('verifyResourceWiring') {
     group = 'verification'
-    description = 'Exercise Gradle resource processing and verify NeoForge mixin/access-transformer registration.'
+    description = 'Verify processed NeoForge resources, mixin registration and access-transformer wiring.'
     dependsOn tasks.named('processResources')
-    notCompatibleWithConfigurationCache('This reconstruction audit intentionally inspects processed files and source topology.')
+    notCompatibleWithConfigurationCache('This verification task intentionally inspects processed files and source topology.')
 
     doLast {
         def outputRoot = layout.buildDirectory.dir('resources/main').get().asFile
@@ -234,7 +233,7 @@ tasks.register('verifyResourceWiring') {
 
         println "Resource wiring verified: ${requiredResources.size()} processed resources, ${mixinConfig.client.size()} client mixins, access transformer registered."
         if (!missingSourceMixins.isEmpty()) {
-            println "Phase 3 source boundary: ${missingSourceMixins.size()} configured mixin source files are not reconstructed yet: ${missingSourceMixins.join(', ')}"
+            println "Source wiring warning: ${missingSourceMixins.size()} configured mixin source files are missing: ${missingSourceMixins.join(', ')}"
         }
     }
 }

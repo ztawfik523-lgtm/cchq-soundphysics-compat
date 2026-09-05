@@ -57,7 +57,7 @@ public final class AcousticCapture {
         boolean matches = registration.sourceUuid.equals(sourceUuid);
         if (!matches && !identityMismatchLogged) {
             identityMismatchLogged = true;
-            LOGGER.warn("beta9 capture identity mismatch for OpenAL source {}; capture disabled for safety", sourceId);
+            LOGGER.warn("acoustic capture identity mismatch for OpenAL source {}; capture disabled for safety", sourceId);
         }
         return matches;
     }
@@ -78,7 +78,7 @@ public final class AcousticCapture {
         if (!context.matches(sourceId, sourceUuid) || !generationStillCurrent(context)) {
             if (!stackMismatchLogged) {
                 stackMismatchLogged = true;
-                LOGGER.warn("beta9 capture stack mismatch; dropping captured acoustic state safely");
+                LOGGER.warn("acoustic capture stack mismatch; dropping captured state safely");
             }
             CAPTURE_STACK.removeIf(c -> c.matches(sourceId, sourceUuid));
             return null;
@@ -150,7 +150,7 @@ public final class AcousticCapture {
         if (ownerThread == current) return true;
         if (!wrongThreadLogged) {
             wrongThreadLogged = true;
-            LOGGER.warn("beta9 acoustic capture was reached from a non-owner thread; falling back instead of capturing");
+            LOGGER.warn("acoustic capture was reached from a non-owner thread; falling back instead of capturing");
         }
         return false;
     }

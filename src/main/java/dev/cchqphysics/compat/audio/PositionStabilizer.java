@@ -102,7 +102,7 @@ final class PositionStabilizer {
                             + (state.z - sourceZ) * (state.z - sourceZ));
             if (now - state.lastLogNs > 2_000_000_000L
                     && (offset > 0.15D || occlusion >= ClientConfig.reflectionThreshold())) {
-                LOGGER.debug("beta2 position source={} occlusion={} reflected={} offset={}",
+                LOGGER.debug("position source={} occlusion={} reflected={} offset={}",
                         sourceId, round2(occlusion), redirect, round2(offset));
                 state.lastLogNs = now;
             }

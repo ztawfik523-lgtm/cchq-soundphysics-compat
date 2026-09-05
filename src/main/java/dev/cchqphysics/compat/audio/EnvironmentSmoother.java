@@ -104,7 +104,7 @@ public final class EnvironmentSmoother {
                         : approachLog(state.gain, targetGain, ClientConfig.clearGainAlpha());
             }
             if (Math.abs(targetCutoff - state.lastLoggedTargetCutoff) >= 0.15F || now - state.lastLogNs > 2_000_000_000L) {
-                LOGGER.debug("beta1 env source={} nativeCutoff={} targetCutoff={} appliedCutoff={} nativeGain={} targetGain={} appliedGain={} isolated={}",
+                LOGGER.debug("environment source={} nativeCutoff={} targetCutoff={} appliedCutoff={} nativeGain={} targetGain={} appliedGain={} isolated={}",
                         sourceId, round3(directCutoff), round3(targetCutoff), round3(state.cutoff),
                         round3(directGain), round3(targetGain), round3(state.gain), state.privateEfxReady);
                 state.lastLoggedTargetCutoff = targetCutoff;
@@ -140,7 +140,7 @@ public final class EnvironmentSmoother {
     static synchronized void debugDumpEfx() {
         for (Map.Entry<Integer, State> entry : STATES.entrySet()) {
             State state = entry.getValue();
-            SoundPhysicsBridge.beta9Log("[phase5/source-efx] source=" + entry.getKey()
+            SoundPhysicsBridge.beta9Log("[dump/source-filter] source=" + entry.getKey()
                     + " initialized=" + state.initialized
                     + " ready=" + state.privateEfxReady
                     + " failed=" + state.privateEfxFailed
@@ -176,7 +176,7 @@ public final class EnvironmentSmoother {
             if (error != AL_NO_ERROR) throw new IllegalStateException("OpenAL error creating isolated EFX: " + error);
             state.privateEfxReady = true;
             DebugDiagnostics.efx("source={} created private EFX directFilter={} maxAux={}", sourceId, state.directFilter, state.maxAuxSends);
-            LOGGER.debug("beta1 isolated EFX source={} directFilter={} sends={}/{}/{}/{} maxAux={}",
+            LOGGER.debug("isolated filter source={} directFilter={} sends={}/{}/{}/{} maxAux={}",
                     sourceId, state.directFilter, state.sendFilters[0], state.sendFilters[1], state.sendFilters[2], state.sendFilters[3], state.maxAuxSends);
             return true;
         } catch (Throwable t) {
@@ -219,7 +219,7 @@ public final class EnvironmentSmoother {
         synchronized (EnvironmentSmoother.class) {
             if (!state.failureLogged) {
                 state.failureLogged = true;
-                LOGGER.warn("beta1 isolated EFX failed for source {}; falling back to native SPR", sourceId, throwable);
+                LOGGER.warn("isolated filter setup failed for source {}; falling back to native SPR", sourceId, throwable);
             }
             state.privateEfxFailed = true;
             DebugDiagnostics.efx("source={} private EFX failed; native fallback reason={}", sourceId, throwable.toString());
