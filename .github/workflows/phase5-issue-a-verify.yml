@@ -95,8 +95,8 @@ jobs:
           grep -F 'SOURCE_OVERRIDES' src/main/java/dev/cchqphysics/compat/audio/ReflectionDiagnostics.java
           grep -F 'ReflectionDiagnostics.redirectEnabled(sourceId)' src/main/java/dev/cchqphysics/compat/audio/PositionStabilizer.java
           grep -F 'ReflectionDiagnostics.clearSourceOverride(sourceId)' src/main/java/dev/cchqphysics/compat/audio/PositionStabilizer.java
-          grep -F 'setSourceOverride(sourceId, false)' src/main/java/dev/cchqphysics/compat/audio/DebugCommands.java
-          grep -F 'setSourceOverride(sourceId, null)' src/main/java/dev/cchqphysics/compat/audio/DebugCommands.java
+          grep -F 'setSourceOverride(id, false)' src/main/java/dev/cchqphysics/compat/audio/DebugCommands.java
+          grep -F 'setSourceOverride(id, null)' src/main/java/dev/cchqphysics/compat/audio/DebugCommands.java
           grep -F 'reflection_redirect source' docs/PHASE5_ISSUE_A_REFLECTION_DIAGNOSTICS.md
           ! grep -F 'java.lang.reflect' src/main/java/dev/cchqphysics/compat/audio/IssueADiagnostics.java
           ! grep -F 'getDeclaredField' src/main/java/dev/cchqphysics/compat/audio/IssueADiagnostics.java
