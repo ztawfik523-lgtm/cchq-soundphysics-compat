@@ -166,6 +166,12 @@ final class PositionStabilizer {
         applyCurrent(sourceId, state);
     }
 
+    static synchronized void debugDumpAll() {
+        for (Integer sourceId : STATES.keySet()) {
+            SoundPhysicsBridge.beta9Log("[phase5/issue-a/position] " + debugSnapshot(sourceId));
+        }
+    }
+
     static synchronized String debugSnapshot(int sourceId) {
         State state = STATES.get(sourceId);
         if (state == null || !state.initialized) return "positionState=missing " + ReflectionDiagnostics.sourceStatus(sourceId);
