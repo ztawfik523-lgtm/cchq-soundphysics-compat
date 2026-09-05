@@ -214,6 +214,8 @@ public final class CompatAudioManager {
             ref.refs++;
 
             sourceId = AL10.alGenSources();
+            checkAl("allocate source");
+            if (sourceId == 0) throw new IllegalStateException("allocate source returned OpenAL source 0");
             EnvironmentSmoother.register(sourceId);
             AL10.alSourcei(sourceId, AL10.AL_BUFFER, ref.bufferId);
             AL10.alSourcei(sourceId, AL10.AL_SOURCE_RELATIVE, AL10.AL_FALSE);
@@ -306,15 +308,20 @@ public final class CompatAudioManager {
     }
 
     private static void destroyActive(ActiveSource active) {
-        EnvironmentSmoother.unregister(active.sourceId);
-        try {
-            AL10.alSourceStop(active.sourceId);
-            AL10.alSourcei(active.sourceId, AL10.AL_BUFFER, 0);
-            AL10.alDeleteSources(active.sourceId);
-        } finally {
-            BufferRef ref = BUFFERS.get(active.key);
-            if (ref != null) releaseBuffer(active.key, ref);
+        try { EnvironmentSmoother.unregister(active.sourceId); } catch (Throwable t) {
+            logOnce("source-unregister", "Error while unregistering compatibility source " + active.sourceId + ": " + t);
         }
+        try { AL10.alSourceStop(active.sourceId); } catch (Throwable t) {
+            logOnce("source-cleanup", "Error while stopping compatibility OpenAL source " + active.sourceId + ": " + t);
+        }
+        try { AL10.alSourcei(active.sourceId, AL10.AL_BUFFER, 0); } catch (Throwable t) {
+            logOnce("source-cleanup", "Error while detaching compatibility OpenAL source " + active.sourceId + ": " + t);
+        }
+        try { AL10.alDeleteSources(active.sourceId); } catch (Throwable t) {
+            logOnce("source-cleanup", "Error while deleting compatibility OpenAL source " + active.sourceId + ": " + t);
+        }
+        BufferRef ref = BUFFERS.get(active.key);
+        if (ref != null) releaseBuffer(active.key, ref);
     }
 
     private static void releaseBuffer(DecodeKey key, BufferRef ref) {
