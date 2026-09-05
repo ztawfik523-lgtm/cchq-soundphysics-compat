@@ -1,0 +1,78 @@
+name: Phase 5 V4 one-shot shared topology wiring
+
+on:
+  push:
+    branches:
+      - phase5-opening-diffraction-test-v4
+    paths:
+      - '.github/workflows/phase5-v4-wire-shared-topology.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: phase5-opening-diffraction-test-v4
+          fetch-depth: 0
+
+      - name: Share cheap listener topology across speaker heights
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java')
+          s = p.read_text()
+          replacements = [
+              (
+                  '    private static final int OPENING_MAX_CONFIG_RADIUS = 8;\n',
+                  '    private static final int OPENING_MAX_CONFIG_RADIUS = 8;\n    private static final int OPENING_VERTICAL_SCAN_BLOCKS = 8;\n'
+              ),
+              (
+                  '        OpeningTopology topology = getOpeningTopology(listener, source);',
+                  '        OpeningTopology topology = getOpeningTopology(listener);'
+              ),
+              (
+                  '        if (topology.candidates.length == 0) {',
+                  '        if (source.y <= topology.barrierY + 0.5D) {\n            return new OpeningProbe("nearby-opening-barrier-not-between", Double.NaN,\n                    Double.NaN, Double.NaN, Double.NaN, topology.barrierY + DiffractionConfig.escapeClearance(),\n                    topology.blockChecks, 0, topology.cached);\n        }\n        if (topology.candidates.length == 0) {'
+              ),
+              (
+                  '    private static OpeningTopology getOpeningTopology(Vec3 listener, Vec3 source) {',
+                  '    private static OpeningTopology getOpeningTopology(Vec3 listener) {'
+              ),
+              (
+                  '        int scanTopY = Math.max(startY, floor(source.y - 0.51D));',
+                  '        int scanTopY = baseY + OPENING_VERTICAL_SCAN_BLOCKS;'
+              ),
+          ]
+          for old, new in replacements:
+              count = s.count(old)
+              if count != 1:
+                  raise SystemExit(f'expected exactly one match, got {count}: {old!r}')
+              s = s.replace(old, new, 1)
+          p.write_text(s)
+
+      - name: Assert shared topology wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          f=src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java
+          grep -F 'OPENING_VERTICAL_SCAN_BLOCKS = 8' "$f"
+          grep -F 'getOpeningTopology(listener)' "$f"
+          grep -F 'nearby-opening-barrier-not-between' "$f"
+          grep -F 'int scanTopY = baseY + OPENING_VERTICAL_SCAN_BLOCKS;' "$f"
+          ! grep -F 'getOpeningTopology(Vec3 listener, Vec3 source)' "$f"
+
+      - name: Remove one-shot workflow and commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/phase5-v4-wire-shared-topology.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'Phase 5: share nearby-opening topology across sources [skip ci]'
+          git push origin HEAD:phase5-opening-diffraction-test-v4
