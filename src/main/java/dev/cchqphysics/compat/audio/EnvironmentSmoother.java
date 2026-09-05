@@ -162,6 +162,30 @@ public final class EnvironmentSmoother {
         return STATES.keySet().stream().mapToInt(Integer::intValue).sorted().toArray();
     }
 
+    static synchronized int debugDarkestSourceId() {
+        int darkestId = -1;
+        float darkestCutoff = Float.POSITIVE_INFINITY;
+        for (Map.Entry<Integer, State> entry : STATES.entrySet()) {
+            State state = entry.getValue();
+            if (!state.initialized || !state.privateEfxReady || state.privateEfxFailed) continue;
+            if (state.cutoff < darkestCutoff) {
+                darkestCutoff = state.cutoff;
+                darkestId = entry.getKey();
+            }
+        }
+        return darkestId;
+    }
+
+    static synchronized String debugDarkestSourceSummary() {
+        int sourceId = debugDarkestSourceId();
+        if (sourceId < 0) return "darkestSource=none";
+        State state = STATES.get(sourceId);
+        return "darkestSource=" + sourceId
+                + " cutoff=" + round3(state.cutoff)
+                + " gain=" + round3(state.gain)
+                + " probe=" + AcousticMixProbe.modeFor(sourceId).wireName();
+    }
+
     static synchronized String debugSummary() {
         int initialized = 0;
         int ready = 0;
