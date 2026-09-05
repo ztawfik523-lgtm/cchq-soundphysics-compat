@@ -18,7 +18,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - name: Correct patcher telemetry marker
+      - name: Correct patcher telemetry markers
         shell: bash
         run: |
           python3 - <<'PY'
@@ -26,8 +26,12 @@ jobs:
           p = Path('tools/phase5_v7_1_spreading_only_patch.py')
           s = p.read_text()
           if 'progressivePasses' not in s:
-              raise SystemExit('expected old patcher marker missing')
-          p.write_text(s.replace('progressivePasses', 'progressiveEvals'))
+              raise SystemExit('expected progressive marker missing')
+          if 'efxApplies = 0L;' not in s:
+              raise SystemExit('expected reset marker missing')
+          s = s.replace('progressivePasses', 'progressiveEvals')
+          s = s.replace('efxApplies = 0L;', 'efxApplies = efxReattachPasses = 0L;')
+          p.write_text(s)
           PY
       - name: Apply asserted V7.1 source patch
         run: python3 tools/phase5_v7_1_spreading_only_patch.py
@@ -35,7 +39,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          base='f72c106cd94108a418cb6d64cdeb4eb09a68de58'
           probe=src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java
           grep -F 'double rawRatio =' "$probe"
           grep -F 'Math.pow(clampFilter(gain), rawRatio)' "$probe"
