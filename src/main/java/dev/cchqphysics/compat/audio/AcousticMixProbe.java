@@ -35,6 +35,13 @@ final class AcousticMixProbe {
         SoundPhysicsBridge.beta9Log("[phase5/acoustic-probe] source=" + sourceId + " mode=" + mode.wireName());
     }
 
+    static synchronized void clearAll() {
+        if (!MODES.isEmpty()) {
+            SoundPhysicsBridge.beta9Log("[phase5/acoustic-probe] cleared all overrides count=" + MODES.size());
+            MODES.clear();
+        }
+    }
+
     static synchronized Mode modeFor(int sourceId) {
         return MODES.getOrDefault(sourceId, Mode.AUTO);
     }
