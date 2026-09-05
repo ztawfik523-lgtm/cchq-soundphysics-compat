@@ -4,7 +4,9 @@
 >
 > 1. `docs/NEXT_CHAT_HANDOFF_2026-09-06.md` — detailed project/history handoff
 > 2. `docs/LIFECYCLE_SOURCE_AUDIT_2026-09-06.md` — superseding lifecycle source/JAR checkpoint
-> 3. `docs/RELEASE_CLEANUP_AUDIT_2026-09-06.md` — release-cleanup inventory and decisions
+> 3. `docs/RELEASE_CLEANUP_AUDIT_2026-09-06.md` — release-cleanup inventory
+> 4. `docs/RELEASE_POLICY_LOCK_2026-09-06.md` — locked final-release decisions and mandatory Gate-2 smoke test
+> 5. `docs/FINAL_RELEASE_EXECUTION_PLAN_2026-09-06.md` — exact post-lifecycle release patch/CI plan
 >
 > This file is the compact status view.
 
@@ -16,7 +18,7 @@ Current working branch:
 
 `phase5-v7-1-lifecycle-state-finish`
 
-Current project direction: reconstruction is complete and the project is in finalization. The stable acoustic reference is **V7.1**; current work is lifecycle runtime validation followed by release cleanup/final packaging.
+Current project direction: reconstruction is complete and the project is in finalization. The stable acoustic reference is **V7.1**; current work is lifecycle runtime validation followed by the already-planned final release transformation, final CI and a short release smoke test.
 
 ---
 
@@ -186,13 +188,13 @@ Documentation-only commits advance the branch beyond that SHA. Relative to the p
 
 Lifecycle/state fixes now cover:
 
-1. **ClientLevel identity:** disconnect/rejoin and dimension/world replacement invalidate previous compat session state.
-2. **Teardown ordering:** normal stop-all and emergency shutdown use blocking sound-thread cleanup before vanilla sound/OpenAL destruction continues.
-3. **Failed-start cleanup:** partially registered sources are unregistered before raw OpenAL deletion.
-4. **OpenAL source-zero guard:** source allocation is error-checked and source ID `0` is rejected before compat registration.
-5. **Best-effort active teardown:** unregister, stop, detach, delete and buffer release no longer depend on every prior cleanup step succeeding.
-6. **Pending sync pause/resume correctness:** pause/resume queries actual OpenAL state rather than the coordinator's synthetic pending state, so pending synchronized `AL_INITIAL` sources cannot be started individually by resume.
-7. **Vector pause/resume:** eligible compat sources are paused/resumed with OpenAL vector operations.
+1. actual `ClientLevel` identity invalidation across disconnect/rejoin and dimension/world replacement;
+2. blocking sound-thread teardown before normal stop-all/emergency sound-engine destruction continues;
+3. failed-start compat unregister before raw OpenAL deletion;
+4. source allocation error/source-ID-0 guard before compat registration;
+5. best-effort unregister/stop/detach/delete/buffer cleanup;
+6. actual-state pause/resume so pending synchronized `AL_INITIAL` sources cannot be started individually by resume;
+7. vector pause/resume for eligible compat sources.
 
 Source-audit commits:
 
@@ -223,20 +225,45 @@ CI proved the named frozen acoustic/config files unchanged from the performance 
 
 ---
 
-## Release-cleanup audit started
+## Locked final-release policy
 
-Release cleanup is being inventoried before the runtime gate, but production naming/default/schema changes have **not** been applied yet.
+Release decisions are now resolved in `docs/RELEASE_POLICY_LOCK_2026-09-06.md`.
 
-The main open release decisions are documented in `docs/RELEASE_CLEANUP_AUDIT_2026-09-06.md`:
+After the audited lifecycle candidate passes runtime:
 
-- one final version identity versus the current three inconsistent development strings;
-- manual version alignment versus centralizing version metadata;
-- whether accepted V7.1 diffraction remains OFF by default or ships ON by default;
-- whether to preserve the legacy diffraction config filename/root or implement migration to clean final names;
-- how aggressively to clean Beta/Phase implementation names from user-facing UI/diagnostics;
-- removing or dynamically generating the stale static `Created-By: 21.0.11 (Debian)` manifest line.
+- final private-mod version will be `0.1.0`;
+- version identity will be centralized from `mod_version` so artifact/NeoForge/runtime reporting agree;
+- accepted V7.1 diffraction will ship **ON by default**;
+- the old test diffraction config will receive **no migration**;
+- final diffraction config filename will be `cchq_soundphysics_compat-diffraction.toml`;
+- final diffraction schema/root will be `portal_diffraction`;
+- old `cchq_soundphysics_compat-diffraction-v7-1-spreading-only-test.toml` / `portal_diffraction_v7_1_spreading_only_test` are intentionally ignored;
+- user-facing Beta/Phase/test/candidate terminology will be cleaned while persisted internal keys/log continuity remain where useful;
+- the stale static manifest `Created-By: 21.0.11 (Debian)` line will be removed;
+- HF50 values, V7.1 equations/parameters, lifecycle fixes and the deliberate eligibility bitwise `&` remain frozen.
 
-Historical phase docs/workflows are provenance and should not be mass-rewritten merely for cosmetic cleanup.
+The exact file-by-file implementation/CI checklist is already prepared in `docs/FINAL_RELEASE_EXECUTION_PLAN_2026-09-06.md`.
+
+---
+
+## Two runtime gates — do not collapse them
+
+### Gate 1 — lifecycle candidate
+
+The current candidate `4b3c8c52...` must first pass the full lifecycle runtime sequence.
+
+### Gate 2 — final release smoke test
+
+After Gate 1 passes, final release changes are applied and rebuilt. The resulting final JAR must then receive a **short targeted smoke test** before release freeze.
+
+This second test is mandatory because the final build deliberately changes fresh-install behavior by:
+
+- enabling V7.1 diffraction by default; and
+- switching to a new diffraction config filename/root with no migration from the old beta config.
+
+A successful Gate-1 lifecycle run does **not** validate those final config/default changes.
+
+Gate 2 is intentionally short: verify new config generation/default ON, old beta config ignored, basic play-stop-play, one known V7.1 opening sanity check, synchronized playback plus pause/resume, and inspect logs. Do not redo the historical full acoustic campaign unless that smoke test exposes a regression.
 
 ---
 
@@ -267,7 +294,7 @@ Candidate SHA-256:
 
 `4b3c8c52cc00a37274d5829cff93933d6e548b733b83918fcc5570ab8d6ad3c5`
 
-Runtime sequence:
+Gate-1 runtime sequence:
 
 1. play -> stop -> play
 2. pause -> resume
@@ -278,6 +305,6 @@ Runtime sequence:
 7. four speakers playing for several minutes while moving
 8. upload `latest.log` and `debug.log`
 
-After that run is clean, resolve the release decisions, apply release presentation/default/migration changes, rebuild, perform final source/JAR/resource/hash validation and create the final stable/archive checkpoint.
+After a clean Gate-1 result, execute `docs/FINAL_RELEASE_EXECUTION_PLAN_2026-09-06.md`, run final CI, then perform the mandatory short Gate-2 smoke test before freezing the release.
 
 `main` remains untouched; any eventual merge remains a separate release decision.
