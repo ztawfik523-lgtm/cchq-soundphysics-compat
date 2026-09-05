@@ -13,40 +13,63 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Set up Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
       - name: Resolve pinned development runtime
         run: ./gradlew classes --no-daemon
-      - name: Locate mapped Minecraft jar
+      - name: Locate pinned jars
         shell: bash
         run: |
           set -euo pipefail
-          found=''
+          mc=''
+          hq=''
           while IFS= read -r jar; do
-            if unzip -l "$jar" 2>/dev/null | grep -q 'net/minecraft/client/multiplayer/ClientPacketListener.class'; then
-              if unzip -l "$jar" 2>/dev/null | grep -q 'net/minecraft/client/sounds/SoundEngine.class'; then
-                found="$jar"
-                break
-              fi
+            if [ -z "$mc" ] && unzip -l "$jar" 2>/dev/null | grep -q 'net/minecraft/client/multiplayer/ClientPacketListener.class' \
+               && unzip -l "$jar" 2>/dev/null | grep -q 'net/minecraft/client/sounds/SoundEngine.class'; then
+              mc="$jar"
+            fi
+            if [ -z "$hq" ] && unzip -l "$jar" 2>/dev/null | grep -q 'com/tom/hqspeaker/network/HQSpeakerAudioPacket.class'; then
+              hq="$jar"
             fi
           done < <(find "$HOME/.gradle/caches" -type f -name '*.jar' | sort)
-          test -n "$found"
-          echo "MC_JAR=$found" >> "$GITHUB_ENV"
-          echo "Mapped Minecraft jar: $found"
-      - name: Inspect relevant lifecycle bytecode
+          test -n "$mc"
+          test -n "$hq"
+          echo "MC_JAR=$mc" >> "$GITHUB_ENV"
+          echo "HQ_JAR=$hq" >> "$GITHUB_ENV"
+          echo "Mapped Minecraft jar: $mc"
+          echo "Pinned HQ jar: $hq"
+      - name: Inspect world and sound lifecycle bytecode
         shell: bash
         run: |
           set -euo pipefail
           javap -classpath "$MC_JAR" -c -p net.minecraft.client.multiplayer.ClientPacketListener > clientpacket.txt
           javap -classpath "$MC_JAR" -c -p net.minecraft.client.Minecraft > minecraft.txt
           javap -classpath "$MC_JAR" -c -p net.minecraft.client.sounds.SoundEngine > soundengine.txt
+          javap -classpath "$MC_JAR" -c -p net.minecraft.client.sounds.SoundEngineExecutor > executor.txt
           echo '=== ClientPacketListener.handleRespawn ==='
           awk '/handleRespawn\(/ {p=1} p{print} p && /^  (public|private|protected)/ && !/handleRespawn\(/ {exit}' clientpacket.txt || true
-          echo '=== ClientPacketListener.handleLogin ==='
-          awk '/handleLogin\(/ {p=1} p{print} p && /^  (public|private|protected)/ && !/handleLogin\(/ {exit}' clientpacket.txt || true
-          echo '=== Minecraft update/clear level methods ==='
-          grep -n -A120 -B10 -E 'updateLevelInEngines|clearClientLevel|disconnect\(' minecraft.txt || true
+          echo '=== Minecraft calls to SoundEngine.emergencyShutdown ==='
+          grep -n -A30 -B30 'emergencyShutdown' minecraft.txt || true
+          echo '=== Minecraft setLevel/update/clear level methods ==='
+          grep -n -A140 -B15 -E 'setLevel\(|updateLevelInEngines|clearClientLevel|disconnect\(' minecraft.txt || true
           echo '=== SoundEngine lifecycle methods ==='
-          grep -n -A100 -B5 -E 'void (destroy|emergencyShutdown|reload|stopAll|pause|resume)\(' soundengine.txt || true
+          grep -n -A110 -B5 -E 'void (destroy|emergencyShutdown|reload|stopAll|pause|resume)\(' soundengine.txt || true
+          echo '=== SoundEngineExecutor ==='
+          cat executor.txt
+      - name: Inspect pinned HQ source UUID ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== HQ audio packet ==='
+          javap -classpath "$HQ_JAR" -c -p com.tom.hqspeaker.network.HQSpeakerAudioPacket || true
+          echo '=== HQ classes containing randomUUID or HQSpeakerAudioPacket construction ==='
+          zipinfo -1 "$HQ_JAR" | grep '\.class$' | sed 's#/#.#g;s#\.class$##' > /tmp/hqclasses.txt
+          while IFS= read -r cls; do
+            out=$(javap -classpath "$HQ_JAR" -c -p "$cls" 2>/dev/null || true)
+            if grep -q -E 'UUID.randomUUID|HQSpeakerAudioPacket\."?<init>|HQSpeakerAudioPacket' <<<"$out"; then
+              echo "--- $cls ---"
+              grep -n -A20 -B20 -E 'UUID.randomUUID|HQSpeakerAudioPacket' <<<"$out" || true
+            fi
+          done < /tmp/hqclasses.txt
