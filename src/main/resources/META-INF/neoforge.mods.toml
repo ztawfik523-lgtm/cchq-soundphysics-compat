@@ -4,10 +4,10 @@ license="MIT"
 
 [[mods]]
 modId="cchq_soundphysics_compat"
-version="0.1.0-beta11-phase5-test"
+version="0.1.0-beta11-phase5-mixv2-test"
 displayName="CC:HQ Sound Physics Compat"
 authors="CC:HQ / Sound Physics compatibility"
-description='''Phase 5 real-game validation build based on the verified Beta11 Hotfix3 reconstruction. With all new advanced controls left at their defaults it preserves the Phase 4/Hotfix3 acoustic and scheduling values, while adding targeted diagnostics, safe cache/room/EFX reset commands, and optional advanced scheduler, sentinel, sync, cache, EFX, and Beta9 backoff controls for troubleshooting. Non-default advanced values intentionally depart from Hotfix3 behavior and are for validation/tuning only.'''
+description='''Phase 5 spectral-mix v2 experiment branched from the known-good validated candidate. Defaults preserve the previously validated behavior. The optional synchronized spectral-mud compensation changes only the direct low-pass cutoff target of heavily occluded synchronized copies when a clear peer exists; it never changes OpenAL source gain, position, or reverb-send filters. Advanced/debug controls remain available for validation.'''
 
 [[mixins]]
 config="cchq_soundphysics_compat.mixins.json"
