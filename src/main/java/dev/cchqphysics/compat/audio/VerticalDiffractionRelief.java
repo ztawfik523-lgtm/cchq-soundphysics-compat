@@ -34,6 +34,7 @@ final class VerticalDiffractionRelief {
     private static final int OPENING_VERIFY_CANDIDATES = 2;
     private static final int OPENING_TOPOLOGY_CANDIDATE_LIMIT = 8;
     private static final int OPENING_MAX_CONFIG_RADIUS = 8;
+    private static final int OPENING_VERTICAL_SCAN_BLOCKS = 8;
     private static final double SOURCE_RECHECK_DISTANCE_SQ = 0.01D;
     private static final Offset[] OPENING_OFFSETS = buildOffsets(OPENING_MAX_CONFIG_RADIUS);
 
@@ -247,7 +248,7 @@ final class VerticalDiffractionRelief {
     }
 
     private static OpeningProbe probeNearbyOpening(int sourceId, Vec3 listener, Vec3 source) {
-        OpeningTopology topology = getOpeningTopology(listener, source);
+        OpeningTopology topology = getOpeningTopology(listener);
         if (topology == null) {
             return new OpeningProbe("nearby-opening-no-level-proxy", Double.NaN,
                     Double.NaN, Double.NaN, Double.NaN, Double.NaN,
@@ -256,6 +257,11 @@ final class VerticalDiffractionRelief {
         if (topology.barrierY == Integer.MIN_VALUE) {
             return new OpeningProbe("nearby-opening-no-ceiling-barrier", Double.NaN,
                     Double.NaN, Double.NaN, Double.NaN, Double.NaN,
+                    topology.blockChecks, 0, topology.cached);
+        }
+        if (source.y <= topology.barrierY + 0.5D) {
+            return new OpeningProbe("nearby-opening-barrier-not-between", Double.NaN,
+                    Double.NaN, Double.NaN, Double.NaN, topology.barrierY + DiffractionConfig.escapeClearance(),
                     topology.blockChecks, 0, topology.cached);
         }
         if (topology.candidates.length == 0) {
@@ -322,13 +328,13 @@ final class VerticalDiffractionRelief {
         return best;
     }
 
-    private static OpeningTopology getOpeningTopology(Vec3 listener, Vec3 source) {
+    private static OpeningTopology getOpeningTopology(Vec3 listener) {
         long now = System.nanoTime();
         int baseX = floor(listener.x);
         int baseY = floor(listener.y);
         int baseZ = floor(listener.z);
         int startY = baseY + 1;
-        int scanTopY = Math.max(startY, floor(source.y - 0.51D));
+        int scanTopY = baseY + OPENING_VERTICAL_SCAN_BLOCKS;
 
         synchronized (VerticalDiffractionRelief.class) {
             OpeningTopology cached = topologyCache;
