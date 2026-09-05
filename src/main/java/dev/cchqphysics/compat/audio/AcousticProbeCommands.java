@@ -31,6 +31,12 @@ public final class AcousticProbeCommands {
 
         root.then(Commands.literal("sends_off")
                 .executes(context -> setDarkestMode(context, AcousticMixProbe.Mode.SENDS_OFF)));
+        root.then(Commands.literal("hf_lift_25")
+                .executes(context -> setDarkestMode(context, AcousticMixProbe.Mode.HF_LIFT_25)));
+        root.then(Commands.literal("hf_lift_50")
+                .executes(context -> setDarkestMode(context, AcousticMixProbe.Mode.HF_LIFT_50)));
+        root.then(Commands.literal("hf_lift_75")
+                .executes(context -> setDarkestMode(context, AcousticMixProbe.Mode.HF_LIFT_75)));
         root.then(Commands.literal("direct_hf_bypass")
                 .executes(context -> setDarkestMode(context, AcousticMixProbe.Mode.DIRECT_HF_BYPASS)));
         root.then(Commands.literal("auto")
@@ -47,6 +53,12 @@ public final class AcousticProbeCommands {
 
         sourceId.then(Commands.literal("sends_off")
                 .executes(context -> setMode(context, AcousticMixProbe.Mode.SENDS_OFF)));
+        sourceId.then(Commands.literal("hf_lift_25")
+                .executes(context -> setMode(context, AcousticMixProbe.Mode.HF_LIFT_25)));
+        sourceId.then(Commands.literal("hf_lift_50")
+                .executes(context -> setMode(context, AcousticMixProbe.Mode.HF_LIFT_50)));
+        sourceId.then(Commands.literal("hf_lift_75")
+                .executes(context -> setMode(context, AcousticMixProbe.Mode.HF_LIFT_75)));
         sourceId.then(Commands.literal("direct_hf_bypass")
                 .executes(context -> setMode(context, AcousticMixProbe.Mode.DIRECT_HF_BYPASS)));
         sourceId.then(Commands.literal("auto")
