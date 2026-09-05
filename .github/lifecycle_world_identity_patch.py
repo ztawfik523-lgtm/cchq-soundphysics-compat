@@ -1,3 +1,4 @@
+# trigger: apply world identity lifecycle fix
 from pathlib import Path
 
 path = Path('src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java')
