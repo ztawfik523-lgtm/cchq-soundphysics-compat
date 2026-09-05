@@ -1,0 +1,123 @@
+name: Run release hardening decode patch
+
+on:
+  push:
+    branches:
+      - phase5-v7-1-release-hardening
+    paths:
+      - '.github/workflows/release-hardening-run.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout hardening branch
+        uses: actions/checkout@v4
+        with:
+          ref: phase5-v7-1-release-hardening
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Apply exact decode hardening patch
+        run: python3 .github/release_hardening_decode_patch.py
+
+      - name: Assert scope and invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          mgr=src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java
+          grep -F 'new ArrayBlockingQueue<>(MAX_PENDING_DECODE_TASKS)' "$mgr"
+          grep -F 'DECODER.getQueue().clear();' "$mgr"
+          grep -F 'if (epoch != SESSION_EPOCH.get()) return;' "$mgr"
+          grep -F 'READY.add(new StartRequest(playbackMetadata(audio), key, decoded, generation, epoch));' "$mgr"
+          grep -F 'private static final long MAX_DECODE_CACHE_BYTES = 128L * 1024L * 1024L;' "$mgr"
+          grep -F 'return Beta9Optimizer.isAudibleAndRecord(state.sourceId) & beta9EligibleReal(state, now);' src/main/java/dev/cchqphysics/compat/audio/SoundPhysicsBridge.java
+          base='be03d30efe98ca03bdf27764bcea567df5ef3875'
+          git diff --exit-code "$base" -- \
+            src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java \
+            src/main/java/dev/cchqphysics/compat/audio/SynchronizedSpectralBalancer.java \
+            src/main/java/dev/cchqphysics/compat/audio/ProgressiveOcclusionModel.java \
+            src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java \
+            src/main/java/dev/cchqphysics/compat/audio/SoundPhysicsBridge.java \
+            src/main/java/dev/cchqphysics/compat/config/ClientConfig.java \
+            src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java \
+            src/main/java/dev/cchqphysics/compat/config/SpectralMixConfig.java
+          test -z "$(git diff --name-only "$base" -- '*.lua')"
+
+      - name: Commit source hardening
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'ztawfik523-lgtm'
+          git config user.email 'ztawfik523@gmail.com'
+          git add src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java
+          git commit -m 'fix: bound decode work and discard stale session completions'
+          git push origin HEAD:phase5-v7-1-release-hardening
+          git rev-parse HEAD | tee hardening-source-commit.txt
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Verify reconstruction classpath
+        run: ./gradlew --no-configuration-cache verifyReconstructionClasspath --stacktrace
+
+      - name: Verify resource wiring
+        run: ./gradlew --no-configuration-cache verifyResourceWiring --stacktrace
+
+      - name: Clean
+        run: ./gradlew --no-configuration-cache clean --stacktrace
+
+      - name: Compile Java 21
+        run: ./gradlew --no-configuration-cache compileJava --stacktrace
+
+      - name: Build hardening candidate
+        run: ./gradlew --no-configuration-cache jar --stacktrace
+
+      - name: Inspect candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          jars=(build/libs/*.jar)
+          test "${#jars[@]}" -eq 1
+          jar="${jars[0]}"
+          jar tf "$jar" | sort > hardening-jar-contents.txt
+          count="$(grep -c '\.class$' hardening-jar-contents.txt)"
+          echo "class_count=$count"
+          test "$count" -eq 81
+          sha256sum "$jar" | tee hardening-jar-sha256.txt
+          {
+            echo "source_commit=$(cat hardening-source-commit.txt)"
+            echo 'lifecycle_base=be03d30efe98ca03bdf27764bcea567df5ef3875'
+            echo 'performance_base=962eab8b052466ca984496a7dec0767dc65803f4'
+            echo 'frozen_acoustic_base=ffcf5f6e05d85b69f1f1dff8cfae1b082b71604d'
+            echo 'bounded_decode_queue=true'
+            echo 'stale_decode_completion_drop=true'
+            echo 'queued_decode_clear_on_session_invalidation=true'
+            echo 'decoded_cache_byte_cap=134217728'
+            echo 'ready_payload_data_stripped=true'
+            echo 'native_fallback_handoff=true'
+            echo 'acoustic_model_changes=false'
+            echo 'lua_changes=false'
+            echo 'game_launch_performed=false'
+          } > hardening-build-info.txt
+
+      - name: Upload hardening candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: cchq-release-hardening-decode-test
+          path: |
+            build/libs/*.jar
+            hardening-source-commit.txt
+            hardening-jar-contents.txt
+            hardening-jar-sha256.txt
+            hardening-build-info.txt
