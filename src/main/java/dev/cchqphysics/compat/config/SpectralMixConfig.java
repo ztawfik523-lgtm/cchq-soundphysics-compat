@@ -2,7 +2,7 @@ package dev.cchqphysics.compat.config;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
 
-/** Configurable synchronized-copy direct-HF compensation derived from the Phase-5 HF50 A/B. */
+/** Keeps extreme clarity differences between synchronized copies from becoming distracting. */
 public final class SpectralMixConfig {
     public static final ModConfigSpec SPEC;
     private static final ModConfigSpec.BooleanValue ENABLED;
@@ -14,32 +14,33 @@ public final class SpectralMixConfig {
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
-        builder.push("synchronized_spectral_mix");
+        builder.push("synchronized_clarity_balance");
         ENABLED = builder.comment(
-                "Phase-5 HF50 candidate: reduce painful spectral skew between synchronized copies.",
-                "Changes only direct low-pass cutoff; never source gain, source position, playback timing, or reverb-send filters.",
-                "Enabled by default because the automatic HF50 candidate passed the user's runtime listening test.")
+                "Reduces extreme muffling differences between synchronized copies of the same sound.",
+                "Only the direct low-pass cutoff is adjusted; volume, position, playback timing and reverb sends are unchanged.",
+                "Recommended: ON.")
                 .define("enabled", true);
         DARK_SOURCE_CUTOFF = builder.comment(
-                "Only synchronized sources at or below this intrinsic direct cutoff are eligible for HF lift.",
-                "0.35 is the validated conservative gate from the Issue-A candidate.")
-                .defineInRange("dark_source_cutoff", 0.35D, 0.0D, 1.0D);
+                "How muffled a synchronized copy must be before it can receive clarity correction.",
+                "Cutoff uses a 0 to 1 scale: 0 = extremely muffled, 1 = clear.",
+                "Higher = more copies can qualify. Lower = correction is limited to more heavily muffled copies.")
+                .defineInRange("muffled_copy_threshold", 0.35D, 0.0D, 1.0D);
         PEER_CLEAR_CUTOFF = builder.comment(
-                "At least one synchronized peer must be this clear before compensation is allowed.",
-                "0.75 is the validated Issue-A candidate default.")
-                .defineInRange("peer_clear_cutoff", 0.75D, 0.0D, 1.0D);
+                "How clear another synchronized copy must be before it can act as the reference for correction.",
+                "Higher = requires a clearer comparison copy. Lower = allows correction with a less-clear peer.")
+                .defineInRange("clear_copy_threshold", 0.75D, 0.0D, 1.0D);
         MIN_PEER_GAP = builder.comment(
-                "Minimum cutoff difference between the dark source and clearest synchronized peer before compensation is allowed.",
-                "0.40 prevents small normal acoustic differences from being flattened.")
-                .defineInRange("min_peer_gap", 0.40D, 0.0D, 1.0D);
+                "Minimum clarity difference required between the muffled copy and the clearest synchronized copy.",
+                "Higher = only large mismatches are corrected. Lower = smaller differences can be corrected too.")
+                .defineInRange("minimum_difference", 0.40D, 0.0D, 1.0D);
         CLARITY_FLOOR_RATIO = builder.comment(
-                "Blend fraction toward the clearest synchronized peer after all gates pass.",
-                "0.50 is the user-selected best HF dose. 0 disables lift; 1.0 would fully match the peer before the max-lift cap.")
-                .defineInRange("clarity_floor_ratio", 0.50D, 0.0D, 1.0D);
+                "How strongly an eligible muffled copy is moved toward the clearest synchronized copy.",
+                "0 = no correction. 0.5 = halfway toward the peer. 1 = fully match the peer before the safety cap.")
+                .defineInRange("correction_strength", 0.50D, 0.0D, 1.0D);
         MAX_CUTOFF_LIFT = builder.comment(
-                "Absolute safety cap on how much direct cutoff may be raised by the synchronized correction.",
-                "0.55 is the validated Issue-A candidate cap.")
-                .defineInRange("max_cutoff_lift", 0.55D, 0.0D, 1.0D);
+                "Maximum amount the clarity correction may raise one copy's cutoff.",
+                "Higher = allows a larger correction. Lower = caps the change more aggressively.")
+                .defineInRange("maximum_clarity_increase", 0.55D, 0.0D, 1.0D);
         builder.pop();
         SPEC = builder.build();
     }
@@ -75,11 +76,11 @@ public final class SpectralMixConfig {
     public static void save() { SPEC.save(); }
 
     public static String summary() {
-        return "syncHf50=" + enabled()
-                + " darkSourceGate=" + darkSourceCutoff()
-                + " clearPeerCutoff=" + peerClearCutoff()
-                + " minGapGate=" + minPeerGap()
-                + " peerBlend=" + clarityFloorRatio()
-                + " maxCutoffLift=" + maxCutoffLift();
+        return "syncBalance=" + enabled()
+                + " muffledThreshold=" + darkSourceCutoff()
+                + " clearThreshold=" + peerClearCutoff()
+                + " minimumDifference=" + minPeerGap()
+                + " correctionStrength=" + clarityFloorRatio()
+                + " maxClarityIncrease=" + maxCutoffLift();
     }
 }
