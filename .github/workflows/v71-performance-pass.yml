@@ -1,0 +1,84 @@
+name: V7.1 Performance Pass
+
+on:
+  push:
+    branches:
+      - phase5-v7-1-performance-pass
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify frozen V7.1 ancestry
+        shell: bash
+        run: |
+          git merge-base --is-ancestor ffcf5f6e05d85b69f1f1dff8cfae1b082b71604d HEAD
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Apply asserted performance-only patch
+        shell: bash
+        run: python .github/perf_patch_v71.py
+
+      - name: Verify acoustic invariants and diff scope
+        shell: bash
+        run: |
+          git diff --check
+          git diff --name-only
+          test "$(git diff --name-only | sort | tr '\n' ' ')" = "gradle.properties src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java "
+          grep -F 'double rawRatio = Math.max(0.0D, legRaw / Math.max(1.0E-6D, raw));' src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java
+          grep -F 'double pathGain = Math.pow(clampFilter(gain), rawRatio);' src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java
+          grep -F 'double pathCutoff = Math.pow(clampFilter(cutoff), rawRatio);' src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java
+          grep -F 'double spread = apertureSpreading(candidate.apertureDistance, DiffractionConfig.apertureSpreadScale());' src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java
+          grep -F 'private static final int OPENING_VERIFY_CANDIDATES = 2;' src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java
+          grep -F 'private static final int OPENING_MAX_CONFIG_RADIUS = 8;' src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java
+          grep -F 'CACHE_PRUNE_INTERVAL_NS = 1_000_000_000L' src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java
+          grep -F 'maybePruneCaches(now);' src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java
+
+      - name: Commit performance pass
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add gradle.properties src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java
+          git commit -m 'perf: reduce V7.1 portal housekeeping without acoustic changes'
+          git push origin HEAD:phase5-v7-1-performance-pass
+
+      - name: Build
+        shell: bash
+        run: ./gradlew clean build --no-daemon
+
+      - name: Inspect artifact
+        shell: bash
+        run: |
+          JAR=$(find build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*sources*' ! -name '*javadoc*' | head -n1)
+          test -n "$JAR"
+          echo "JAR=$JAR" >> "$GITHUB_ENV"
+          sha256sum "$JAR"
+          python - <<'PY'
+          import os, zipfile
+          jar=os.environ['JAR']
+          with zipfile.ZipFile(jar) as z:
+              classes=[n for n in z.namelist() if n.endswith('.class')]
+              print('class_count=', len(classes))
+              assert len(classes) == 81, len(classes)
+          PY
+
+      - name: Upload test JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: v7-1-performance-test
+          path: ${{ env.JAR }}
+          if-no-files-found: error
