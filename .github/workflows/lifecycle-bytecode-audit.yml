@@ -1,0 +1,52 @@
+name: Lifecycle Bytecode Audit
+
+on:
+  push:
+    branches:
+      - phase5-cleanup-config-first
+
+jobs:
+  audit:
+    if: contains(github.event.head_commit.message, 'lifecycle bytecode audit')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Resolve pinned development runtime
+        run: ./gradlew classes --no-daemon
+      - name: Locate mapped Minecraft jar
+        shell: bash
+        run: |
+          set -euo pipefail
+          found=''
+          while IFS= read -r jar; do
+            if unzip -l "$jar" 2>/dev/null | grep -q 'net/minecraft/client/multiplayer/ClientPacketListener.class'; then
+              if unzip -l "$jar" 2>/dev/null | grep -q 'net/minecraft/client/sounds/SoundEngine.class'; then
+                found="$jar"
+                break
+              fi
+            fi
+          done < <(find "$HOME/.gradle/caches" -type f -name '*.jar' | sort)
+          test -n "$found"
+          echo "MC_JAR=$found" >> "$GITHUB_ENV"
+          echo "Mapped Minecraft jar: $found"
+      - name: Inspect relevant lifecycle bytecode
+        shell: bash
+        run: |
+          set -euo pipefail
+          javap -classpath "$MC_JAR" -c -p net.minecraft.client.multiplayer.ClientPacketListener > clientpacket.txt
+          javap -classpath "$MC_JAR" -c -p net.minecraft.client.Minecraft > minecraft.txt
+          javap -classpath "$MC_JAR" -c -p net.minecraft.client.sounds.SoundEngine > soundengine.txt
+          echo '=== ClientPacketListener.handleRespawn ==='
+          awk '/handleRespawn\(/ {p=1} p{print} p && /^  (public|private|protected)/ && !/handleRespawn\(/ {exit}' clientpacket.txt || true
+          echo '=== ClientPacketListener.handleLogin ==='
+          awk '/handleLogin\(/ {p=1} p{print} p && /^  (public|private|protected)/ && !/handleLogin\(/ {exit}' clientpacket.txt || true
+          echo '=== Minecraft update/clear level methods ==='
+          grep -n -A120 -B10 -E 'updateLevelInEngines|clearClientLevel|disconnect\(' minecraft.txt || true
+          echo '=== SoundEngine lifecycle methods ==='
+          grep -n -A100 -B5 -E 'void (destroy|emergencyShutdown|reload|stopAll|pause|resume)\(' soundengine.txt || true
