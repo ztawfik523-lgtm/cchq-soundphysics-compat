@@ -9,7 +9,6 @@ permissions:
 
 jobs:
   patch-and-validate:
-    if: "github.event.head_commit.message == 'ci: run failed-start cleanup validation'"
     runs-on: ubuntu-latest
     steps:
       - name: Check out lifecycle branch
@@ -32,33 +31,19 @@ jobs:
           from pathlib import Path
           p = Path('src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java')
           s = p.read_text()
-          old = '''            if (!installed) {
-                if (sourceId != 0) {
-                    try { AL10.alSourceStop(sourceId); } catch (Throwable ignored) {}
-                    try { AL10.alSourcei(sourceId, AL10.AL_BUFFER, 0); } catch (Throwable ignored) {}
-                    try { AL10.alDeleteSources(sourceId); } catch (Throwable ignored) {}
-                }
-                if (ref != null) releaseBuffer(request.key, ref);
-            }
-'''
-          new = '''            if (!installed) {
-                if (sourceId != 0) {
-                    try { EnvironmentSmoother.unregister(sourceId); } catch (Throwable ignored) {}
-                    try { AL10.alSourceStop(sourceId); } catch (Throwable ignored) {}
-                    try { AL10.alSourcei(sourceId, AL10.AL_BUFFER, 0); } catch (Throwable ignored) {}
-                    try { AL10.alDeleteSources(sourceId); } catch (Throwable ignored) {}
-                }
-                if (ref != null) releaseBuffer(request.key, ref);
-            }
-'''
-          if s.count(old) != 1:
-              raise SystemExit(f'expected exactly one failed-start cleanup block, found {s.count(old)}')
-          p.write_text(s.replace(old, new, 1))
+          marker = '                    try { EnvironmentSmoother.unregister(sourceId); } catch (Throwable ignored) {}\n'
+          anchor = '                    try { AL10.alSourceStop(sourceId); } catch (Throwable ignored) {}\n'
+          if marker not in s:
+              if s.count(anchor) != 1:
+                  raise SystemExit(f'expected exactly one failed-start stop anchor, found {s.count(anchor)}')
+              s = s.replace(anchor, marker + anchor, 1)
+              p.write_text(s)
+          if p.read_text().count(marker) != 1:
+              raise SystemExit('failed-start unregister marker must occur exactly once')
           PY
           git diff --check
-          git diff -- src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java
 
-      - name: Assert scope and invariants
+      - name: Assert invariants
         shell: bash
         run: |
           set -euo pipefail
@@ -67,15 +52,17 @@ jobs:
           git diff --exit-code 962eab8b052466ca984496a7dec0767dc65803f4 -- src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java src/main/java/dev/cchqphysics/compat/audio/SynchronizedSpectralBalancer.java src/main/java/dev/cchqphysics/compat/audio/ProgressiveOcclusionModel.java src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java src/main/java/dev/cchqphysics/compat/audio/SyncStartCoordinator.java src/main/java/dev/cchqphysics/compat/audio/PositionStabilizer.java src/main/java/dev/cchqphysics/compat/config/ClientConfig.java src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java src/main/java/dev/cchqphysics/compat/config/SpectralMixConfig.java
           test -z "$(git diff --name-only 962eab8b052466ca984496a7dec0767dc65803f4...HEAD -- '*.lua')"
 
-      - name: Commit source fix
+      - name: Commit source fix if needed
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'ztawfik523-lgtm'
           git config user.email 'ztawfik523@gmail.com'
           git add src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java
-          git commit -m 'fix: unregister partial source state on failed start'
-          git push origin HEAD:phase5-v7-1-lifecycle-state-finish
+          if ! git diff --cached --quiet; then
+            git commit -m 'fix: unregister partial source state on failed start'
+            git push origin HEAD:phase5-v7-1-lifecycle-state-finish
+          fi
           git rev-parse HEAD | tee lifecycle-source-commit.txt
 
       - name: Verify and build
