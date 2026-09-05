@@ -24,6 +24,8 @@ public final class DiffractionConfig {
     private static final ModConfigSpec.DoubleValue OPENING_DISTANCE_PENALTY;
     private static final ModConfigSpec.DoubleValue OPENING_MIN_RAW_IMPROVEMENT;
     private static final ModConfigSpec.DoubleValue OPENING_SCAN_INTERVAL_MS;
+    private static final ModConfigSpec.DoubleValue OPENING_LEG_RECHECK_DISTANCE;
+    private static final ModConfigSpec.DoubleValue OPENING_RAY_CACHE_MS;
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
@@ -59,11 +61,11 @@ public final class DiffractionConfig {
                 .defineInRange("raw_occlusion_gate", 3.0D, 0.0D, 16.0D);
 
         ESCAPE_CLEARANCE = builder.comment(
-                "Waypoint height above the higher endpoint, in blocks.")
+                "Waypoint height above the higher endpoint for the direct open-top route, and above the detected roof barrier for nearby openings.")
                 .defineInRange("escape_clearance", 1.5D, 0.25D, 8.0D);
 
         VERTICAL_OPEN_GATE = builder.comment(
-                "A candidate escape/opening leg must be this clear or clearer.")
+                "A candidate direct escape leg must be this clear or clearer.")
                 .defineInRange("vertical_open_gate", 0.25D, 0.0D, 4.0D);
 
         DIFFRACTION_PENALTY = builder.comment(
@@ -82,12 +84,12 @@ public final class DiffractionConfig {
                 .defineInRange("raw_occlusion_gate", 1.25D, 0.0D, 16.0D);
 
         OPENING_SEARCH_RADIUS = builder.comment(
-                "Maximum horizontal distance, in blocks, searched around the lower endpoint for a nearby opening.",
-                "The V4 probe intentionally searches only nearby apertures; farther openings are ignored until the listener moves closer.")
+                "Maximum horizontal distance, in blocks, searched around the listener for a nearby roof opening.",
+                "Discovery uses cheap BlockState reads from SPR's cached level, not SPR occlusion rays.")
                 .defineInRange("search_radius", 3.0D, 1.0D, 8.0D);
 
         OPENING_LEG_GATE = builder.comment(
-                "Listener/lower-endpoint to opening waypoint must be this clear or clearer.")
+                "Listener-to-opening SPR verification must be this clear or clearer.")
                 .defineInRange("opening_leg_gate", 0.25D, 0.0D, 4.0D);
 
         OPENING_BASE_PENALTY = builder.comment(
@@ -96,7 +98,7 @@ public final class DiffractionConfig {
 
         OPENING_DISTANCE_PENALTY = builder.comment(
                 "Additional raw penalty per block of horizontal detour to the opening.",
-                "This is what makes the sound progressively clearer as the listener approaches the aperture.")
+                "This is recomputed mathematically every update, so moving closer can sound clearer without re-running geometry.")
                 .defineInRange("distance_penalty_per_block", 0.20D, 0.0D, 4.0D);
 
         OPENING_MIN_RAW_IMPROVEMENT = builder.comment(
@@ -104,9 +106,19 @@ public final class DiffractionConfig {
                 .defineInRange("min_raw_improvement", 0.25D, 0.0D, 16.0D);
 
         OPENING_SCAN_INTERVAL_MS = builder.comment(
-                "Minimum interval between nearby-opening scans for a source.",
-                "The scan uses SPR occlusion rays on the sound-thread path and is deliberately rate-limited.")
-                .defineInRange("scan_interval_ms", 250.0D, 50.0D, 2000.0D);
+                "Minimum interval between cheap nearby-opening topology scans.",
+                "The scan only reads cached BlockStates from SPR's thread-safe level clone.")
+                .defineInRange("scan_interval_ms", 1000.0D, 100.0D, 5000.0D);
+
+        OPENING_LEG_RECHECK_DISTANCE = builder.comment(
+                "Listener movement required before re-running the expensive listener-to-opening SPR verification.",
+                "Distance-to-opening clarity still updates continuously between these checks.")
+                .defineInRange("leg_recheck_distance", 0.75D, 0.10D, 4.0D);
+
+        OPENING_RAY_CACHE_MS = builder.comment(
+                "Maximum age of verified SPR opening legs while geometry remains otherwise stable.",
+                "Long caching keeps stationary multi-speaker scenes close to zero extra SPR-ray cost.")
+                .defineInRange("ray_cache_ms", 5000.0D, 250.0D, 30000.0D);
 
         builder.pop();
         builder.pop();
@@ -146,7 +158,14 @@ public final class DiffractionConfig {
     public static double openingDistancePenalty() { return d(OPENING_DISTANCE_PENALTY, 0.20D); }
     public static double openingMinRawImprovement() { return d(OPENING_MIN_RAW_IMPROVEMENT, 0.25D); }
     public static long openingScanIntervalNs() {
-        return Math.max(50L, Math.round(d(OPENING_SCAN_INTERVAL_MS, 250.0D))) * 1_000_000L;
+        return Math.max(100L, Math.round(d(OPENING_SCAN_INTERVAL_MS, 1000.0D))) * 1_000_000L;
+    }
+    public static double openingLegRecheckDistanceSq() {
+        double distance = Math.max(0.10D, d(OPENING_LEG_RECHECK_DISTANCE, 0.75D));
+        return distance * distance;
+    }
+    public static long openingRayCacheNs() {
+        return Math.max(250L, Math.round(d(OPENING_RAY_CACHE_MS, 5000.0D))) * 1_000_000L;
     }
 
     public static void setEnabled(boolean value) { ENABLED.set(value); }
@@ -169,6 +188,8 @@ public final class DiffractionConfig {
                 + " openingBasePenalty=" + openingBasePenalty()
                 + " openingDistancePenalty=" + openingDistancePenalty()
                 + " openingMinImprove=" + openingMinRawImprovement()
-                + " openingScanMs=" + (openingScanIntervalNs() / 1_000_000L);
+                + " openingScanMs=" + (openingScanIntervalNs() / 1_000_000L)
+                + " openingLegRecheck=" + Math.sqrt(openingLegRecheckDistanceSq())
+                + " openingRayCacheMs=" + (openingRayCacheNs() / 1_000_000L);
     }
 }
