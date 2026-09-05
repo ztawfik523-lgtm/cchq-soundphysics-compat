@@ -2,7 +2,7 @@ package dev.cchqphysics.compat.config;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
 
-/** Configurable synchronized-copy direct-HF compensation derived from the Phase-5 HF50 A/B. */
+/** Configurable synchronized-copy direct-HF compensation using the validated final defaults. */
 public final class SpectralMixConfig {
     public static final ModConfigSpec SPEC;
     private static final ModConfigSpec.BooleanValue ENABLED;
@@ -16,17 +16,17 @@ public final class SpectralMixConfig {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
         builder.push("synchronized_spectral_mix");
         ENABLED = builder.comment(
-                "Phase-5 HF50 candidate: reduce painful spectral skew between synchronized copies.",
+                "Reduce harsh spectral skew between synchronized copies of the same audio.",
                 "Changes only direct low-pass cutoff; never source gain, source position, playback timing, or reverb-send filters.",
-                "Enabled by default because the automatic HF50 candidate passed the user's runtime listening test.")
+                "Enabled by default because this compensation passed runtime listening validation.")
                 .define("enabled", true);
         DARK_SOURCE_CUTOFF = builder.comment(
                 "Only synchronized sources at or below this intrinsic direct cutoff are eligible for HF lift.",
-                "0.35 is the validated conservative gate from the Issue-A candidate.")
+                "0.35 is the validated conservative gate.")
                 .defineInRange("dark_source_cutoff", 0.35D, 0.0D, 1.0D);
         PEER_CLEAR_CUTOFF = builder.comment(
                 "At least one synchronized peer must be this clear before compensation is allowed.",
-                "0.75 is the validated Issue-A candidate default.")
+                "0.75 is the validated default.")
                 .defineInRange("peer_clear_cutoff", 0.75D, 0.0D, 1.0D);
         MIN_PEER_GAP = builder.comment(
                 "Minimum cutoff difference between the dark source and clearest synchronized peer before compensation is allowed.",
@@ -34,11 +34,11 @@ public final class SpectralMixConfig {
                 .defineInRange("min_peer_gap", 0.40D, 0.0D, 1.0D);
         CLARITY_FLOOR_RATIO = builder.comment(
                 "Blend fraction toward the clearest synchronized peer after all gates pass.",
-                "0.50 is the user-selected best HF dose. 0 disables lift; 1.0 would fully match the peer before the max-lift cap.")
+                "0.50 is the validated listening balance. 0 disables lift; 1.0 would fully match the peer before the max-lift cap.")
                 .defineInRange("clarity_floor_ratio", 0.50D, 0.0D, 1.0D);
         MAX_CUTOFF_LIFT = builder.comment(
                 "Absolute safety cap on how much direct cutoff may be raised by the synchronized correction.",
-                "0.55 is the validated Issue-A candidate cap.")
+                "0.55 is the validated cap.")
                 .defineInRange("max_cutoff_lift", 0.55D, 0.0D, 1.0D);
         builder.pop();
         SPEC = builder.build();
