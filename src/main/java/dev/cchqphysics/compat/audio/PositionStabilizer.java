@@ -44,7 +44,8 @@ final class PositionStabilizer {
         double targetX = sourceX;
         double targetY = sourceY;
         double targetZ = sourceZ;
-        boolean redirect = reflected != null && occlusion >= ClientConfig.reflectionThreshold();
+        boolean requestedRedirect = reflected != null && occlusion >= ClientConfig.reflectionThreshold();
+        boolean redirect = ReflectionDiagnostics.redirectEnabled() && requestedRedirect;
         if (redirect) {
             double dx = (reflected.x - sourceX) * ClientConfig.reflectionBlend();
             double dy = (reflected.y - sourceY) * ClientConfig.reflectionBlend();
@@ -62,6 +63,19 @@ final class PositionStabilizer {
         }
 
         synchronized (PositionStabilizer.class) {
+            state.sourceX = sourceX;
+            state.sourceY = sourceY;
+            state.sourceZ = sourceZ;
+            state.occlusion = occlusion;
+            state.requestedRedirect = requestedRedirect;
+            state.redirectActive = redirect;
+            state.haveReflected = reflected != null;
+            if (reflected != null) {
+                state.reflectedX = reflected.x;
+                state.reflectedY = reflected.y;
+                state.reflectedZ = reflected.z;
+            }
+
             if (!state.initialized) {
                 state.x = sourceX;
                 state.y = sourceY;
@@ -120,6 +134,9 @@ final class PositionStabilizer {
                 } catch (Throwable ignored) {}
                 return;
             }
+            state.sourceX = sourceX;
+            state.sourceY = sourceY;
+            state.sourceZ = sourceZ;
         }
         applyCurrent(sourceId, state);
     }
@@ -128,6 +145,11 @@ final class PositionStabilizer {
         final State state;
         synchronized (PositionStabilizer.class) {
             state = STATES.computeIfAbsent(sourceId, ignored -> new State());
+            state.sourceX = sourceX;
+            state.sourceY = sourceY;
+            state.sourceZ = sourceZ;
+            state.requestedRedirect = false;
+            state.redirectActive = false;
             if (!state.initialized) {
                 state.x = sourceX;
                 state.y = sourceY;
@@ -140,6 +162,25 @@ final class PositionStabilizer {
             }
         }
         applyCurrent(sourceId, state);
+    }
+
+    static synchronized String debugSnapshot(int sourceId) {
+        State state = STATES.get(sourceId);
+        if (state == null || !state.initialized) return "positionState=missing";
+        double dx = state.x - state.sourceX;
+        double dy = state.y - state.sourceY;
+        double dz = state.z - state.sourceZ;
+        double offset = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        String reflected = state.haveReflected
+                ? round2(state.reflectedX) + "," + round2(state.reflectedY) + "," + round2(state.reflectedZ)
+                : "none";
+        return "real=" + round2(state.sourceX) + "," + round2(state.sourceY) + "," + round2(state.sourceZ)
+                + " applied=" + round2(state.x) + "," + round2(state.y) + "," + round2(state.z)
+                + " reflected=" + reflected
+                + " offset=" + round2(offset)
+                + " occlusion=" + round2(state.occlusion)
+                + " requestedRedirect=" + state.requestedRedirect
+                + " redirectActive=" + state.redirectActive;
     }
 
     private static void applyCurrent(int sourceId, State state) {
@@ -157,6 +198,16 @@ final class PositionStabilizer {
         double x;
         double y;
         double z;
+        double sourceX;
+        double sourceY;
+        double sourceZ;
+        boolean haveReflected;
+        double reflectedX;
+        double reflectedY;
+        double reflectedZ;
+        double occlusion;
+        boolean requestedRedirect;
+        boolean redirectActive;
         long lastLogNs;
     }
 }
