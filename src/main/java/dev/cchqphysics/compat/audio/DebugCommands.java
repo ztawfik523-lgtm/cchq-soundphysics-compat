@@ -1,6 +1,7 @@
 package dev.cchqphysics.compat.audio;
 
 import dev.cchqphysics.compat.config.ExtendedClientConfig;
+import dev.cchqphysics.compat.config.SpectralMixConfig;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
@@ -31,10 +32,11 @@ public final class DebugCommands {
                         }))
                 .then(Commands.literal("dump")
                         .executes(context -> {
-                            LOGGER.info("[phase5/dump] config {}", ExtendedClientConfig.summary());
+                            LOGGER.info("[phase5/dump] config {} {}", ExtendedClientConfig.summary(), SpectralMixConfig.summary());
                             LOGGER.info("[phase5/dump] {}", DebugControl.compactStatus());
                             SoundPhysicsBridge.debugDumpSources();
                             EnvironmentSmoother.debugDumpEfx();
+                            SynchronizedSpectralBalancer.debugDump();
                             context.getSource().sendSuccess(
                                     () -> Component.literal("CC:HQ Physics snapshot written to latest.log"), false);
                             return 1;
@@ -62,7 +64,7 @@ public final class DebugCommands {
                         }))
                 .then(Commands.literal("config")
                         .executes(context -> {
-                            String summary = ExtendedClientConfig.summary();
+                            String summary = ExtendedClientConfig.summary() + " " + SpectralMixConfig.summary();
                             LOGGER.info("[phase5/config] {}", summary);
                             context.getSource().sendSuccess(() -> Component.literal("CC:HQ Physics: " + summary), false);
                             return 1;
