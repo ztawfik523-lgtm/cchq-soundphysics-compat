@@ -4,10 +4,10 @@ license="MIT"
 
 [[mods]]
 modId="cchq_soundphysics_compat"
-version="0.1.0-beta11-phase5-acousticprobe-test"
+version="0.1.0-beta11-phase5-acousticprobe-auto-test"
 displayName="CC:HQ Sound Physics Compat"
 authors="CC:HQ / Sound Physics compatibility"
-description='''Phase 5 acoustic-mix isolation build. It retains the verified synchronized playback-cursor telemetry and Issue-A diagnostics, and adds runtime-only per-source A/B probes that can silence only auxiliary reverb sends or bypass only the direct high-frequency low-pass factor while preserving source gain, source position and playback timing.'''
+description='''Phase 5 acoustic-mix isolation build. It retains synchronized playback-cursor telemetry and Issue-A diagnostics, and adds runtime-only acoustic A/B probes that automatically target the darkest tracked speaker. The probes can silence only that speaker's auxiliary reverb sends or bypass only its direct high-frequency low-pass factor while preserving source gain, source position and playback timing.'''
 
 [[mixins]]
 config="cchq_soundphysics_compat.mixins.json"
