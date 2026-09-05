@@ -14,5 +14,6 @@ final class IssueADiagnostics {
         SoundPhysicsBridge.debugDumpSources();
         PositionStabilizer.debugDumpAll();
         EnvironmentSmoother.debugDumpEfx();
+        CompatAudioManager.beta10OnSoundThread(SyncAcousticDiagnostics::dumpPlaybackCursors);
     }
 }

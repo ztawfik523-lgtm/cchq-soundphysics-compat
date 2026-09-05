@@ -1,0 +1,158 @@
+name: Phase 5 synchronized timing and acoustic diagnostics verification
+
+on:
+  push:
+    branches:
+      - phase5-sync-acoustic-diagnostics
+    paths:
+      - 'src/main/java/**'
+      - 'src/main/resources/**'
+      - 'build.gradle'
+      - 'gradle.properties'
+      - 'tools/phase5_verify_defaults.py'
+      - 'docs/PHASE5_SYNC_ACOUSTIC_DIAGNOSTICS.md'
+      - '.github/workflows/phase5-sync-acoustic-diagnostics.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out sync diagnostic branch
+        uses: actions/checkout@v4
+        with:
+          ref: phase5-sync-acoustic-diagnostics
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Assert frozen baselines
+        shell: bash
+        run: |
+          set -euo pipefail
+          phase4_expected='79eed29767343ee34022e8f6268b386f75e84c9f'
+          candidate_expected='44612192d875e43ecef66ca51798cab7adb17020'
+          issuea_expected='973f1df7dad886fb0f5fffd4264015fecac2e786'
+          phase4_actual="$(git ls-remote origin refs/heads/phase4-hotfix3-parity | awk '{print $1}')"
+          candidate_actual="$(git ls-remote origin refs/heads/phase5-test-candidate-1 | awk '{print $1}')"
+          issuea_actual="$(git ls-remote origin refs/heads/phase5-issue-a-test-candidate-2 | awk '{print $1}')"
+          echo "phase4=$phase4_actual"
+          echo "candidate1=$candidate_actual"
+          echo "issuea=$issuea_actual"
+          test "$phase4_actual" = "$phase4_expected"
+          test "$candidate_actual" = "$candidate_expected"
+          test "$issuea_actual" = "$issuea_expected"
+
+      - name: Assert diagnostic identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fx 'mod_version=0.1.0-beta11-phase5-syncdiag-test' gradle.properties
+          grep -F 'VERSION = "0.1.0-beta11-phase5-syncdiag-test"' src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java
+          grep -F 'version="0.1.0-beta11-phase5-syncdiag-test"' src/main/resources/META-INF/neoforge.mods.toml
+
+      - name: Audit Phase 5 parity defaults
+        run: python3 tools/phase5_verify_defaults.py
+
+      - name: Confirm original Hotfix3 config source unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin phase4-hotfix3-parity
+          git diff --exit-code origin/phase4-hotfix3-parity -- src/main/java/dev/cchqphysics/compat/config/ClientConfig.java
+
+      - name: Assert acoustic and sync behavior core unchanged from reviewed Issue A
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin phase5-issue-a-test-candidate-2
+          base=origin/phase5-issue-a-test-candidate-2
+          for path in \
+            src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java \
+            src/main/java/dev/cchqphysics/compat/audio/DistanceBridge.java \
+            src/main/java/dev/cchqphysics/compat/audio/ProgressiveOcclusionModel.java \
+            src/main/java/dev/cchqphysics/compat/audio/PositionStabilizer.java \
+            src/main/java/dev/cchqphysics/compat/audio/ReflectionDiagnostics.java \
+            src/main/java/dev/cchqphysics/compat/audio/SoundPhysicsBridge.java \
+            src/main/java/dev/cchqphysics/compat/audio/SyncStartCoordinator.java \
+            src/main/java/dev/cchqphysics/compat/audio/Beta9Optimizer.java \
+            src/main/java/dev/cchqphysics/compat/audio/Beta10Optimizer.java \
+            src/main/java/dev/cchqphysics/compat/audio/Beta11RoomRayCache.java; do
+            git diff --exit-code "$base" -- "$path"
+          done
+
+      - name: Assert diagnostic-only EFX and cursor additions
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'r0=' src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java
+          grep -F 'h3=' src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java
+          grep -F 'static synchronized int[] debugSourceIds()' src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java
+          grep -F 'AL_SAMPLE_OFFSET = 0x1025' src/main/java/dev/cchqphysics/compat/audio/SyncAcousticDiagnostics.java
+          grep -F 'AL_SEC_OFFSET = 0x1024' src/main/java/dev/cchqphysics/compat/audio/SyncAcousticDiagnostics.java
+          grep -F 'SyncAcousticDiagnostics::dumpPlaybackCursors' src/main/java/dev/cchqphysics/compat/audio/IssueADiagnostics.java
+          ! grep -F 'alSourcePlay(' src/main/java/dev/cchqphysics/compat/audio/SyncAcousticDiagnostics.java
+          ! grep -F 'alSourcePlayv(' src/main/java/dev/cchqphysics/compat/audio/SyncAcousticDiagnostics.java
+          ! grep -F 'alSourcei(' src/main/java/dev/cchqphysics/compat/audio/SyncAcousticDiagnostics.java
+          ! grep -F 'alSourcef(' src/main/java/dev/cchqphysics/compat/audio/SyncAcousticDiagnostics.java
+          ! grep -F 'alSource3f(' src/main/java/dev/cchqphysics/compat/audio/SyncAcousticDiagnostics.java
+
+      - name: Clean compile diagnostic source
+        run: ./gradlew --no-configuration-cache clean compileJava --stacktrace
+
+      - name: Build diagnostic JAR
+        run: ./gradlew --no-configuration-cache jar --stacktrace
+
+      - name: Inspect diagnostic artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          jars=(build/libs/*phase5-syncdiag-test*.jar)
+          test "${#jars[@]}" -eq 1
+          jar="${jars[0]}"
+          echo "JAR=$jar"
+          jar tf "$jar" | sort > syncdiag-jar-contents.txt
+          class_count="$(grep -c '\.class$' syncdiag-jar-contents.txt)"
+          echo "class_count=$class_count"
+          test "$class_count" -ge 68
+          for class in \
+            dev/cchqphysics/compat/audio/SyncAcousticDiagnostics.class \
+            dev/cchqphysics/compat/audio/IssueADiagnostics.class \
+            dev/cchqphysics/compat/audio/EnvironmentSmoother.class \
+            dev/cchqphysics/compat/audio/SyncStartCoordinator.class; do
+            grep -Fx "$class" syncdiag-jar-contents.txt
+          done
+          unzip -p "$jar" META-INF/neoforge.mods.toml | grep -F 'version="0.1.0-beta11-phase5-syncdiag-test"'
+          sha256sum "$jar" | tee syncdiag-jar-sha256.txt
+          printf '%s\n' "source_commit=${GITHUB_SHA}" > syncdiag-build-info.txt
+          printf '%s\n' "known_good_candidate=44612192d875e43ecef66ca51798cab7adb17020" >> syncdiag-build-info.txt
+          printf '%s\n' "issue_a_reviewed=973f1df7dad886fb0f5fffd4264015fecac2e786" >> syncdiag-build-info.txt
+          printf '%s\n' "phase4_frozen=79eed29767343ee34022e8f6268b386f75e84c9f" >> syncdiag-build-info.txt
+          printf '%s\n' "audio_behavior_mutation=false" >> syncdiag-build-info.txt
+          printf '%s\n' "typed_reverb_send_telemetry=true" >> syncdiag-build-info.txt
+          printf '%s\n' "openal_cursor_telemetry=true" >> syncdiag-build-info.txt
+          printf '%s\n' "reflection_diagnostics_retained=true" >> syncdiag-build-info.txt
+          printf '%s\n' "spectral_mix_v1_included=false" >> syncdiag-build-info.txt
+          printf '%s\n' "spectral_mix_v2_included=false" >> syncdiag-build-info.txt
+          printf '%s\n' "game_launch_performed=false" >> syncdiag-build-info.txt
+
+      - name: Upload verified diagnostic build
+        uses: actions/upload-artifact@v4
+        with:
+          name: cchq-phase5-sync-acoustic-diagnostics
+          path: |
+            build/libs/*phase5-syncdiag-test*.jar
+            syncdiag-jar-contents.txt
+            syncdiag-jar-sha256.txt
+            syncdiag-build-info.txt

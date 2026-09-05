@@ -145,9 +145,21 @@ public final class EnvironmentSmoother {
                     + " failed=" + state.privateEfxFailed
                     + " directFilter=" + state.directFilter
                     + " maxAux=" + state.maxAuxSends
+                    + " r0=" + round3(state.r0)
+                    + " r1=" + round3(state.r1)
+                    + " r2=" + round3(state.r2)
+                    + " r3=" + round3(state.r3)
+                    + " h0=" + round3(state.h0)
+                    + " h1=" + round3(state.h1)
+                    + " h2=" + round3(state.h2)
+                    + " h3=" + round3(state.h3)
                     + " cutoff=" + round3(state.cutoff)
                     + " gain=" + round3(state.gain));
         }
+    }
+
+    static synchronized int[] debugSourceIds() {
+        return STATES.keySet().stream().mapToInt(Integer::intValue).sorted().toArray();
     }
 
     static synchronized String debugSummary() {
