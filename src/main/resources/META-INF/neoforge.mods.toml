@@ -4,10 +4,10 @@ license="MIT"
 
 [[mods]]
 modId="cchq_soundphysics_compat"
-version="0.1.0-beta11-phase5-acousticprobe-auto-test"
+version="0.1.0-beta11-phase5-hfdose-test"
 displayName="CC:HQ Sound Physics Compat"
 authors="CC:HQ / Sound Physics compatibility"
-description='''Phase 5 acoustic-mix isolation build. It retains synchronized playback-cursor telemetry and Issue-A diagnostics, and adds runtime-only acoustic A/B probes that automatically target the darkest tracked speaker. The probes can silence only that speaker's auxiliary reverb sends or bypass only its direct high-frequency low-pass factor while preserving source gain, source position and playback timing.'''
+description='''Phase 5 direct-HF dose diagnostic build. It retains synchronized playback-cursor telemetry and Issue-A diagnostics, and automatically targets the darkest tracked speaker. Runtime probes lift only that speaker's direct high-frequency filter 25%, 50%, 75%, or 100% toward clear while preserving source gain, source position, auxiliary reverb sends, and playback timing.'''
 
 [[mixins]]
 config="cchq_soundphysics_compat.mixins.json"
