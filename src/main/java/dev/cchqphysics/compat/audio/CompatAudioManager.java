@@ -8,9 +8,9 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.sounds.SoundEngine;
 import net.minecraft.client.sounds.SoundEngineExecutor;
 import org.lwjgl.openal.AL10;
+import org.lwjgl.system.MemoryUtil;
 
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -131,8 +131,11 @@ public final class CompatAudioManager {
         if (!HQPayloadView.isStopPayload(payload)) return;
         try {
             UUID source = HQPayloadView.stopSource(payload);
-            GENERATIONS.computeIfAbsent(source, ignored -> new AtomicInteger()).incrementAndGet();
-            onSoundThread(() -> stopSource(source));
+            AtomicInteger generation = GENERATIONS.get(source);
+            if (generation != null) {
+                generation.incrementAndGet();
+                onSoundThread(() -> stopSource(source));
+            }
         } catch (Throwable t) {
             logOnce("stop-shape", "Could not read CC:HQ stop packet: " + t);
         }
@@ -174,7 +177,7 @@ public final class CompatAudioManager {
         }
         READY.addAll(deferred);
 
-        if ((clientTicks % 200L) == 0L) {
+        if ((clientTicks % 20L) == 0L) {
             long cutoff = clientTicks - 600L;
             DECODES.entrySet().removeIf(e -> e.getValue().lastUsedTick < cutoff && e.getValue().future.isDone());
             List<Map.Entry<DecodeKey, DecodeEntry>> completed = DECODES.entrySet().stream()
@@ -236,13 +239,25 @@ public final class CompatAudioManager {
 
             ref = BUFFERS.get(request.key);
             if (ref == null) {
-                int bufferId = AL10.alGenBuffers();
-                ByteBuffer bytes = ByteBuffer.allocateDirect(request.decoded.monoPcm16Le().length).order(ByteOrder.nativeOrder());
-                bytes.put(request.decoded.monoPcm16Le()).flip();
-                AL10.alBufferData(bufferId, AL10.AL_FORMAT_MONO16, bytes, request.decoded.sampleRate());
-                checkAl("upload audio buffer");
-                ref = new BufferRef(bufferId);
-                BUFFERS.put(request.key, ref);
+                int bufferId = 0;
+                ByteBuffer bytes = null;
+                try {
+                    bufferId = AL10.alGenBuffers();
+                    checkAl("allocate audio buffer");
+                    bytes = MemoryUtil.memAlloc(request.decoded.monoPcm16Le().length);
+                    bytes.put(request.decoded.monoPcm16Le()).flip();
+                    AL10.alBufferData(bufferId, AL10.AL_FORMAT_MONO16, bytes, request.decoded.sampleRate());
+                    checkAl("upload audio buffer");
+                    ref = new BufferRef(bufferId);
+                    BUFFERS.put(request.key, ref);
+                } catch (Throwable t) {
+                    if (bufferId != 0) {
+                        try { AL10.alDeleteBuffers(bufferId); } catch (Throwable ignored) {}
+                    }
+                    throw t;
+                } finally {
+                    if (bytes != null) MemoryUtil.memFree(bytes);
+                }
             }
             ref.refs++;
 
@@ -339,15 +354,13 @@ public final class CompatAudioManager {
     }
 
     private static void destroyActive(ActiveSource active) {
-        EnvironmentSmoother.unregister(active.sourceId);
-        try {
-            AL10.alSourceStop(active.sourceId);
-            AL10.alSourcei(active.sourceId, AL10.AL_BUFFER, 0);
-            AL10.alDeleteSources(active.sourceId);
-        } finally {
-            BufferRef ref = BUFFERS.get(active.key);
-            if (ref != null) releaseBuffer(active.key, ref);
-        }
+        try { EnvironmentSmoother.unregister(active.sourceId); }
+        catch (Throwable t) { logOnce("source-unregister", "Error while unregistering compatibility source state: " + t); }
+        try { AL10.alSourceStop(active.sourceId); } catch (Throwable ignored) {}
+        try { AL10.alSourcei(active.sourceId, AL10.AL_BUFFER, 0); } catch (Throwable ignored) {}
+        try { AL10.alDeleteSources(active.sourceId); } catch (Throwable ignored) {}
+        BufferRef ref = BUFFERS.get(active.key);
+        if (ref != null) releaseBuffer(active.key, ref);
     }
 
     private static void releaseBuffer(DecodeKey key, BufferRef ref) {
@@ -439,7 +452,9 @@ public final class CompatAudioManager {
     }
 
     private static void handoffToNative(UUID source) {
-        GENERATIONS.computeIfAbsent(source, ignored -> new AtomicInteger()).incrementAndGet();
+        AtomicInteger generation = GENERATIONS.get(source);
+        if (generation == null) return;
+        generation.incrementAndGet();
         onSoundThread(() -> stopSource(source));
     }
 
