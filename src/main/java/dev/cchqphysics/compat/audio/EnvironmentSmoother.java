@@ -138,6 +138,7 @@ public final class EnvironmentSmoother {
     static synchronized void debugDumpEfx() {
         for (Map.Entry<Integer, State> entry : STATES.entrySet()) {
             State state = entry.getValue();
+            AcousticMixProbe.Mode probe = AcousticMixProbe.modeFor(entry.getKey());
             SoundPhysicsBridge.beta9Log("[phase5/source-efx] source=" + entry.getKey()
                     + " initialized=" + state.initialized
                     + " ready=" + state.privateEfxReady
@@ -154,7 +155,8 @@ public final class EnvironmentSmoother {
                     + " h3=" + round3(state.h3)
                     + " cutoff=" + round3(state.cutoff)
                     + " gain=" + round3(state.gain)
-                    + " probe=" + AcousticMixProbe.modeFor(entry.getKey()).wireName());
+                    + " appliedDirectHf=" + round3(appliedDirectHf(state.cutoff, probe))
+                    + " probe=" + probe.wireName());
         }
     }
 
@@ -180,10 +182,12 @@ public final class EnvironmentSmoother {
         int sourceId = debugDarkestSourceId();
         if (sourceId < 0) return "darkestSource=none";
         State state = STATES.get(sourceId);
+        AcousticMixProbe.Mode probe = AcousticMixProbe.modeFor(sourceId);
         return "darkestSource=" + sourceId
                 + " cutoff=" + round3(state.cutoff)
                 + " gain=" + round3(state.gain)
-                + " probe=" + AcousticMixProbe.modeFor(sourceId).wireName();
+                + " appliedDirectHf=" + round3(appliedDirectHf(state.cutoff, probe))
+                + " probe=" + probe.wireName();
     }
 
     static synchronized String debugSummary() {
@@ -243,7 +247,7 @@ public final class EnvironmentSmoother {
             Beta10Optimizer.alFilterfMaybe(filter, AL_LOWPASS_GAINHF, clamp01(cutoffs[i]));
             AL11.alSource3i(sourceId, AL_AUXILIARY_SEND_FILTER, state.auxSlots[i], sendIndex, filter);
         }
-        float appliedDirectHf = probe == AcousticMixProbe.Mode.DIRECT_HF_BYPASS ? 1.0F : state.cutoff;
+        float appliedDirectHf = appliedDirectHf(state.cutoff, probe);
         Beta10Optimizer.alFilterfMaybe(state.directFilter, AL_LOWPASS_GAIN, clamp01(state.gain));
         Beta10Optimizer.alFilterfMaybe(state.directFilter, AL_LOWPASS_GAINHF, clamp01(appliedDirectHf));
         AL11.alSourcei(sourceId, AL_DIRECT_FILTER, state.directFilter);
@@ -251,6 +255,11 @@ public final class EnvironmentSmoother {
         int error = AL10.alGetError();
         if (error != AL_NO_ERROR) throw new IllegalStateException("OpenAL error applying isolated EFX: " + error);
         PerformanceStats.recordEfxApply(true);
+    }
+
+    private static float appliedDirectHf(float baseCutoff, AcousticMixProbe.Mode probe) {
+        float fraction = probe.directHfLiftFraction();
+        return clamp01(baseCutoff + (1.0F - baseCutoff) * fraction);
     }
 
     private static void failPrivateEfx(int sourceId, State state, Throwable throwable) {
