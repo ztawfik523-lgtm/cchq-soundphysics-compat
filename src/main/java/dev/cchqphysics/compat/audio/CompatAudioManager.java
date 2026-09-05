@@ -184,6 +184,7 @@ public final class CompatAudioManager {
     private static void startSource(StartRequest request) {
         BufferRef ref = null;
         int sourceId = 0;
+        boolean compatRegistered = false;
         boolean installed = false;
         try {
             if (request.epoch != SESSION_EPOCH.get()) return;
@@ -206,6 +207,7 @@ public final class CompatAudioManager {
             ref.refs++;
 
             sourceId = AL10.alGenSources();
+            compatRegistered = true;
             EnvironmentSmoother.register(sourceId);
             AL10.alSourcei(sourceId, AL10.AL_BUFFER, ref.bufferId);
             AL10.alSourcei(sourceId, AL10.AL_SOURCE_RELATIVE, AL10.AL_FALSE);
@@ -228,6 +230,9 @@ public final class CompatAudioManager {
             logOnce("openal-start", "Failed to start bridged OpenAL source: " + t);
         } finally {
             if (!installed) {
+                if (compatRegistered) {
+                    try { EnvironmentSmoother.unregister(sourceId); } catch (Throwable ignored) {}
+                }
                 if (sourceId != 0) {
                     try { AL10.alSourceStop(sourceId); } catch (Throwable ignored) {}
                     try { AL10.alSourcei(sourceId, AL10.AL_BUFFER, 0); } catch (Throwable ignored) {}
@@ -347,7 +352,7 @@ public final class CompatAudioManager {
     public static void pauseCompatSources() {
         onSoundThread(() -> {
             for (ActiveSource active : ACTIVE.values()) {
-                if (SyncStartCoordinator.sourceState(active.sourceId, AL10.AL_SOURCE_STATE) == AL10.AL_PLAYING) {
+                if (AL10.alGetSourcei(active.sourceId, AL10.AL_SOURCE_STATE) == AL10.AL_PLAYING) {
                     AL10.alSourcePause(active.sourceId);
                 }
             }
@@ -357,7 +362,7 @@ public final class CompatAudioManager {
     public static void resumeCompatSources() {
         onSoundThread(() -> {
             for (ActiveSource active : ACTIVE.values()) {
-                if (SyncStartCoordinator.sourceState(active.sourceId, AL10.AL_SOURCE_STATE) == AL10.AL_PAUSED) {
+                if (AL10.alGetSourcei(active.sourceId, AL10.AL_SOURCE_STATE) == AL10.AL_PAUSED) {
                     AL10.alSourcePlay(active.sourceId);
                 }
             }
