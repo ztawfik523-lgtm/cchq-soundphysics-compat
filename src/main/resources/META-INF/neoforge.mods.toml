@@ -4,10 +4,11 @@ license="MIT"
 
 [[mods]]
 modId="cchq_soundphysics_compat"
-version="0.1.0-beta11-phase5-diffraction-v6-energy-test"
+version="0.1.0-beta11-phase5-diffraction-v7-spreading-test"
 displayName="CC:HQ Sound Physics Compat"
 authors="CC:HQ / Sound Physics compatibility"
-description='''Phase 5 isolated aperture-energy diffraction experiment V6 built on the runtime-approved configurable HF50 baseline. V6 retires the V3-V5 behavior where an alternate opening route could replace the direct occlusion result. The normal progressive direct path remains authoritative; a verified roof/open-top aperture contributes only a bounded secondary low/high energy path. Aperture strength is driven by source->aperture->listener path-length difference, verified leg occlusion, and a smooth finite-search fade. High-band aperture energy decays faster than low-band energy. At most two candidates are acoustically verified, listener-side topology is shared, and verification legs are cached. Source position, source playback gain, PCM/OpenAL clocks, synchronized starts, reflection routing, and reverb sends are not mutated. The experiment is OFF by default.'''
+description='''Phase 5 isolated V7 spreading experiment built on the exact V6 runtime candidate. The V6 secondary-energy architecture, two-candidate verification ceiling, cloned-level topology scan, listener-shared lower-leg cache, per-source upper-leg cache, candidate separation/hysteresis, and approved HF50/core behavior are preserved. V7 removes the inherited pow(direct, legRaw/raw) portal-leg approximation, derives independent low/high leg transmission directly from verified leg occlusion, and adds a softened inverse-distance aperture-spreading multiplier for explicit roof openings. The implicit open-top geometry is intentionally preserved for this isolated test so the already-good open-pit result is not changed by two variables at once. Portal-specific performance counters are added for 12-source attribution. No source position, playback timing, synchronized start, reflection, reverb-send, or Lua behavior is changed. The experiment is OFF by default.'''
+
 
 [[mixins]]
 config="cchq_soundphysics_compat.mixins.json"

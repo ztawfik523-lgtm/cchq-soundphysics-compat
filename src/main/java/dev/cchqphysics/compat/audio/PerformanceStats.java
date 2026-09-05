@@ -17,6 +17,13 @@ final class PerformanceStats {
     private static long sprTotalNs;
     private static long sprMaxNs;
     private static long occlusionPaths;
+    private static long portalOcclusionPaths;
+    private static long portalOcclusionTotalNs;
+    private static long portalOcclusionMaxNs;
+    private static long portalLowerPaths;
+    private static long portalCrossPaths;
+    private static long portalTopologyScans;
+    private static long portalBlockChecks;
     private static long efxApplies;
     private static long efxReattachPasses;
     private static long progressiveEvals;
@@ -58,6 +65,21 @@ final class PerformanceStats {
     }
 
     static void recordOcclusionPath() { occlusionPaths++; }
+
+    static void recordPortalOcclusionPath(long elapsedNs, boolean lowerLeg) {
+        occlusionPaths++;
+        portalOcclusionPaths++;
+        long value = Math.max(0L, elapsedNs);
+        portalOcclusionTotalNs += value;
+        if (value > portalOcclusionMaxNs) portalOcclusionMaxNs = value;
+        if (lowerLeg) portalLowerPaths++;
+        else portalCrossPaths++;
+    }
+
+    static void recordPortalTopologyScan(int blockChecks) {
+        portalTopologyScans++;
+        portalBlockChecks += Math.max(0, blockChecks);
+    }
 
     static void recordSentinelPath() {
         sentinelPaths++;
@@ -136,6 +158,7 @@ final class PerformanceStats {
         if (diagnostics || debug) {
             double seconds = elapsed / 1.0E9D;
             double sprAvgMs = sprCalls == 0L ? 0.0D : (sprTotalNs / 1_000_000.0D) / sprCalls;
+            double portalAvgMs = portalOcclusionPaths == 0L ? 0.0D : (portalOcclusionTotalNs / 1_000_000.0D) / portalOcclusionPaths;
             double queueAvgMs = schedulerQueueSamples == 0L ? 0.0D : (schedulerQueueTotalNs / 1_000_000.0D) / schedulerQueueSamples;
             double directAgeAvgMs = ageSamples == 0L ? 0.0D : (directAgeTotalNs / 1_000_000.0D) / ageSamples;
             double roomAgeAvgMs = ageSamples == 0L ? 0.0D : (roomAgeTotalNs / 1_000_000.0D) / ageSamples;
@@ -143,7 +166,7 @@ final class PerformanceStats {
             double transitionAvgMs = transitionSamples == 0L ? 0.0D : (transitionTotalNs / 1_000_000.0D) / transitionSamples;
             long coalesced = schedulerCoalesced.getAndSet(0L);
 
-            String format = "beta9 perf window={}s sprCalls={} ({}/s) sprAvg={}ms sprMax={}ms roomRefreshes={} ({}/s) roomReuses={} ({}/s) applyPasses={} ({}/s) occlusionPaths={} ({}/s) progressive={} full={} partial={} savedPaths={} sentinelPaths={} candidates={} confirmed={} immediateDirect={} immediateRoom={} queueAvg={}ms queueMax={}ms coalesced={} directAgeAvg={}ms directAgeMax={}ms roomAgeAvg={}ms roomAgeMax={}ms applyGapAvg={}ms applyGapMax={}ms transitionAvg={}ms transitionMax={}ms efxApplies={} ({}/s) efxReattachPasses={}";
+            String format = "beta9 perf window={}s sprCalls={} ({}/s) sprAvg={}ms sprMax={}ms roomRefreshes={} ({}/s) roomReuses={} ({}/s) applyPasses={} ({}/s) occlusionPaths={} ({}/s) portalPaths={} ({}/s) portalAvg={}ms portalMax={}ms portalLower={} portalCross={} portalScans={} portalBlockChecks={} progressive={} full={} partial={} savedPaths={} sentinelPaths={} candidates={} confirmed={} immediateDirect={} immediateRoom={} queueAvg={}ms queueMax={}ms coalesced={} directAgeAvg={}ms directAgeMax={}ms roomAgeAvg={}ms roomAgeMax={}ms applyGapAvg={}ms applyGapMax={}ms transitionAvg={}ms transitionMax={}ms efxApplies={} ({}/s) efxReattachPasses={}";
             Object[] args = {
                     round1(seconds),
                     sprCalls, round1(sprCalls / seconds), round3(sprAvgMs), round3(sprMaxNs / 1_000_000.0D),
@@ -151,6 +174,8 @@ final class PerformanceStats {
                     roomReuses, round1(roomReuses / seconds),
                     applyPasses, round1(applyPasses / seconds),
                     occlusionPaths, round1(occlusionPaths / seconds),
+                    portalOcclusionPaths, round1(portalOcclusionPaths / seconds), round3(portalAvgMs), round3(portalOcclusionMaxNs / 1_000_000.0D),
+                    portalLowerPaths, portalCrossPaths, portalTopologyScans, portalBlockChecks,
                     progressiveEvals, progressiveFullRefreshes, progressivePartialRefreshes, progressiveSavedPaths,
                     sentinelPaths, sentinelCandidates, sentinelConfirmed, immediateDirectApplies, immediateRoomApplies,
                     round3(queueAvgMs), round3(schedulerQueueMaxNs / 1_000_000.0D), coalesced,
@@ -171,6 +196,8 @@ final class PerformanceStats {
     private static void resetCounters() {
         sprCalls = sprTotalNs = sprMaxNs = 0L;
         occlusionPaths = 0L;
+        portalOcclusionPaths = portalOcclusionTotalNs = portalOcclusionMaxNs = 0L;
+        portalLowerPaths = portalCrossPaths = portalTopologyScans = portalBlockChecks = 0L;
         efxApplies = efxReattachPasses = 0L;
         progressiveEvals = progressiveFullRefreshes = progressivePartialRefreshes = progressiveSavedPaths = 0L;
         roomRefreshes = roomReuses = applyPasses = 0L;

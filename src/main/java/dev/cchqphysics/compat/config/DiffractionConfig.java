@@ -2,7 +2,7 @@ package dev.cchqphysics.compat.config;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
 
-/** Experimental V6 aperture-energy diffraction model. */
+/** Experimental V7 aperture-energy spreading model. */
 public final class DiffractionConfig {
     public static final ModConfigSpec SPEC;
 
@@ -14,6 +14,9 @@ public final class DiffractionConfig {
     private static final ModConfigSpec.DoubleValue PORTAL_ACTIVATION_RAW;
     private static final ModConfigSpec.DoubleValue LOW_DELTA_SCALE;
     private static final ModConfigSpec.DoubleValue HIGH_DELTA_SCALE;
+    private static final ModConfigSpec.DoubleValue LOW_LEG_SCALE;
+    private static final ModConfigSpec.DoubleValue HIGH_LEG_SCALE;
+    private static final ModConfigSpec.DoubleValue APERTURE_SPREAD_SCALE;
     private static final ModConfigSpec.DoubleValue HORIZON_FADE_START_RATIO;
     private static final ModConfigSpec.DoubleValue CANDIDATE_SEPARATION;
     private static final ModConfigSpec.DoubleValue SELECTION_HYSTERESIS;
@@ -23,10 +26,10 @@ public final class DiffractionConfig {
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
-        builder.push("portal_diffraction_v6_test");
+        builder.push("portal_diffraction_v7_spreading_test");
 
         ENABLED = builder.comment(
-                "Experimental Phase-5 V6 aperture-energy diffraction model.",
+                "Experimental Phase-5 V7 aperture-energy spreading model.",
                 "OFF by default. The normal progressive direct path remains authoritative.",
                 "A verified opening only adds a bounded secondary energy contribution; it never replaces the direct path.",
                 "Never changes source position, playback timing, synchronized starts, reflection routing, or reverb sends.")
@@ -67,6 +70,22 @@ public final class DiffractionConfig {
                 "Path-length-difference scale for the high-band diffraction approximation.",
                 "Smaller than the low-band scale so highs attenuate more strongly as the detour worsens.")
                 .defineInRange("high_delta_scale", 1.5D, 0.05D, 32.0D);
+
+        LOW_LEG_SCALE = builder.comment(
+                "Independent low-band transmission scale for SPR-verified portal-leg occlusion.",
+                "Replaces V6's inherited pow(direct, legRaw/raw) approximation.")
+                .defineInRange("low_leg_scale", 4.0D, 0.10D, 32.0D);
+
+        HIGH_LEG_SCALE = builder.comment(
+                "Independent high-band transmission scale for SPR-verified portal-leg occlusion.",
+                "Smaller than the low-band scale so obstructed portal legs darken rather than over-brighten the path.")
+                .defineInRange("high_leg_scale", 1.5D, 0.05D, 32.0D);
+
+        APERTURE_SPREAD_SCALE = builder.comment(
+                "Softened inverse-distance amplitude scale for explicit roof-opening leakage into the listener enclosure.",
+                "Independent of the 8-block discovery radius; horizon fade remains only a scan-boundary safety net.",
+                "Implicit open-top geometry uses zero aperture distance in this isolated candidate to preserve the approved V6 open-top behavior.")
+                .defineInRange("aperture_spread_scale", 3.0D, 0.25D, 16.0D);
 
         HORIZON_FADE_START_RATIO = builder.comment(
                 "Fraction of search radius where an artificial scan-horizon fade begins.",
@@ -125,6 +144,9 @@ public final class DiffractionConfig {
     public static double portalActivationRaw() { return d(PORTAL_ACTIVATION_RAW, 2.0D); }
     public static double lowDeltaScale() { return d(LOW_DELTA_SCALE, 4.0D); }
     public static double highDeltaScale() { return d(HIGH_DELTA_SCALE, 1.5D); }
+    public static double lowLegScale() { return d(LOW_LEG_SCALE, 4.0D); }
+    public static double highLegScale() { return d(HIGH_LEG_SCALE, 1.5D); }
+    public static double apertureSpreadScale() { return d(APERTURE_SPREAD_SCALE, 3.0D); }
     public static double horizonFadeStartRatio() { return d(HORIZON_FADE_START_RATIO, 0.75D); }
     public static double selectionHysteresis() { return d(SELECTION_HYSTERESIS, 0.35D); }
     public static double candidateSeparationSq() {
@@ -147,7 +169,7 @@ public final class DiffractionConfig {
 
     public static String summary() {
         return "diffraction=" + enabled()
-                + " portalV6=true"
+                + " portalV7=true"
                 + " minSourceAbove=" + minSourceAboveListener()
                 + " clearance=" + escapeClearance()
                 + " openingRadius=" + openingSearchRadius()
@@ -155,6 +177,9 @@ public final class DiffractionConfig {
                 + " portalActivationRaw=" + portalActivationRaw()
                 + " lowDeltaScale=" + lowDeltaScale()
                 + " highDeltaScale=" + highDeltaScale()
+                + " lowLegScale=" + lowLegScale()
+                + " highLegScale=" + highLegScale()
+                + " apertureSpreadScale=" + apertureSpreadScale()
                 + " horizonFadeStart=" + horizonFadeStartRatio()
                 + " candidateSeparation=" + Math.sqrt(candidateSeparationSq())
                 + " selectionHysteresis=" + selectionHysteresis()
