@@ -1,0 +1,121 @@
+name: Config Cleanup RC1
+
+on:
+  push:
+    branches:
+      - phase5-cleanup-config-first
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify performance baseline ancestry
+        shell: bash
+        run: git merge-base --is-ancestor 962eab8b052466ca984496a7dec0767dc65803f4 HEAD
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Apply asserted config cleanup
+        shell: bash
+        run: python .github/config_cleanup_patch.py
+
+      - name: Verify cleanup scope and release-facing config
+        shell: bash
+        run: |
+          git diff --check
+
+          # Config cleanup must not touch the tested acoustic implementation.
+          git diff --exit-code 962eab8b052466ca984496a7dec0767dc65803f4..HEAD -- src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java
+          git diff --exit-code -- src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java
+
+          # Release identity and clean config filenames.
+          grep -F 'mod_version=0.1.0-beta11-rc1' gradle.properties
+          grep -F 'public static final String VERSION = "0.1.0-beta11-rc1";' src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java
+          grep -F 'cchq_soundphysics_compat-sync-balance.toml' src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java
+          grep -F 'cchq_soundphysics_compat-openings.toml' src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java
+          grep -F 'version="0.1.0-beta11-rc1"' src/main/resources/META-INF/neoforge.mods.toml
+
+          # Approved opening defaults are unchanged numerically, but release default is ON.
+          grep -F '.define("enabled", true);' src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java
+          grep -F '.defineInRange("opening_clearance", 1.5D, 0.25D, 8.0D);' src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java
+          grep -F '.defineInRange("search_radius", 8.0D, 1.0D, 8.0D);' src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java
+          grep -F '.defineInRange("effect_strength", 0.25D, 0.0D, 1.0D);' src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java
+          grep -F '.defineInRange("full_effect_occlusion", 2.0D, 0.25D, 8.0D);' src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java
+          grep -F '.defineInRange("bass_carry", 4.0D, 0.10D, 32.0D);' src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java
+          grep -F '.defineInRange("clarity_carry", 1.5D, 0.05D, 32.0D);' src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java
+          grep -F '.defineInRange("influence_distance", 3.0D, 0.25D, 16.0D);' src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java
+          grep -F '.defineInRange("edge_fade_start", 0.75D, 0.0D, 0.99D);' src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java
+          grep -F '.defineInRange("opening_separation", 2.0D, 0.0D, 8.0D);' src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java
+          grep -F '.defineInRange("switch_stability", 0.35D, 0.0D, 4.0D);' src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java
+          grep -F '.defineInRange("scan_interval_ms", 1000.0D, 100.0D, 5000.0D);' src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java
+          grep -F '.defineInRange("movement_recheck_distance", 0.75D, 0.10D, 4.0D);' src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java
+          grep -F '.defineInRange("ray_cache_ms", 5000.0D, 250.0D, 30000.0D);' src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java
+
+          # Approved synchronized-balance values unchanged.
+          grep -F '.defineInRange("muffled_copy_threshold", 0.35D, 0.0D, 1.0D);' src/main/java/dev/cchqphysics/compat/config/SpectralMixConfig.java
+          grep -F '.defineInRange("clear_copy_threshold", 0.75D, 0.0D, 1.0D);' src/main/java/dev/cchqphysics/compat/config/SpectralMixConfig.java
+          grep -F '.defineInRange("minimum_difference", 0.40D, 0.0D, 1.0D);' src/main/java/dev/cchqphysics/compat/config/SpectralMixConfig.java
+          grep -F '.defineInRange("correction_strength", 0.50D, 0.0D, 1.0D);' src/main/java/dev/cchqphysics/compat/config/SpectralMixConfig.java
+          grep -F '.defineInRange("maximum_clarity_increase", 0.55D, 0.0D, 1.0D);' src/main/java/dev/cchqphysics/compat/config/SpectralMixConfig.java
+
+          # Cloth Config must expose and save the openings spec.
+          grep -F 'DiffractionConfig.save();' src/main/java/dev/cchqphysics/compat/config/ClothConfigScreen.java
+          grep -F 'openings(builder, entries);' src/main/java/dev/cchqphysics/compat/config/ClothConfigScreen.java
+          grep -F 'Openings & Vertical Sound' src/main/java/dev/cchqphysics/compat/config/ClothConfigScreen.java
+          grep -F 'Synchronized Sound Balance' src/main/java/dev/cchqphysics/compat/config/ClothConfigScreen.java
+          grep -F 'Advanced / Troubleshooting' src/main/java/dev/cchqphysics/compat/config/ClothConfigScreen.java
+
+          # Historical experiment names must be gone from normal user-facing files.
+          ! grep -E 'Phase[- ]5|V7\.1|Issue-A|HF50' src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java src/main/java/dev/cchqphysics/compat/config/SpectralMixConfig.java src/main/java/dev/cchqphysics/compat/config/ClothConfigScreen.java src/main/resources/META-INF/neoforge.mods.toml
+          ! grep -E 'Beta9|Beta10|Beta11|Hotfix3' src/main/java/dev/cchqphysics/compat/config/ClothConfigScreen.java
+
+      - name: Commit config cleanup
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add gradle.properties src/main/resources/META-INF/neoforge.mods.toml src/main/java/dev/cchqphysics/compat/config/ClientConfig.java src/main/java/dev/cchqphysics/compat/config/ExtendedClientConfig.java src/main/java/dev/cchqphysics/compat/config/ExtendedClientConfigAccess.java src/main/java/dev/cchqphysics/compat/config/ClothConfigScreen.java
+          git commit -m 'cleanup: simplify release configuration and expose opening controls'
+          git push origin HEAD:phase5-cleanup-config-first
+
+      - name: Build
+        shell: bash
+        run: ./gradlew clean build --no-daemon
+
+      - name: Inspect artifact
+        shell: bash
+        run: |
+          JAR=$(find build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*sources*' ! -name '*javadoc*' | head -n1)
+          test -n "$JAR"
+          export JAR
+          echo "JAR=$JAR" >> "$GITHUB_ENV"
+          sha256sum "$JAR"
+          python - <<'PY'
+          import os, zipfile
+          jar=os.environ['JAR']
+          with zipfile.ZipFile(jar) as z:
+              classes=[n for n in z.namelist() if n.endswith('.class')]
+              print('class_count=', len(classes))
+              assert len(classes) == 81, len(classes)
+              mods=z.read('META-INF/neoforge.mods.toml').decode()
+              assert '0.1.0-beta11-rc1' in mods
+          PY
+
+      - name: Upload RC1 config-cleanup JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: cchq-rc1-config-cleanup
+          path: ${{ env.JAR }}
+          if-no-files-found: error
