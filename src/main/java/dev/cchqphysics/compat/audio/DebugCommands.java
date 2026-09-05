@@ -1,5 +1,6 @@
 package dev.cchqphysics.compat.audio;
 
+import dev.cchqphysics.compat.config.DiffractionConfig;
 import dev.cchqphysics.compat.config.ExtendedClientConfig;
 import dev.cchqphysics.compat.config.SpectralMixConfig;
 import net.minecraft.commands.Commands;
@@ -32,15 +33,38 @@ public final class DebugCommands {
                         }))
                 .then(Commands.literal("dump")
                         .executes(context -> {
-                            LOGGER.info("[phase5/dump] config {} {}", ExtendedClientConfig.summary(), SpectralMixConfig.summary());
+                            LOGGER.info("[phase5/dump] config {} {} {}", ExtendedClientConfig.summary(), SpectralMixConfig.summary(), DiffractionConfig.summary());
                             LOGGER.info("[phase5/dump] {}", DebugControl.compactStatus());
                             SoundPhysicsBridge.debugDumpSources();
                             EnvironmentSmoother.debugDumpEfx();
                             SynchronizedSpectralBalancer.debugDump();
+                            VerticalDiffractionRelief.debugDump();
                             context.getSource().sendSuccess(
                                     () -> Component.literal("CC:HQ Physics snapshot written to latest.log"), false);
                             return 1;
                         }))
+                .then(Commands.literal("diffraction")
+                        .then(Commands.literal("on")
+                                .executes(context -> {
+                                    DiffractionConfig.setEnabled(true);
+                                    context.getSource().sendSuccess(
+                                            () -> Component.literal("CC:HQ diffraction test: ON (runtime only)"), false);
+                                    return 1;
+                                }))
+                        .then(Commands.literal("off")
+                                .executes(context -> {
+                                    DiffractionConfig.setEnabled(false);
+                                    context.getSource().sendSuccess(
+                                            () -> Component.literal("CC:HQ diffraction test: OFF (runtime only)"), false);
+                                    return 1;
+                                }))
+                        .then(Commands.literal("status")
+                                .executes(context -> {
+                                    String summary = DiffractionConfig.summary();
+                                    context.getSource().sendSuccess(
+                                            () -> Component.literal("CC:HQ diffraction test: " + summary), false);
+                                    return 1;
+                                })))
                 .then(Commands.literal("refresh_rooms")
                         .executes(context -> {
                             DebugControl.requestRoomRefresh();
@@ -64,7 +88,7 @@ public final class DebugCommands {
                         }))
                 .then(Commands.literal("config")
                         .executes(context -> {
-                            String summary = ExtendedClientConfig.summary() + " " + SpectralMixConfig.summary();
+                            String summary = ExtendedClientConfig.summary() + " " + SpectralMixConfig.summary() + " " + DiffractionConfig.summary();
                             LOGGER.info("[phase5/config] {}", summary);
                             context.getSource().sendSuccess(() -> Component.literal("CC:HQ Physics: " + summary), false);
                             return 1;
