@@ -1,0 +1,69 @@
+name: Lifecycle Fix Validation
+
+on:
+  push:
+    branches:
+      - phase5-cleanup-config-first
+
+permissions:
+  contents: write
+
+jobs:
+  fix-build:
+    if: contains(github.event.head_commit.message, 'apply and validate lifecycle fixes')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Preserve protected acoustic sources
+        shell: bash
+        run: |
+          cp src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java /tmp/VerticalDiffractionRelief.java
+          cp src/main/java/dev/cchqphysics/compat/audio/SynchronizedSpectralBalancer.java /tmp/SynchronizedSpectralBalancer.java
+          cp src/main/java/dev/cchqphysics/compat/audio/ProgressiveOcclusionModel.java /tmp/ProgressiveOcclusionModel.java
+      - name: Apply asserted fixes
+        run: python .github/lifecycle_fix_patch.py
+      - name: Verify exact scope and invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp /tmp/VerticalDiffractionRelief.java src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java
+          cmp /tmp/SynchronizedSpectralBalancer.java src/main/java/dev/cchqphysics/compat/audio/SynchronizedSpectralBalancer.java
+          cmp /tmp/ProgressiveOcclusionModel.java src/main/java/dev/cchqphysics/compat/audio/ProgressiveOcclusionModel.java
+          git diff --exit-code -- . ':(exclude)src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java' || {
+            echo 'Unexpected source change outside CompatAudioManager'; git diff; exit 1;
+          }
+          grep -F 'Beta9Optimizer.isAudibleAndRecord(state.sourceId) & beta9EligibleReal(state, now)' src/main/java/dev/cchqphysics/compat/audio/SoundPhysicsBridge.java
+          grep -F 'compatRegistered = true;' src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java
+          grep -F 'EnvironmentSmoother.unregister(sourceId)' src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java
+          grep -F 'AL10.alGetSourcei(active.sourceId, AL10.AL_SOURCE_STATE) == AL10.AL_PAUSED' src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java
+      - name: Commit lifecycle fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java
+          git commit -m 'fix lifecycle cleanup and pending sync resume'
+          git push
+      - name: Clean build
+        run: ./gradlew clean build --no-daemon
+      - name: Inspect JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR=$(find build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*sources*' | head -1)
+          test -f "$JAR"
+          COUNT=$(zipinfo -1 "$JAR" | grep -c '\.class$')
+          test "$COUNT" -eq 81
+          zipinfo -1 "$JAR" | grep -F 'META-INF/neoforge.mods.toml'
+          zipinfo -1 "$JAR" | grep -F 'META-INF/accesstransformer.cfg'
+          zipinfo -1 "$JAR" | grep -F 'cchq_soundphysics_compat.mixins.json'
+          sha256sum "$JAR"
