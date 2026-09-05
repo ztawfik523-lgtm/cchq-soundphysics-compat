@@ -1,8 +1,12 @@
 # CC:HQ Sound Physics Compat — current project status
 
-> **Start here in a new chat:** `docs/NEXT_CHAT_HANDOFF_2026-09-06.md`
+> **Start here in a new chat:**
 >
-> That document is the detailed continuation record. This file is the compact status view.
+> 1. `docs/NEXT_CHAT_HANDOFF_2026-09-06.md` — detailed project/history handoff
+> 2. `docs/LIFECYCLE_SOURCE_AUDIT_2026-09-06.md` — superseding lifecycle source/JAR checkpoint
+> 3. `docs/RELEASE_CLEANUP_AUDIT_2026-09-06.md` — release-cleanup inventory and decisions
+>
+> This file is the compact status view.
 
 Repository:
 
@@ -12,7 +16,7 @@ Current working branch:
 
 `phase5-v7-1-lifecycle-state-finish`
 
-Current project direction: the reconstruction is complete and the project is in finalization. The stable acoustic reference is **V7.1**; current work is about performance housekeeping, correctness, lifecycle stability, validation and release cleanup.
+Current project direction: reconstruction is complete and the project is in finalization. The stable acoustic reference is **V7.1**; current work is lifecycle runtime validation followed by release cleanup/final packaging.
 
 ---
 
@@ -26,7 +30,7 @@ Current project direction: the reconstruction is complete and the project is in 
 | Phase 4 — structural and behavioral equivalence audit | **COMPLETE / RECHECKED** |
 | Phase 5 — runtime fixes, stable acoustic baseline, performance/lifecycle finalization | **IN FINALIZATION** |
 
-Phase 5 already contains user-approved HF50 behavior, user-tested/frozen V7.1 diffraction, a CI-validated performance housekeeping pass, and a CI-validated lifecycle/state pass. The lifecycle candidate still needs the user's runtime lifecycle test.
+Phase 5 already contains user-approved HF50 behavior, user-tested/frozen V7.1 diffraction, a CI-validated performance housekeeping pass, and an audited lifecycle/state pass. The audited lifecycle candidate still needs the user's runtime lifecycle test.
 
 ---
 
@@ -104,8 +108,6 @@ Known characteristics of V7.1:
 - the accepted 3-deep-hole result is a little darker than one earlier prototype while portal contribution is still active;
 - moving playback is substantially more expensive than stationary playback because progressive direct/SPR work refreshes heavily during movement.
 
-These are documented properties of the stable reference, not evidence that the current source is unfinished.
-
 ---
 
 ## V7.1 performance benchmark result
@@ -131,8 +133,6 @@ Important scaling observations:
 - measured portal SPR-ray CPU is tiny;
 - movement cost is mainly the existing progressive/direct/SPR machinery.
 
-The detailed benchmark table and strict 10-second-window interpretation are in `docs/NEXT_CHAT_HANDOFF_2026-09-06.md`.
-
 ---
 
 ## Performance housekeeping pass
@@ -153,8 +153,6 @@ Changes are intentionally small and behavior-neutral:
 - avoid candidate-list allocations on immediate-empty paths;
 - pre-size candidate lists.
 
-A more aggressive multi-cell topology cache was considered and left out because it could reuse older topology state after A -> B -> A movement and subtly change the acoustic timeline.
-
 Successful validation run:
 
 `33957036689`
@@ -167,7 +165,7 @@ Class count: 81.
 
 ---
 
-## Lifecycle/state finalization pass
+## Audited lifecycle/state finalization pass
 
 Current branch:
 
@@ -177,53 +175,72 @@ Performance base:
 
 `962eab8b052466ca984496a7dec0767dc65803f4`
 
-Clean lifecycle source checkpoint before documentation-only commits:
+Audited production-source checkpoint:
 
-`be03d30efe98ca03bdf27764bcea567df5ef3875`
+`2a6a2f4ecd9e2faad51de9818797f5a16c14b0f7`
 
-Compared with the performance base, the clean lifecycle source changes only:
+Documentation-only commits advance the branch beyond that SHA. Relative to the performance base, production Java changes remain limited to:
 
 - `src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java`
 - `src/main/java/dev/cchqphysics/compat/mixin/SoundEngineLifecycleMixin.java`
 
-Three concrete state issues were fixed:
+Lifecycle/state fixes now cover:
 
-1. **ClientLevel identity:** actual level identity is tracked so disconnect/rejoin and dimension/world replacement invalidate the previous session state.
-2. **Teardown ordering:** normal stop-all and emergency shutdown use blocking sound-thread cleanup, removing the race between queued compat cleanup and vanilla sound executor/OpenAL destruction. Redundant destroy/reload hooks were removed in favor of the authoritative stop-all path.
-3. **Failed-start cleanup:** if source creation fails after compat registration but before installation into `ACTIVE`, the failure path unregisters the source before deleting the raw OpenAL source.
+1. **ClientLevel identity:** disconnect/rejoin and dimension/world replacement invalidate previous compat session state.
+2. **Teardown ordering:** normal stop-all and emergency shutdown use blocking sound-thread cleanup before vanilla sound/OpenAL destruction continues.
+3. **Failed-start cleanup:** partially registered sources are unregistered before raw OpenAL deletion.
+4. **OpenAL source-zero guard:** source allocation is error-checked and source ID `0` is rejected before compat registration.
+5. **Best-effort active teardown:** unregister, stop, detach, delete and buffer release no longer depend on every prior cleanup step succeeding.
+6. **Pending sync pause/resume correctness:** pause/resume queries actual OpenAL state rather than the coordinator's synthetic pending state, so pending synchronized `AL_INITIAL` sources cannot be started individually by resume.
+7. **Vector pause/resume:** eligible compat sources are paused/resumed with OpenAL vector operations.
 
-Lifecycle source commits:
+Source-audit commits:
 
-- `24e41b49f8ccd5b32e484b90def8f50c3767c8d9`
-- `cfcc122da3be03171377f14717ae30b4c6bbb696`
+- active teardown/allocation hardening: `fb2665620ff977c4e251da416679f0ef5789d724`
+- pause/resume sync preservation: `2a6a2f4ecd9e2faad51de9818797f5a16c14b0f7`
 
-Successful validation run:
+Successful audited validation run:
 
-`33962380234`
+`33996243988`
 
 Job:
 
-`101296383519`
+`101387190106`
 
 Artifact:
 
-`9968357487`
+`9978159512`
 
-Lifecycle candidate JAR SHA-256:
+Audited lifecycle candidate JAR SHA-256:
 
-`6d0fa98ee6c76d23a3e0764501d16dc5c993149e0de77181cdab6fc0a9abdc18`
+`4b3c8c52cc00a37274d5829cff93933d6e548b733b83918fcc5570ab8d6ad3c5`
 
 Class count: 81.
 
-CI metadata recorded `acoustic_model_changes=false`, `lua_changes=false`, and `game_launch_performed=false`.
+The earlier candidate SHA `6d0fa98e...` is superseded.
 
-The built candidate still reports internal version `0.1.0-beta11-phase5-v7-1-performance-test`; release naming cleanup is still pending.
+CI proved the named frozen acoustic/config files unchanged from the performance baseline, no Lua changes, successful Java 21 compile/build, correct resource wiring and 81 packaged classes.
+
+---
+
+## Release-cleanup audit started
+
+Release cleanup is being inventoried before the runtime gate, but production naming/default/schema changes have **not** been applied yet.
+
+The main open release decisions are documented in `docs/RELEASE_CLEANUP_AUDIT_2026-09-06.md`:
+
+- one final version identity versus the current three inconsistent development strings;
+- manual version alignment versus centralizing version metadata;
+- whether accepted V7.1 diffraction remains OFF by default or ships ON by default;
+- whether to preserve the legacy diffraction config filename/root or implement migration to clean final names;
+- how aggressively to clean Beta/Phase implementation names from user-facing UI/diagnostics;
+- removing or dynamically generating the stale static `Created-By: 21.0.11 (Debian)` manifest line.
+
+Historical phase docs/workflows are provenance and should not be mass-rewritten merely for cosmetic cleanup.
 
 ---
 
 ## Current invariants worth checking during final audit
-
-These are the established architectural facts most useful when reviewing finishing changes:
 
 - `SoundSource.BLOCKS` distance behavior;
 - center + 8 inner + 8 outer direct geometry;
@@ -240,17 +257,15 @@ These are the established architectural facts most useful when reviewing finishi
 
   `Beta9Optimizer.isAudibleAndRecord(state.sourceId) & beta9EligibleReal(state, now)`
 
-These are comparison points for a final audit, not a replacement for evidence if a real bug is found later.
-
 ---
 
 ## Immediate next checkpoint
 
-The lifecycle candidate is source/CI validated but has not yet received the user's runtime lifecycle test.
+The audited lifecycle candidate is source/CI validated but has not yet received the user's runtime lifecycle test.
 
-Candidate SHA:
+Candidate SHA-256:
 
-`6d0fa98ee6c76d23a3e0764501d16dc5c993149e0de77181cdab6fc0a9abdc18`
+`4b3c8c52cc00a37274d5829cff93933d6e548b733b83918fcc5570ab8d6ad3c5`
 
 Runtime sequence:
 
@@ -263,6 +278,6 @@ Runtime sequence:
 7. four speakers playing for several minutes while moving
 8. upload `latest.log` and `debug.log`
 
-If that run is clean, the natural next step is release cleanup/final audit: final version naming, presentation cleanup, final source comparison, final JAR/resource/hash inspection, and a final stable/archive checkpoint.
+After that run is clean, resolve the release decisions, apply release presentation/default/migration changes, rebuild, perform final source/JAR/resource/hash validation and create the final stable/archive checkpoint.
 
-`main` remains untouched at this handoff; any eventual merge can stay an explicit release decision.
+`main` remains untouched; any eventual merge remains a separate release decision.
