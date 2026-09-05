@@ -20,32 +20,35 @@ jobs:
           fetch-depth: 0
 
       - name: Skip known-blocked V3 vertical ray using cheap topology
-        shell: python
+        shell: bash
         run: |
+          set -euo pipefail
+          python - <<'PY'
           from pathlib import Path
           p = Path('src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java')
           s = p.read_text()
-          old = '''        // Preserve the runtime-approved V3 direct open-top route exactly for
-        // the geometry it was designed to handle.
-        if (raw >= DiffractionConfig.rawOcclusionGate()
-                && horizontal >= DiffractionConfig.minHorizontalSeparation()) {'''
-          new = '''        // A cheap shared roof scan can prove that the V3 direct vertical leg
-        // is blocked before we spend an SPR occlusion call on it. Open-top V3
-        // behavior is unchanged because no barrier is found in that geometry.
-        OpeningTopology listenerTopology = sourceIsLower ? null : getOpeningTopology(listener);
-        boolean directKnownBlocked = listenerTopology != null
-                && listenerTopology.barrierY != Integer.MIN_VALUE
-                && source.y > listenerTopology.barrierY + 0.5D;
+          old = """        // Preserve the runtime-approved V3 direct open-top route exactly for
+          // the geometry it was designed to handle.
+          if (raw >= DiffractionConfig.rawOcclusionGate()
+                  && horizontal >= DiffractionConfig.minHorizontalSeparation()) {"""
+          new = """        // A cheap shared roof scan can prove that the V3 direct vertical leg
+          // is blocked before we spend an SPR occlusion call on it. Open-top V3
+          // behavior is unchanged because no barrier is found in that geometry.
+          OpeningTopology listenerTopology = sourceIsLower ? null : getOpeningTopology(listener);
+          boolean directKnownBlocked = listenerTopology != null
+                  && listenerTopology.barrierY != Integer.MIN_VALUE
+                  && source.y > listenerTopology.barrierY + 0.5D;
 
-        // Preserve the runtime-approved V3 direct open-top route exactly for
-        // the geometry it was designed to handle.
-        if (!directKnownBlocked
-                && raw >= DiffractionConfig.rawOcclusionGate()
-                && horizontal >= DiffractionConfig.minHorizontalSeparation()) {'''
+          // Preserve the runtime-approved V3 direct open-top route exactly for
+          // the geometry it was designed to handle.
+          if (!directKnownBlocked
+                  && raw >= DiffractionConfig.rawOcclusionGate()
+                  && horizontal >= DiffractionConfig.minHorizontalSeparation()) {"""
           count = s.count(old)
           if count != 1:
               raise SystemExit(f'expected one direct-route block, found {count}')
           p.write_text(s.replace(old, new, 1))
+          PY
 
       - name: Assert direct-roof prescreen
         shell: bash
