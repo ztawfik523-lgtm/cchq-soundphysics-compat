@@ -87,7 +87,7 @@ jobs:
             src/main/java/dev/cchqphysics/compat/config/SpectralMixConfig.java; do
             git diff --exit-code "$base" -- "$f"
           done
-          grep -R -F 'Beta9Optimizer.isAudibleAndRecord(sourceId) & beta9EligibleReal(' src/main/java
+          grep -F 'return Beta9Optimizer.isAudibleAndRecord(state.sourceId) & beta9EligibleReal(state, now);' src/main/java/dev/cchqphysics/compat/audio/SoundPhysicsBridge.java
           test -z "$(git diff --name-only "$base"...HEAD -- '*.lua')"
 
       - name: Verify reconstruction compile classpath
