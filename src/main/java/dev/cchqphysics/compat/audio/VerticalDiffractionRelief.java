@@ -118,9 +118,18 @@ final class VerticalDiffractionRelief {
         Vec3 upper = sourceIsLower ? listener : source;
         double escapeY = Math.max(physical.y, listener.y) + DiffractionConfig.escapeClearance();
 
+        // A cheap shared roof scan can prove that the V3 direct vertical leg
+        // is blocked before we spend an SPR occlusion call on it. Open-top V3
+        // behavior is unchanged because no barrier is found in that geometry.
+        OpeningTopology listenerTopology = sourceIsLower ? null : getOpeningTopology(listener);
+        boolean directKnownBlocked = listenerTopology != null
+                && listenerTopology.barrierY != Integer.MIN_VALUE
+                && source.y > listenerTopology.barrierY + 0.5D;
+
         // Preserve the runtime-approved V3 direct open-top route exactly for
         // the geometry it was designed to handle.
-        if (raw >= DiffractionConfig.rawOcclusionGate()
+        if (!directKnownBlocked
+                && raw >= DiffractionConfig.rawOcclusionGate()
                 && horizontal >= DiffractionConfig.minHorizontalSeparation()) {
             Vec3 directWaypoint = new Vec3(lower.x, escapeY, lower.z);
             final double directVerticalLeg;
