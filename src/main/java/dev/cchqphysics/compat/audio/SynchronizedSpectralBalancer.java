@@ -14,20 +14,18 @@ import java.util.Locale;
  */
 final class SynchronizedSpectralBalancer {
     private static final Logger LOGGER = LoggerFactory.getLogger("CC:HQ Sound Physics Compat");
-    private static final double DARK_SOURCE_CUTOFF = 0.35D;
-    private static final double MIN_PEER_GAP = 0.40D;
 
     private SynchronizedSpectralBalancer() {}
 
     static float adjustDirectCutoff(int sourceId, float baseCutoff) {
         if (!SpectralMixConfig.enabled() || !ClientConfig.progressiveOcclusion()) return baseCutoff;
-        if (!Float.isFinite(baseCutoff) || baseCutoff > DARK_SOURCE_CUTOFF) return baseCutoff;
+        if (!Float.isFinite(baseCutoff) || baseCutoff > SpectralMixConfig.darkSourceCutoff()) return baseCutoff;
 
         double peerMax = clearestPeerCutoff(sourceId);
         if (!Double.isFinite(peerMax) || peerMax < SpectralMixConfig.peerClearCutoff()) return baseCutoff;
 
         double gap = peerMax - baseCutoff;
-        if (gap < MIN_PEER_GAP) return baseCutoff;
+        if (gap < SpectralMixConfig.minPeerGap()) return baseCutoff;
 
         double requested = baseCutoff + gap * SpectralMixConfig.clarityFloorRatio();
         double capped = Math.min(requested, baseCutoff + SpectralMixConfig.maxCutoffLift());
@@ -57,11 +55,16 @@ final class SynchronizedSpectralBalancer {
             double peerMax = clearestPeerCutoff(sourceId);
             double gap = Double.isFinite(base) && Double.isFinite(peerMax) ? peerMax - base : Double.NaN;
             float adjusted = Double.isFinite(base) ? adjustDirectCutoff(sourceId, (float) base) : Float.NaN;
-            LOGGER.info("[phase5/dump] sync-hf50 source={} peers={} intrinsicCutoff={} clearestPeer={} gap={} adjustedCutoff={} delta={} enabled={} darkGate={} gapGate={}",
+            LOGGER.info("[phase5/dump] sync-hf50 source={} peers={} intrinsicCutoff={} clearestPeer={} gap={} adjustedCutoff={} delta={} enabled={} darkGate={} clearPeerGate={} gapGate={} peerBlend={} maxLift={}",
                     sourceId, SyncStartCoordinator.livePeerSources(sourceId).length,
                     round3(base), round3(peerMax), round3(gap), round3(adjusted),
                     Double.isFinite(base) && Float.isFinite(adjusted) ? round3(adjusted - base) : "nan",
-                    SpectralMixConfig.enabled(), round3(DARK_SOURCE_CUTOFF), round3(MIN_PEER_GAP));
+                    SpectralMixConfig.enabled(),
+                    round3(SpectralMixConfig.darkSourceCutoff()),
+                    round3(SpectralMixConfig.peerClearCutoff()),
+                    round3(SpectralMixConfig.minPeerGap()),
+                    round3(SpectralMixConfig.clarityFloorRatio()),
+                    round3(SpectralMixConfig.maxCutoffLift()));
         }
     }
 
