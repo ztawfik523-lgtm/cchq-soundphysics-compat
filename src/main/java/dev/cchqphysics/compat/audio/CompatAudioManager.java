@@ -237,6 +237,7 @@ public final class CompatAudioManager {
         } finally {
             if (!installed) {
                 if (sourceId != 0) {
+                    try { EnvironmentSmoother.unregister(sourceId); } catch (Throwable ignored) {}
                     try { AL10.alSourceStop(sourceId); } catch (Throwable ignored) {}
                     try { AL10.alSourcei(sourceId, AL10.AL_BUFFER, 0); } catch (Throwable ignored) {}
                     try { AL10.alDeleteSources(sourceId); } catch (Throwable ignored) {}
