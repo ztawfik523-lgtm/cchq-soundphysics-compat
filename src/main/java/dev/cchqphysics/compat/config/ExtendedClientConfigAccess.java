@@ -6,7 +6,7 @@ import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** Reflection bridge used only by the Cloth Config screen for the Phase-5 advanced spec. */
+/** Reflection bridge used only by the Cloth Config screen for advanced runtime controls. */
 public final class ExtendedClientConfigAccess {
     private static final Map<String, ModConfigSpec.ConfigValue<?>> CACHE = new ConcurrentHashMap<>();
 

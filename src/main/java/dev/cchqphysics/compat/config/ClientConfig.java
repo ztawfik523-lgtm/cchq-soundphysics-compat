@@ -57,7 +57,7 @@ public final class ClientConfig {
                 .translation("cchq_soundphysics_compat.configuration.distance.scale_range_above_one")
                 .define("scale_range_above_one", true);
         AUDIBLE_RANGE_MULTIPLIER = builder
-                .comment("Multiplier applied to the compat audible endpoint after SPR-derived range calculation. 1.0 reproduces alpha20.")
+                .comment("Multiplies the final audible range. Higher = speakers can be heard farther away; lower = shorter audible range. 1.0 is the tuned default.")
                 .translation("cchq_soundphysics_compat.configuration.distance.audible_range_multiplier")
                 .defineInRange("audible_range_multiplier", 1.0D, 0.25D, 4.0D);
         builder.pop();
@@ -68,35 +68,35 @@ public final class ClientConfig {
                 .translation("cchq_soundphysics_compat.configuration.occlusion.progressive")
                 .define("progressive", true);
         INNER_VARIATION = builder
-                .comment("Inner probe-ring offset in blocks.")
+                .comment("Distance of the inner obstruction probes from the center path, in blocks. Higher samples a wider area around the direct path.")
                 .translation("cchq_soundphysics_compat.configuration.occlusion.inner_variation")
                 .defineInRange("inner_variation", 0.20D, 0.05D, 0.75D);
         OUTER_VARIATION = builder
-                .comment("Outer probe-ring offset in blocks.")
+                .comment("Distance of the outer obstruction probes from the center path, in blocks. Higher samples farther around the direct path.")
                 .translation("cchq_soundphysics_compat.configuration.occlusion.outer_variation")
                 .defineInRange("outer_variation", 0.49D, 0.10D, 1.25D);
         CENTER_WEIGHT = builder
-                .comment("Weight of the exact source-to-listener ray.")
+                .comment("Importance of the exact speaker-to-listener path. Higher makes the center path dominate the muffling result more strongly.")
                 .translation("cchq_soundphysics_compat.configuration.occlusion.center_weight")
                 .defineInRange("center_weight", 4.0D, 0.10D, 32.0D);
         INNER_WEIGHT = builder
-                .comment("Weight of the eight inner-ring rays.")
+                .comment("Importance of the eight inner surrounding paths. Higher makes nearby geometry affect muffling more strongly.")
                 .translation("cchq_soundphysics_compat.configuration.occlusion.inner_weight")
                 .defineInRange("inner_weight", 1.0D, 0.0D, 8.0D);
         OUTER_WEIGHT = builder
-                .comment("Weight of the eight outer-ring rays.")
+                .comment("Importance of the eight outer surrounding paths. Higher makes wider nearby geometry affect muffling more strongly.")
                 .translation("cchq_soundphysics_compat.configuration.occlusion.outer_weight")
                 .defineInRange("outer_weight", 0.5D, 0.0D, 8.0D);
         OPEN_CENTER_RING_SCALE = builder
-                .comment("How much surrounding probes can influence a source whose exact center path is clear.")
+                .comment("How much nearby blocked geometry can matter while the exact center path is clear. Higher adds more surrounding influence; 0 trusts the clear center path completely.")
                 .translation("cchq_soundphysics_compat.configuration.occlusion.open_center_ring_scale")
                 .defineInRange("open_center_ring_scale", 0.20D, 0.0D, 1.0D);
         CUTOFF_OCCLUSION_SCALE = builder
-                .comment("Strength of progressive high-frequency muffling.")
+                .comment("How strongly obstruction removes high frequencies. Higher = darker/more muffled behind walls; lower = clearer.")
                 .translation("cchq_soundphysics_compat.configuration.occlusion.cutoff_scale")
                 .defineInRange("cutoff_scale", 0.35D, 0.0D, 2.0D);
         GAIN_OCCLUSION_SCALE = builder
-                .comment("Strength of progressive direct-volume attenuation.")
+                .comment("How strongly obstruction lowers direct volume. Higher = quieter behind walls; lower = less volume loss.")
                 .translation("cchq_soundphysics_compat.configuration.occlusion.gain_scale")
                 .defineInRange("gain_scale", 0.50D, 0.0D, 2.0D);
         builder.pop();
@@ -107,11 +107,11 @@ public final class ClientConfig {
                 .translation("cchq_soundphysics_compat.configuration.direction.stabilize_reflections")
                 .define("stabilize_reflections", true);
         REFLECTION_THRESHOLD = builder
-                .comment("Minimum progressive raw occlusion before reflected positioning is allowed.")
+                .comment("How blocked the direct path must be before reflected direction can move the apparent source. Higher keeps the sound anchored to the real speaker longer.")
                 .translation("cchq_soundphysics_compat.configuration.direction.reflection_threshold")
                 .defineInRange("reflection_threshold", 0.45D, 0.0D, 16.0D);
         REFLECTION_BLEND = builder
-                .comment("Fraction of SPR's reflected displacement to retain.")
+                .comment("How much of Sound Physics' reflected direction shift is used. Higher = stronger apparent bending toward reflections; 0 keeps the source at its real position.")
                 .translation("cchq_soundphysics_compat.configuration.direction.reflection_blend")
                 .defineInRange("reflection_blend", 0.35D, 0.0D, 1.0D);
         MAX_REFLECTION_OFFSET = builder
@@ -119,65 +119,65 @@ public final class ClientConfig {
                 .translation("cchq_soundphysics_compat.configuration.direction.max_reflection_offset")
                 .defineInRange("max_reflection_offset", 2.5D, 0.0D, 16.0D);
         REDIRECT_ALPHA = builder
-                .comment("Smoothing factor while following a reflected position.")
+                .comment("How quickly the apparent source follows a new reflected position. Higher reacts faster; lower moves more smoothly.")
                 .translation("cchq_soundphysics_compat.configuration.direction.redirect_alpha")
                 .defineInRange("redirect_alpha", 0.22D, 0.01D, 1.0D);
         CLEAR_POSITION_ALPHA = builder
-                .comment("Smoothing factor while returning toward the real speaker position.")
+                .comment("How quickly the apparent source returns to the real speaker after reflection redirection clears. Higher returns faster.")
                 .translation("cchq_soundphysics_compat.configuration.direction.clear_alpha")
                 .defineInRange("clear_alpha", 0.28D, 0.01D, 1.0D);
         FLIP_TO_CENTER_ALPHA = builder
-                .comment("Smoothing factor used when a reflected route changes to the opposite side.")
+                .comment("How quickly opposite-side reflection changes are recentred. Higher reacts faster; lower makes the transition smoother.")
                 .translation("cchq_soundphysics_compat.configuration.direction.flip_to_center_alpha")
                 .defineInRange("flip_to_center_alpha", 0.35D, 0.01D, 1.0D);
         builder.pop();
 
         builder.push("smoothing");
         MUFFLE_ALPHA = builder
-                .comment("Direct-filter smoothing while obstruction increases.")
+                .comment("How quickly new obstruction becomes audible. Higher = muffling reacts faster; lower = smoother/slower.")
                 .translation("cchq_soundphysics_compat.configuration.smoothing.muffle_alpha")
                 .defineInRange("muffle_alpha", 0.30D, 0.01D, 1.0D);
         CLEAR_CUTOFF_ALPHA = builder
-                .comment("Log-space cutoff smoothing while obstruction clears.")
+                .comment("How quickly high frequencies return after obstruction clears. Higher = faster clearing; lower = smoother/slower.")
                 .translation("cchq_soundphysics_compat.configuration.smoothing.clear_cutoff_alpha")
                 .defineInRange("clear_cutoff_alpha", 0.18D, 0.01D, 1.0D);
         CLEAR_GAIN_ALPHA = builder
-                .comment("Log-space gain smoothing while obstruction clears.")
+                .comment("How quickly direct volume returns after obstruction clears. Higher = faster recovery; lower = smoother/slower.")
                 .translation("cchq_soundphysics_compat.configuration.smoothing.clear_gain_alpha")
                 .defineInRange("clear_gain_alpha", 0.16D, 0.01D, 1.0D);
         REVERB_ALPHA = builder
-                .comment("Smoothing applied to SPR wet/reverb send targets.")
+                .comment("How quickly reverb/wet sends react to a changed environment. Higher = faster response; lower = smoother/slower.")
                 .translation("cchq_soundphysics_compat.configuration.smoothing.reverb_alpha")
                 .defineInRange("reverb_alpha", 0.22D, 0.01D, 1.0D);
         builder.pop();
 
         builder.push("performance");
         FULL_SPR_UPDATE_MS = builder
-                .comment("Minimum interval between full SPR processSound evaluations for each compat speaker. Alpha20 = 100 ms.")
+                .comment("Minimum time between full Sound Physics environment updates for one compat speaker. Lower = more responsive but more CPU; higher = cheaper but slower.")
                 .translation("cchq_soundphysics_compat.configuration.performance.full_spr_update_ms")
                 .defineInRange("full_spr_update_ms", 100, 50, 2000);
         OCCLUSION_MIN_UPDATE_MS = builder
-                .comment("Minimum interval between progressive obstruction calculations while moving. Alpha20 = 100 ms.")
+                .comment("Minimum time between wall-obstruction updates while moving. Lower = more responsive but more CPU; higher = cheaper but slower.")
                 .translation("cchq_soundphysics_compat.configuration.performance.occlusion_min_update_ms")
                 .defineInRange("occlusion_min_update_ms", 100, 50, 2000);
         OCCLUSION_STATIONARY_UPDATE_MS = builder
-                .comment("Progressive obstruction refresh interval while the listener is effectively stationary. Alpha20 = 200 ms.")
+                .comment("Wall-obstruction refresh interval while the listener is stationary. Lower = fresher results but more CPU; higher = cheaper.")
                 .translation("cchq_soundphysics_compat.configuration.performance.occlusion_stationary_update_ms")
                 .defineInRange("occlusion_stationary_update_ms", 200, 50, 5000);
         OCCLUSION_MOVE_THRESHOLD = builder
-                .comment("Listener movement in blocks that counts as movement for progressive obstruction refreshes. Alpha20 = 0.15.")
+                .comment("Listener movement that switches to the faster moving update rate. Lower = more sensitive to small movement; higher = stays on the stationary rate longer.")
                 .translation("cchq_soundphysics_compat.configuration.performance.occlusion_move_threshold")
                 .defineInRange("occlusion_move_threshold", 0.15D, 0.01D, 2.0D);
         ADAPTIVE_PROBE_CACHE = builder
-                .comment("Reuse one exact 8-probe ring briefly while refreshing the other. Keeps the same 17-point model but reduces raycasts; full refreshes are forced around meaningful changes.")
+                .comment("Reuses one 8-probe ring briefly while refreshing the center and other ring. ON reduces raycasts; meaningful movement or center-path changes still force all 17 probes fresh.")
                 .translation("cchq_soundphysics_compat.configuration.performance.adaptive_probe_cache")
                 .define("adaptive_probe_cache", true);
         PROBE_FULL_REFRESH_DISTANCE = builder
-                .comment("Cumulative listener movement in blocks since the last full 17-probe refresh that forces both rings fresh again.")
+                .comment("Movement since the last full 17-probe refresh that forces both rings fresh again. Lower = more full refreshes and more CPU.")
                 .translation("cchq_soundphysics_compat.configuration.performance.probe_full_refresh_distance")
                 .defineInRange("probe_full_refresh_distance", 0.50D, 0.10D, 4.0D);
         PROBE_CENTER_DELTA = builder
-                .comment("Change in center-path occlusion since the last full refresh that forces both probe rings fresh immediately.")
+                .comment("Center-path obstruction change that forces both probe rings fresh immediately. Lower = more sensitive and uses more raycasts around changes.")
                 .translation("cchq_soundphysics_compat.configuration.performance.probe_center_delta")
                 .defineInRange("probe_center_delta", 0.20D, 0.01D, 4.0D);
         DIAGNOSTICS = builder

@@ -4,10 +4,10 @@ license="MIT"
 
 [[mods]]
 modId="cchq_soundphysics_compat"
-version="0.1.0-beta11-phase5-diffraction-v7-1-spreading-only-test"
+version="0.1.0-beta11-rc1"
 displayName="CC:HQ Sound Physics Compat"
 authors="CC:HQ / Sound Physics compatibility"
-description='''Phase 5 isolated aperture-energy diffraction experiment V6 built on the runtime-approved configurable HF50 baseline. V7.1 preserves V6 portal spectral/transmission math and adds only explicit-aperture distance spreading; V6 retires the V3-V5 behavior where an alternate opening route could replace the direct occlusion result. The normal progressive direct path remains authoritative; a verified roof/open-top aperture contributes only a bounded secondary low/high energy path. Aperture strength uses the exact V6 path-length/leg-transmission model, multiplied by a softened inverse-distance spreading term for explicit roof openings and the existing smooth finite-search fade. High-band aperture energy decays faster than low-band energy. At most two candidates are acoustically verified, listener-side topology is shared, and verification legs are cached. Source position, source playback gain, PCM/OpenAL clocks, synchronized starts, reflection routing, and reverb sends are not mutated. The experiment is OFF by default.'''
+description='''Client-side compatibility layer that routes CC:HQ whole-file speaker audio through Sound Physics Remastered. It adds positional wall-thickness occlusion, stable reflected direction, synchronized-copy clarity balancing, opening-aware vertical sound, cached acoustic work, and targeted diagnostics while preserving the original playback timing and source lifecycle.'''
 
 [[mixins]]
 config="cchq_soundphysics_compat.mixins.json"

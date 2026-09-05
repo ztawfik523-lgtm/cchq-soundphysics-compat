@@ -31,6 +31,7 @@ public final class ClothConfigScreen {
         ClientConfigAccess.save();
         ExtendedClientConfigAccess.save();
         SpectralMixConfig.save();
+        DiffractionConfig.save();
     }
 
     public static Screen create(Screen parent) {
@@ -51,6 +52,7 @@ public final class ClothConfigScreen {
         direction(builder, entries);
         smoothing(builder, entries);
         performance(builder, entries);
+        openings(builder, entries);
         advancedRuntime(builder, entries);
         spectralMix(builder, entries);
         debugValidation(builder, entries);
@@ -75,7 +77,7 @@ public final class ClothConfigScreen {
                 .build());
 
         category.addEntry(entries.startTextDescription(
-                        t("Reference preset: beta1 / alpha20 acoustics"))
+                        t("Defaults use the release-tuned acoustic preset"))
                 .setColor(8374527)
                 .build());
     }
@@ -103,7 +105,7 @@ public final class ClothConfigScreen {
                 .setMax(4.0D)
                 .setTooltip(tip(
                         "Multiplier applied after the SPR-derived audible endpoint calculation.",
-                        "1.0 reproduces the approved beta1 distance behavior."))
+                        "Higher = farther audible reach. Lower = shorter reach. 1.0 is the tuned default."))
                 .setSaveConsumer(value -> ClientConfigAccess.set("AUDIBLE_RANGE_MULTIPLIER", value))
                 .build());
     }
@@ -149,7 +151,7 @@ public final class ClothConfigScreen {
         SubCategoryBuilder advanced = entries.startSubCategory(t("Advanced probe model"))
                 .setExpanded(false)
                 .setTooltip(tip(
-                        "Exact 17-probe geometry and weighting. Defaults are the approved beta1 model."));
+                        "Exact 17-probe geometry and weighting. Most users should leave these at their defaults."));
 
         advanced.add(entries.startDoubleField(
                         t("Inner probe offset"), rawDouble("INNER_VARIATION", 0.2D))
@@ -300,7 +302,7 @@ public final class ClothConfigScreen {
     private static void performance(ConfigBuilder builder, ConfigEntryBuilder entries) {
         ConfigCategory category = builder.getOrCreateCategory(t("Performance"));
         category.addEntry(entries.startTextDescription(
-                        t("beta3 reduces progressive ray cost without changing the approved 17 probe positions or weighting."))
+                        t("Adaptive probing reduces ray cost without changing the 17 probe positions or weighting."))
                 .setColor(DESCRIPTION)
                 .build());
 
@@ -310,7 +312,7 @@ public final class ClothConfigScreen {
                 .setTooltip(tip(
                         "Keeps the center path fresh and refreshes one exact 8-probe ring at a time.",
                         "The other exact ring is reused briefly; meaningful movement or center-path changes force all 17 probes fresh.",
-                        "Disable for the full beta1b 17-fresh-probes-every-update reference behavior."))
+                        "Disable to recalculate all 17 probes on every update."))
                 .setSaveConsumer(value -> ClientConfigAccess.set("ADAPTIVE_PROBE_CACHE", value))
                 .build());
 
@@ -374,64 +376,191 @@ public final class ClothConfigScreen {
     }
 
 
-    private static void advancedRuntime(ConfigBuilder builder, ConfigEntryBuilder entries) {
-        ConfigCategory category = builder.getOrCreateCategory(t("Advanced Runtime"));
+    private static void openings(ConfigBuilder builder, ConfigEntryBuilder entries) {
+        ConfigCategory category = builder.getOrCreateCategory(t("Openings & Vertical Sound"));
         category.addEntry(entries.startTextDescription(
-                        t("Phase 5 test controls. Every default below is the verified Hotfix3/Phase 4 value."))
+                        t("Lets blocked sound respond to real nearby openings, especially in tunnels, shafts and lower floors."))
                 .setColor(DESCRIPTION)
                 .build());
         category.addEntry(entries.startTextDescription(
-                        t("Change one setting at a time while diagnosing. The frozen parity branch is not modified by these options."))
+                        t("Defaults are the approved release behavior. Playback timing, source position and reverb routing are not changed."))
                 .setColor(8374527)
                 .build());
 
-        category.addEntry(extendedBoolEntry(entries, "Private per-source EFX", "PRIVATE_EFX", true,
+        category.addEntry(entries.startBooleanToggle(
+                        t("Enable opening-aware sound"), DiffractionConfig.enabled())
+                .setDefaultValue(true)
+                .setTooltip(tip(
+                        "Allows a real nearby opening to add some clarity/loudness when the direct path is blocked.",
+                        "OFF uses only the normal direct wall-obstruction result.",
+                        "Recommended: ON."))
+                .setSaveConsumer(DiffractionConfig::setEnabled)
+                .build());
+
+        category.addEntry(entries.startIntSlider(
+                        t("Opening effect strength"), pct(DiffractionConfig.portalCoupling()), 0, 100)
+                .setDefaultValue(25)
+                .setTextGetter(value -> t(value + "%"))
+                .setTooltip(tip(
+                        "How strongly a usable opening makes blocked sound clearer/louder.",
+                        "Higher = stronger opening effect. Lower = subtler. 0 = no added opening contribution."))
+                .setSaveConsumer(value -> DiffractionConfig.setPortalCoupling(value / 100.0D))
+                .build());
+
+        category.addEntry(entries.startDoubleField(
+                        t("Opening influence distance"), DiffractionConfig.apertureSpreadScale())
+                .setDefaultValue(3.0D).setMin(0.25D).setMax(16.0D)
+                .setTooltip(tip(
+                        "How quickly the opening effect weakens as you move away from it inside the enclosed area.",
+                        "Higher = noticeable farther away. Lower = fades sooner."))
+                .setSaveConsumer(DiffractionConfig::setApertureSpreadScale)
+                .build());
+
+        category.addEntry(entries.startDoubleField(
+                        t("Opening search radius"), DiffractionConfig.openingSearchRadius())
+                .setDefaultValue(8.0D).setMin(1.0D).setMax(8.0D)
+                .setTooltip(tip(
+                        "How far around you the mod looks for a usable ceiling opening, in blocks.",
+                        "Higher can find farther openings but costs more block checks. Current maximum: 8 blocks."))
+                .setSaveConsumer(DiffractionConfig::setOpeningSearchRadius)
+                .build());
+
+        SubCategoryBuilder soundShape = entries.startSubCategory(t("Advanced sound shape"))
+                .setExpanded(false)
+                .setTooltip(tip("Fine tuning for how an indirect opening changes bass and clarity. Defaults are recommended."));
+        soundShape.add(entries.startDoubleField(t("Minimum vertical separation"), DiffractionConfig.minSourceAboveListener())
+                .setDefaultValue(0.25D).setMin(0.0D).setMax(8.0D)
+                .setTooltip(tip(
+                        "Minimum above/below height difference before opening-aware sound is considered.",
+                        "Higher = feature is limited to stronger vertical separation. Lower = activates in shallower differences."))
+                .setSaveConsumer(DiffractionConfig::setMinSourceAboveListener).build());
+        soundShape.add(entries.startDoubleField(t("Opening clearance"), DiffractionConfig.escapeClearance())
+                .setDefaultValue(1.5D).setMin(0.25D).setMax(8.0D)
+                .setTooltip(tip(
+                        "How far above the ceiling/opening the source-side route point is placed, in blocks.",
+                        "Higher clears thicker roof edges more aggressively; lower stays closer to the opening."))
+                .setSaveConsumer(DiffractionConfig::setEscapeClearance).build());
+        soundShape.add(entries.startDoubleField(t("Full-effect obstruction"), DiffractionConfig.portalActivationRaw())
+                .setDefaultValue(2.0D).setMin(0.25D).setMax(8.0D)
+                .setTooltip(tip(
+                        "How blocked the normal direct sound must be before the opening effect reaches full strength.",
+                        "Higher requires stronger blockage. Lower reaches full effect sooner."))
+                .setSaveConsumer(DiffractionConfig::setPortalActivationRaw).build());
+        soundShape.add(entries.startDoubleField(t("Bass carry around openings"), DiffractionConfig.lowDeltaScale())
+                .setDefaultValue(4.0D).setMin(0.10D).setMax(32.0D)
+                .setTooltip(tip(
+                        "How well low frequencies survive a longer indirect opening route.",
+                        "Higher = more bass carries around the opening. Lower = bass fades more strongly."))
+                .setSaveConsumer(DiffractionConfig::setLowDeltaScale).build());
+        soundShape.add(entries.startDoubleField(t("Clarity carry around openings"), DiffractionConfig.highDeltaScale())
+                .setDefaultValue(1.5D).setMin(0.05D).setMax(32.0D)
+                .setTooltip(tip(
+                        "How well high frequencies survive a longer indirect opening route.",
+                        "Higher = brighter/clearer indirect sound. Lower = darker indirect sound."))
+                .setSaveConsumer(DiffractionConfig::setHighDeltaScale).build());
+        soundShape.add(entries.startIntSlider(t("Search-edge fade start"), pct(DiffractionConfig.horizonFadeStartRatio()), 0, 99)
+                .setDefaultValue(75)
+                .setTextGetter(value -> t(value + "% of radius"))
+                .setTooltip(tip(
+                        "Where the effect begins fading near the outer search limit.",
+                        "Higher = stays stronger closer to the edge. Lower = begins fading earlier."))
+                .setSaveConsumer(value -> DiffractionConfig.setHorizonFadeStartRatio(value / 100.0D)).build());
+        soundShape.add(entries.startDoubleField(t("Opening separation"), Math.sqrt(DiffractionConfig.candidateSeparationSq()))
+                .setDefaultValue(2.0D).setMin(0.0D).setMax(8.0D)
+                .setTooltip(tip(
+                        "Minimum spacing between the two openings that may be fully checked.",
+                        "Higher avoids spending both checks on adjacent cells of the same hole."))
+                .setSaveConsumer(DiffractionConfig::setCandidateSeparation).build());
+        soundShape.add(entries.startDoubleField(t("Opening switching stability"), DiffractionConfig.selectionHysteresis())
+                .setDefaultValue(0.35D).setMin(0.0D).setMax(4.0D)
+                .setTooltip(tip(
+                        "How much better another opening must become before selection switches to it.",
+                        "Higher = steadier. Lower = reacts to small advantages sooner."))
+                .setSaveConsumer(DiffractionConfig::setSelectionHysteresis).build());
+        category.addEntry(soundShape.build());
+
+        SubCategoryBuilder perf = entries.startSubCategory(t("Opening performance"))
+                .setExpanded(false)
+                .setTooltip(tip("Caching and rescan controls. Higher reuse generally lowers CPU cost."));
+        perf.add(entries.startDoubleField(t("Opening scan interval"), DiffractionConfig.openingScanIntervalNs() / 1_000_000.0D)
+                .setDefaultValue(1000.0D).setMin(100.0D).setMax(5000.0D)
+                .setTooltip(tip(
+                        "Minimum milliseconds between nearby-opening scans while you stay in the same block.",
+                        "Lower reacts to changed blocks sooner but scans more often."))
+                .setSaveConsumer(DiffractionConfig::setOpeningScanIntervalMs).build());
+        perf.add(entries.startDoubleField(t("Movement recheck distance"), Math.sqrt(DiffractionConfig.openingLegRecheckDistanceSq()))
+                .setDefaultValue(0.75D).setMin(0.10D).setMax(4.0D)
+                .setTooltip(tip(
+                        "How far you move before a cached listener-to-opening path is checked again.",
+                        "Lower = more checks. Higher = more reuse while moving."))
+                .setSaveConsumer(DiffractionConfig::setOpeningLegRecheckDistance).build());
+        perf.add(entries.startDoubleField(t("Opening path cache time"), DiffractionConfig.openingRayCacheNs() / 1_000_000.0D)
+                .setDefaultValue(5000.0D).setMin(250.0D).setMax(30000.0D)
+                .setTooltip(tip(
+                        "Maximum milliseconds a verified opening path may be reused while endpoints stay stable.",
+                        "Higher = fewer Sound Physics rechecks in stable scenes."))
+                .setSaveConsumer(DiffractionConfig::setOpeningRayCacheMs).build());
+        category.addEntry(perf.build());
+    }
+
+    private static void advancedRuntime(ConfigBuilder builder, ConfigEntryBuilder entries) {
+        ConfigCategory category = builder.getOrCreateCategory(t("Advanced / Troubleshooting"));
+        category.addEntry(entries.startTextDescription(
+                        t("Low-level runtime and optimization controls. Defaults are tuned for normal use."))
+                .setColor(DESCRIPTION)
+                .build());
+        category.addEntry(entries.startTextDescription(
+                        t("Most users should leave these alone. Change one setting at a time when diagnosing performance or compatibility problems."))
+                .setColor(8374527)
+                .build());
+
+        category.addEntry(extendedBoolEntry(entries, "Private per-source filters", "PRIVATE_EFX", true,
                 "OFF bypasses compat-owned isolated filters and deliberately falls back to native SPR environment writes."));
-        category.addEntry(extendedBoolEntry(entries, "Beta9 whole-direct reuse", "BETA9_DIRECT_REUSE", true,
+        category.addEntry(extendedBoolEntry(entries, "Reuse unchanged direct acoustics", "BETA9_DIRECT_REUSE", true,
                 "OFF forces the progressive direct result to be recomputed instead of reusing an exact matching result."));
-        category.addEntry(extendedBoolEntry(entries, "Beta9 room backoff", "BETA9_ROOM_BACKOFF", true,
+        category.addEntry(extendedBoolEntry(entries, "Stable-room slowdown", "BETA9_ROOM_BACKOFF", true,
                 "OFF keeps room updates at the base scheduler interval instead of backing off stable/distant sources."));
-        category.addEntry(extendedBoolEntry(entries, "Beta9 adaptive load controller", "BETA9_ADAPTIVE_CONTROLLER", true,
+        category.addEntry(extendedBoolEntry(entries, "Use load-aware room scheduling", "BETA9_ADAPTIVE_CONTROLLER", true,
                 "OFF removes CPU/queue-pressure contribution while retaining stable/relevance backoff."));
-        category.addEntry(extendedBoolEntry(entries, "Beta10 exact ray cache", "BETA10_RAY_CACHE", true,
+        category.addEntry(extendedBoolEntry(entries, "Reuse unchanged occlusion rays", "BETA10_RAY_CACHE", true,
                 "OFF disables exact direct/SPR occlusion-ray reuse."));
-        category.addEntry(extendedBoolEntry(entries, "Beta11 room-ray memo", "BETA11_ROOM_RAY_MEMO", true,
+        category.addEntry(extendedBoolEntry(entries, "Reuse room rays within one calculation", "BETA11_ROOM_RAY_MEMO", true,
                 "OFF disables same-clone environment/bounce ray memoization."));
 
         SubCategoryBuilder scheduler = entries.startSubCategory(t("Room scheduler"))
                 .setExpanded(false)
-                .setTooltip(tip("Fairness, staleness and movement thresholds used by the Hotfix3 room scheduler."));
+                .setTooltip(tip("Fairness, staleness and movement thresholds used by room/reverb scheduling."));
         scheduler.add(extendedIntervalEntry(entries, "Scheduler slot", "ROOM_SLOT_MS", 50, 10, 500,
-                "Global minimum room scheduling slot. Hotfix3 = 50 ms."));
+                "Base room scheduling slot. Lower = more responsive but more CPU. Default: 50 ms."));
         scheduler.add(extendedIntervalEntry(entries, "Minimum hard stale", "MIN_HARD_STALE_MS", 500, 100, 5000,
-                "Minimum age that can force a room target refresh. Hotfix3 = 500 ms."));
+                "Earliest age that can force a stale room result fresh. Lower = fresher but more CPU. Default: 500 ms."));
         scheduler.add(extendedIntervalEntry(entries, "Maximum hard stale", "MAX_HARD_STALE_MS", 2000, 250, 10000,
-                "Maximum room-target staleness allowed by fairness scaling. Hotfix3 = 2000 ms."));
+                "Longest room staleness allowed by fairness scaling. Lower = fresher but more CPU. Default: 2000 ms."));
         scheduler.add(extendedIntervalEntry(entries, "Recent-source window", "RECENT_SOURCE_MS", 1000, 100, 10000,
                 "How recently a source must have been observed to remain scheduler eligible."));
         scheduler.add(entries.startDoubleField(t("Teleport distance"), extDouble("TELEPORT_DISTANCE", 4.0D))
                 .setDefaultValue(4.0D).setMin(0.5D).setMax(64.0D)
-                .setTooltip(tip("Listener movement treated as a teleport, in blocks. Hotfix3 = 4.0."))
+                .setTooltip(tip("Listener movement treated as a teleport and forcing room refreshes. Lower = smaller jumps trigger it. Default: 4 blocks."))
                 .setSaveConsumer(value -> ExtendedClientConfigAccess.set("TELEPORT_DISTANCE", value)).build());
         scheduler.add(entries.startDoubleField(t("Urgent source movement"), extDouble("SOURCE_MOVE_URGENT_DISTANCE", 0.10D))
                 .setDefaultValue(0.10D).setMin(0.0D).setMax(8.0D)
-                .setTooltip(tip("Speaker movement that invalidates its room stamp and marks it urgent, in blocks. Hotfix3 = 0.1."))
+                .setTooltip(tip("Speaker movement that marks room state urgent. Lower = more sensitive. Default: 0.1 blocks."))
                 .setSaveConsumer(value -> ExtendedClientConfigAccess.set("SOURCE_MOVE_URGENT_DISTANCE", value)).build());
-        SubCategoryBuilder beta9 = entries.startSubCategory(t("Beta9 room backoff"))
+        SubCategoryBuilder beta9 = entries.startSubCategory(t("Stable-room slowdown"))
                 .setExpanded(false)
-                .setTooltip(tip("High-level bounds around Hotfix3's adaptive room scheduling. Defaults reproduce Hotfix3."));
+                .setTooltip(tip("Limits for how much stable/load-aware scheduling may slow room updates."));
         beta9.add(extendedIntervalEntry(entries, "Recent movement window", "BETA9_RECENT_MOVEMENT_MS", 400, 0, 5000,
                 "Stability backoff is suppressed for this long after listener movement."));
         beta9.add(entries.startDoubleField(t("Listener movement reset"), extDouble("BETA9_LISTENER_MOVE_DISTANCE", 0.05D))
                 .setDefaultValue(0.05D).setMin(0.0D).setMax(4.0D)
-                .setTooltip(tip("Movement in blocks that resets stable-room counters. Hotfix3 = 0.05."))
+                .setTooltip(tip("Movement that resets stable-room counters. Lower = more sensitive. Default: 0.05 blocks."))
                 .setSaveConsumer(value -> ExtendedClientConfigAccess.set("BETA9_LISTENER_MOVE_DISTANCE", value)).build());
         beta9.add(entries.startDoubleField(t("Maximum room backoff"), extDouble("BETA9_MAX_ROOM_FACTOR", 2.0D))
                 .setDefaultValue(2.0D).setMin(1.0D).setMax(6.0D)
-                .setTooltip(tip("Maximum combined interval multiplier. Hotfix3 = 2.0×."))
+                .setTooltip(tip("Maximum combined room interval multiplier. 2.0 means at most twice the base interval."))
                 .setSaveConsumer(value -> ExtendedClientConfigAccess.set("BETA9_MAX_ROOM_FACTOR", value)).build());
         beta9.add(extendedIntervalEntry(entries, "Maximum room interval", "BETA9_MAX_ROOM_INTERVAL_MS", 1500, 50, 10000,
-                "Absolute ceiling after all Beta9 backoff. Hotfix3 = 1500 ms."));
+                "Absolute ceiling after stable/load-aware slowdown. Lower = fresher; higher = cheaper. Default: 1500 ms."));
         category.addEntry(beta9.build());
         category.addEntry(scheduler.build());
 
@@ -465,66 +594,67 @@ public final class ClothConfigScreen {
 
         SubCategoryBuilder sync = entries.startSubCategory(t("Synchronized starts"))
                 .setExpanded(false)
-                .setTooltip(tip("Hotfix3 group-start grace and abandoned-group cleanup timings."));
+                .setTooltip(tip("Timing controls for synchronized group starts and abandoned-group cleanup."));
         sync.add(extendedIntervalEntry(entries, "Partial group flush", "SYNC_PARTIAL_FLUSH_MS", 100, 0, 2000,
-                "Grace before an incomplete sync group is started anyway. Hotfix3 = 100 ms."));
+                "Grace before an incomplete synchronized group starts anyway. Higher waits longer. Default: 100 ms."));
         sync.add(extendedIntervalEntry(entries, "Stale group cleanup", "SYNC_STALE_GROUP_MS", 5000, 250, 30000,
-                "Age after which an abandoned pending group is discarded. Hotfix3 = 5000 ms."));
+                "Age after which an abandoned synchronized group is discarded. Default: 5000 ms."));
         category.addEntry(sync.build());
     }
 
     private static void spectralMix(ConfigBuilder builder, ConfigEntryBuilder entries) {
-        ConfigCategory category = builder.getOrCreateCategory(t("Synchronized HF Balance"));
+        ConfigCategory category = builder.getOrCreateCategory(t("Synchronized Sound Balance"));
         category.addEntry(entries.startTextDescription(
-                        t("Reduces painful spectral skew when synchronized copies of the same audio have very different direct low-pass cutoffs."))
+                        t("Reduces extreme clarity differences when synchronized copies of the same sound reach you through very different paths."))
                 .setColor(DESCRIPTION)
                 .build());
         category.addEntry(entries.startTextDescription(
-                        t("Validated defaults reproduce the approved HF50 Issue-A candidate. Gain, position, reverb sends and playback timing are untouched."))
+                        t("Only direct clarity is corrected. Volume, position, reverb sends and playback timing are untouched."))
                 .setColor(8374527)
                 .build());
-        category.addEntry(entries.startBooleanToggle(t("Enable synchronized HF balance"), SpectralMixConfig.enabled())
+        category.addEntry(entries.startBooleanToggle(t("Enable synchronized clarity balance"), SpectralMixConfig.enabled())
                 .setDefaultValue(true)
                 .setTooltip(tip(
-                        "Only synchronized sources that pass all gates below receive a direct-HF cutoff lift.",
-                        "Recommended default: ON for the validated HF50 candidate."))
+                        "Gently brightens only severely muffled synchronized copies when another copy is much clearer.",
+                        "Recommended: ON."))
                 .setSaveConsumer(SpectralMixConfig::setEnabled)
                 .build());
-        category.addEntry(entries.startDoubleField(t("Dark-source cutoff gate"), SpectralMixConfig.darkSourceCutoff())
+        category.addEntry(entries.startDoubleField(t("How muffled a copy must be"), SpectralMixConfig.darkSourceCutoff())
                 .setDefaultValue(0.35D).setMin(0.0D).setMax(1.0D)
                 .setTooltip(tip(
-                        "Only sources at or below this intrinsic cutoff are eligible for correction.",
-                        "Lower = correction is restricted to more severely muffled copies."))
+                        "Cutoff scale: 0 = extremely muffled, 1 = clear.",
+                        "Only copies at or below this value can be corrected.",
+                        "Higher = more copies qualify. Lower = only more heavily muffled copies qualify."))
                 .setSaveConsumer(SpectralMixConfig::setDarkSourceCutoff)
                 .build());
-        category.addEntry(entries.startDoubleField(t("Clear-peer cutoff gate"), SpectralMixConfig.peerClearCutoff())
+        category.addEntry(entries.startDoubleField(t("How clear another copy must be"), SpectralMixConfig.peerClearCutoff())
                 .setDefaultValue(0.75D).setMin(0.0D).setMax(1.0D)
                 .setTooltip(tip(
-                        "At least one synchronized peer must be this clear before correction can activate.",
-                        "Higher = requires a more obviously clear comparison speaker."))
+                        "At least one synchronized copy must be this clear before correction can activate.",
+                        "Higher = requires a clearer reference copy. Lower = easier to activate."))
                 .setSaveConsumer(SpectralMixConfig::setPeerClearCutoff)
                 .build());
-        category.addEntry(entries.startDoubleField(t("Minimum peer cutoff gap"), SpectralMixConfig.minPeerGap())
+        category.addEntry(entries.startDoubleField(t("Minimum clarity difference"), SpectralMixConfig.minPeerGap())
                 .setDefaultValue(0.40D).setMin(0.0D).setMax(1.0D)
                 .setTooltip(tip(
-                        "Minimum cutoff difference between the dark source and clearest synchronized peer.",
-                        "Higher = preserves more ordinary acoustic differences."))
+                        "Minimum cutoff difference between the muffled copy and the clearest synchronized copy.",
+                        "Higher = only large mismatches are corrected. Lower = smaller differences can be corrected."))
                 .setSaveConsumer(SpectralMixConfig::setMinPeerGap)
                 .build());
         category.addEntry(entries.startIntSlider(
-                        t("HF lift strength"), pct(SpectralMixConfig.clarityFloorRatio()), 0, 100)
+                        t("Clarity correction strength"), pct(SpectralMixConfig.clarityFloorRatio()), 0, 100)
                 .setDefaultValue(50)
                 .setTextGetter(value -> t(value + "%"))
                 .setTooltip(tip(
-                        "How far an eligible dark copy moves toward its clearest synchronized peer.",
-                        "50% is the user-selected best balance from the Issue-A A/B test."))
+                        "How far an eligible muffled copy moves toward the clearest synchronized copy.",
+                        "0% = no correction. 50% = halfway. 100% = fully match before the maximum-increase cap."))
                 .setSaveConsumer(value -> SpectralMixConfig.setClarityFloorRatio(value / 100.0D))
                 .build());
-        category.addEntry(entries.startDoubleField(t("Maximum cutoff lift"), SpectralMixConfig.maxCutoffLift())
+        category.addEntry(entries.startDoubleField(t("Maximum clarity increase"), SpectralMixConfig.maxCutoffLift())
                 .setDefaultValue(0.55D).setMin(0.0D).setMax(1.0D)
                 .setTooltip(tip(
-                        "Absolute safety cap on the cutoff increase applied to one synchronized copy.",
-                        "The 50% blend can never raise a source by more than this amount."))
+                        "Safety cap on how much one copy's cutoff may be raised.",
+                        "Higher allows a larger correction. Lower limits the change more strongly."))
                 .setSaveConsumer(SpectralMixConfig::setMaxCutoffLift)
                 .build());
     }
@@ -532,7 +662,7 @@ public final class ClothConfigScreen {
     private static void debugValidation(ConfigBuilder builder, ConfigEntryBuilder entries) {
         ConfigCategory category = builder.getOrCreateCategory(t("Debug & Validation"));
         category.addEntry(entries.startTextDescription(
-                        t("Targeted INFO-level diagnostics for your real-game Phase 5 test. All are OFF by default."))
+                        t("Targeted INFO-level diagnostics for troubleshooting. All are OFF by default."))
                 .setColor(DESCRIPTION)
                 .build());
         category.addEntry(entries.startTextDescription(
@@ -551,7 +681,7 @@ public final class ClothConfigScreen {
         category.addEntry(extendedBoolEntry(entries, "EFX lifecycle log", "LOG_EFX", false,
                 "Private-filter create/destroy/failure and native-fallback decisions."));
         category.addEntry(extendedBoolEntry(entries, "Cache scope log", "LOG_CACHE", false,
-                "Beta10/Beta11 cache-scope resets without per-ray spam."));
+                "Occlusion/room cache-scope resets without per-ray spam."));
         category.addEntry(extendedBoolEntry(entries, "Sync grouping log", "LOG_SYNC", false,
                 "Group creation, queueing, complete starts and partial flushes."));
         category.addEntry(extendedBoolEntry(entries, "Transition timing log", "LOG_TRANSITIONS", false,

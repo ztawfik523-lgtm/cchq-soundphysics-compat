@@ -3,12 +3,11 @@ package dev.cchqphysics.compat.config;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 /**
- * Phase-5 test/extended controls.
+ * Advanced runtime, performance and diagnostic controls.
  *
- * <p>Every default is intentionally the Phase-4 / Hotfix3-equivalent value so
- * simply installing the extended build does not change the verified acoustic
- * behavior. These controls exist to make real-game validation and diagnosis
- * easier without destroying the frozen parity branch.</p>
+ * <p>Defaults are the release-tuned values. These settings are intentionally
+ * separated from ordinary acoustic controls because most users should leave
+ * them unchanged unless diagnosing performance or compatibility problems.</p>
  */
 public final class ExtendedClientConfig {
     public static final ModConfigSpec SPEC;
@@ -56,96 +55,96 @@ public final class ExtendedClientConfig {
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
 
-        builder.push("scheduler");
+        builder.push("room_updates");
         ROOM_SLOT_MS = builder
-                .comment("Minimum global room-scheduler slot. Hotfix3 = 50 ms.")
+                .comment("Base spacing between room/reverb scheduling opportunities. Lower = more responsive but more CPU. Default: 50 ms.")
                 .defineInRange("room_slot_ms", 50, 10, 500);
         MIN_HARD_STALE_MS = builder
-                .comment("Minimum room-target hard-stale threshold. Hotfix3 = 500 ms.")
+                .comment("Earliest age at which an old room result may be forced fresh. Lower = fresher room updates but more work. Default: 500 ms.")
                 .defineInRange("min_hard_stale_ms", 500, 100, 5000);
         MAX_HARD_STALE_MS = builder
-                .comment("Maximum room-target hard-stale threshold. Hotfix3 = 2000 ms.")
+                .comment("Longest a room result may remain stale before a forced refresh. Lower = fresher but more CPU. Default: 2000 ms.")
                 .defineInRange("max_hard_stale_ms", 2000, 250, 10000);
         RECENT_SOURCE_MS = builder
-                .comment("How recently a source must have been seen to remain scheduler-eligible. Hotfix3 = 1000 ms.")
+                .comment("How long a recently active speaker stays eligible for room updates. Higher keeps inactive/recent speakers tracked longer. Default: 1000 ms.")
                 .defineInRange("recent_source_ms", 1000, 100, 10000);
         TELEPORT_DISTANCE = builder
-                .comment("Listener movement in blocks treated as a teleport, forcing room refreshes. Hotfix3 = 4.0 blocks.")
+                .comment("Listener movement treated as a teleport and forcing room refreshes. Lower = smaller jumps trigger a full refresh. Default: 4 blocks.")
                 .defineInRange("teleport_distance", 4.0D, 0.5D, 64.0D);
         SOURCE_MOVE_URGENT_DISTANCE = builder
-                .comment("Speaker movement in blocks that marks its room state urgent. Hotfix3 = 0.1 blocks.")
+                .comment("Speaker movement that makes its room state urgent. Lower = more sensitive to small source movement. Default: 0.1 blocks.")
                 .defineInRange("source_move_urgent_distance", 0.10D, 0.0D, 8.0D);
         builder.pop();
 
-        builder.push("sentinel");
+        builder.push("clearing_detection");
         SENTINEL_MOVE_DISTANCE = builder
-                .comment("Minimum listener movement in blocks before the clearing sentinel samples. Hotfix3 = 0.05.")
+                .comment("Minimum listener movement before fast blocked-to-clear detection checks again. Lower = more sensitive. Default: 0.05 blocks.")
                 .defineInRange("move_distance", 0.05D, 0.0D, 4.0D);
         SENTINEL_RAW_OCCLUDED = builder
-                .comment("Raw progressive-occlusion level that can arm clearing detection. Hotfix3 = 0.075.")
+                .comment("Obstruction level required before fast clearing detection can arm. Higher = requires a more blocked starting state. Default: 0.075.")
                 .defineInRange("raw_occluded", 0.075D, 0.0D, 4.0D);
         SENTINEL_REARM_CENTER = builder
-                .comment("Center-ray occlusion used to re-arm clearing detection. Hotfix3 = 0.12.")
+                .comment("Center-path obstruction needed to re-arm fast clearing detection after it has fired. Higher = requires stronger blockage. Default: 0.12.")
                 .defineInRange("rearm_center", 0.12D, 0.0D, 4.0D);
         SENTINEL_OPEN_CENTER = builder
-                .comment("Center-ray value treated as effectively open. Hotfix3 = 0.035.")
+                .comment("Center-path obstruction treated as effectively open. Higher = more paths count as clear. Default: 0.035.")
                 .defineInRange("open_center", 0.035D, 0.0D, 4.0D);
         SENTINEL_CENTER_DROP = builder
-                .comment("Required center-ray drop for a clearing candidate. Hotfix3 = 0.15.")
+                .comment("Required improvement in the center path before a possible blocked-to-clear transition is considered. Lower = more sensitive. Default: 0.15.")
                 .defineInRange("center_drop", 0.15D, 0.0D, 4.0D);
         CONFIRM_RAW_DROP = builder
-                .comment("Required raw-occlusion drop to confirm a clearing transition. Hotfix3 = 0.035.")
+                .comment("Required overall obstruction improvement to confirm a blocked-to-clear transition. Lower = easier to confirm. Default: 0.035.")
                 .defineInRange("confirm_raw_drop", 0.035D, 0.0D, 4.0D);
         CONFIRM_CUTOFF_RISE = builder
-                .comment("Required direct-cutoff rise to confirm a clearing transition. Hotfix3 = 0.055.")
+                .comment("Required clarity/cutoff improvement to confirm a blocked-to-clear transition. Lower = easier to confirm. Default: 0.055.")
                 .defineInRange("confirm_cutoff_rise", 0.055D, 0.0D, 1.0D);
         CLEAR_TRIGGER_COOLDOWN_MS = builder
-                .comment("Cooldown between confirmed clearing triggers. Hotfix3 = 300 ms.")
+                .comment("Minimum time between confirmed fast-clearing triggers. Higher prevents repeated triggers for longer. Default: 300 ms.")
                 .defineInRange("clear_trigger_cooldown_ms", 300, 0, 5000);
         builder.pop();
 
-        builder.push("sync");
+        builder.push("synchronized_start");
         SYNC_PARTIAL_FLUSH_MS = builder
-                .comment("Grace before an incomplete synchronized-start group is flushed. Hotfix3 = 100 ms.")
+                .comment("How long an incomplete synchronized group waits for missing members before starting anyway. Higher = more waiting; lower = faster partial starts. Default: 100 ms.")
                 .defineInRange("partial_flush_ms", 100, 0, 2000);
         SYNC_STALE_GROUP_MS = builder
-                .comment("Age after which abandoned sync groups are discarded. Hotfix3 = 5000 ms.")
+                .comment("How long an abandoned pending synchronized group is kept before cleanup. Higher keeps pending state longer. Default: 5000 ms.")
                 .defineInRange("stale_group_ms", 5000, 250, 30000);
         builder.pop();
 
-        builder.push("features");
+        builder.push("optimizations");
         PRIVATE_EFX = builder
-                .comment("Use compat-owned per-source EFX filters. Disable only for diagnosis; native SPR fallback is then used. Hotfix3 = true.")
-                .define("private_efx", true);
+                .comment("Use isolated per-source OpenAL filters owned by the compat. Recommended: ON. Turn OFF only to diagnose filter-routing problems.")
+                .define("private_source_filters", true);
         BETA9_DIRECT_REUSE = builder
-                .comment("Enable exact whole-direct-result reuse when source/environment inputs are unchanged. Hotfix3 = true.")
-                .define("beta9_direct_reuse", true);
+                .comment("Reuse an unchanged direct acoustic result instead of recalculating it. ON saves CPU without changing the result.")
+                .define("reuse_direct_acoustics", true);
         BETA9_ROOM_BACKOFF = builder
-                .comment("Enable stable/relevance room-interval backoff. Hotfix3 = true.")
-                .define("beta9_room_backoff", true);
+                .comment("Update stable or less-relevant room/reverb state less often. ON saves CPU; movement and stale-state rules still force refreshes.")
+                .define("stable_room_slowdown", true);
         BETA9_ADAPTIVE_CONTROLLER = builder
-                .comment("Enable load-pressure contribution to room backoff. Hotfix3 = true.")
-                .define("beta9_adaptive_controller", true);
+                .comment("Allow current acoustic load to slow non-urgent room updates within the configured limits. ON reduces spikes under load.")
+                .define("load_aware_room_scheduling", true);
         BETA9_RECENT_MOVEMENT_MS = builder
-                .comment("Window after listener movement during which stability backoff is suppressed. Hotfix3 = 400 ms.")
-                .defineInRange("beta9_recent_movement_ms", 400, 0, 5000);
+                .comment("Time after listener movement during which room updates stay responsive instead of slowing down. Higher keeps the fast mode longer. Default: 400 ms.")
+                .defineInRange("movement_hold_ms", 400, 0, 5000);
         BETA9_LISTENER_MOVE_DISTANCE = builder
-                .comment("Listener movement that resets Beta9 stability state. Hotfix3 = 0.05 blocks.")
-                .defineInRange("beta9_listener_move_distance", 0.05D, 0.0D, 4.0D);
+                .comment("Listener movement that resets stable-room tracking. Lower = more sensitive to movement. Default: 0.05 blocks.")
+                .defineInRange("stability_reset_distance", 0.05D, 0.0D, 4.0D);
         BETA9_MAX_ROOM_FACTOR = builder
-                .comment("Maximum combined room-interval backoff multiplier. Hotfix3 = 2.0.")
-                .defineInRange("beta9_max_room_factor", 2.0D, 1.0D, 6.0D);
+                .comment("Maximum amount stable/load-aware scheduling may slow room updates. 2.0 means at most twice the base interval.")
+                .defineInRange("max_room_slowdown", 2.0D, 1.0D, 6.0D);
         BETA9_MAX_ROOM_INTERVAL_MS = builder
-                .comment("Absolute ceiling for a backed-off room interval. Hotfix3 = 1500 ms.")
-                .defineInRange("beta9_max_room_interval_ms", 1500, 50, 10000);
+                .comment("Absolute longest room-update interval allowed after slowdown. Lower = fresher rooms; higher = cheaper. Default: 1500 ms.")
+                .defineInRange("max_room_interval_ms", 1500, 50, 10000);
         BETA10_RAY_CACHE = builder
-                .comment("Enable exact direct/SPR occlusion-ray reuse when the room stamp is reusable. Hotfix3 = true.")
-                .define("beta10_ray_cache", true);
+                .comment("Reuse identical obstruction ray results when their inputs have not changed. ON saves CPU without changing the reused result.")
+                .define("reuse_occlusion_rays", true);
         BETA11_ROOM_RAY_MEMO = builder
-                .comment("Enable same-clone memoization for SPR environment/bounce raycasts. Hotfix3 = true.")
-                .define("beta11_room_ray_memo", true);
+                .comment("Reuse identical room/bounce ray results within the same Sound Physics world snapshot. ON saves repeated raycasts.")
+                .define("reuse_room_rays", true);
         PERFORMANCE_REPORT_MS = builder
-                .comment("Period for compat performance reports when diagnostics are enabled. Hotfix3 = 10000 ms.")
+                .comment("How often performance diagnostics are printed while enabled. Lower = more frequent logs. Default: 10000 ms.")
                 .defineInRange("performance_report_ms", 10000, 1000, 60000);
         builder.pop();
 
