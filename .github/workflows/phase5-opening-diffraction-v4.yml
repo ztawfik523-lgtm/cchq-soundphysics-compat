@@ -135,7 +135,7 @@ jobs:
           jar tf "$jar" | sort > phase5-diffraction-v4-jar-contents.txt
           count="$(grep -c '\.class$' phase5-diffraction-v4-jar-contents.txt)"
           echo "class_count=$count"
-          test "$count" -eq 72
+          test "$count" -eq 73
           grep -Fx 'dev/cchqphysics/compat/config/DiffractionConfig.class' phase5-diffraction-v4-jar-contents.txt
           grep -Fx 'dev/cchqphysics/compat/audio/VerticalDiffractionRelief.class' phase5-diffraction-v4-jar-contents.txt
           unzip -p "$jar" META-INF/neoforge.mods.toml | grep -F 'version="0.1.0-beta11-phase5-diffraction-v4-opening-test"'
