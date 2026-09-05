@@ -2,7 +2,7 @@ package dev.cchqphysics.compat.config;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
 
-/** Experimental V7.1 spreading-only aperture-energy model. */
+/** Validated aperture-energy diffraction configuration. */
 public final class DiffractionConfig {
     public static final ModConfigSpec SPEC;
 
@@ -24,18 +24,18 @@ public final class DiffractionConfig {
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
-        builder.push("portal_diffraction_v7_1_spreading_only_test");
+        builder.push("portal_diffraction");
 
         ENABLED = builder.comment(
-                "Experimental Phase-5 V7.1 spreading-only aperture-energy model.",
-                "OFF by default. The normal progressive direct path remains authoritative.",
-                "A verified opening only adds a bounded secondary energy contribution; it never replaces the direct path.",
+                "Enable the validated opening/diffraction model.",
+                "The normal progressive direct path remains authoritative.",
+                "A verified opening adds only a bounded secondary energy contribution; it never replaces the direct path.",
                 "Never changes source position, playback timing, synchronized starts, reflection routing, or reverb sends.")
-                .define("enabled", false);
+                .define("enabled", true);
 
         MIN_SOURCE_ABOVE_LISTENER = builder.comment(
-                "Narrow experiment scope: source must be at least this far above the listener before the portal model is considered.",
-                "This avoids broadening the Phase-5 elevation fix into unrelated same-height room acoustics.")
+                "Source must be at least this far above the listener before the portal model is considered.",
+                "This keeps the opening model focused on elevation/open-top geometry rather than unrelated same-height room acoustics.")
                 .defineInRange("min_source_above_listener", 0.25D, 0.0D, 8.0D);
 
         ESCAPE_CLEARANCE = builder.comment(
@@ -51,7 +51,7 @@ public final class DiffractionConfig {
 
         PORTAL_COUPLING = builder.comment(
                 "Maximum amplitude coupling of the secondary aperture path before diffraction and leg losses.",
-                "Conservative default: an opening may add clarity/loudness but cannot become a second full-strength direct source.")
+                "The opening may add clarity/loudness but cannot become a second full-strength direct source.")
                 .defineInRange("portal_coupling", 0.25D, 0.0D, 1.0D);
 
         PORTAL_ACTIVATION_RAW = builder.comment(
@@ -71,13 +71,13 @@ public final class DiffractionConfig {
 
         APERTURE_SPREAD_SCALE = builder.comment(
                 "Softened inverse-distance amplitude scale for explicit roof-opening leakage into the listener enclosure.",
-                "This multiplies the exact V6 portal amplitude only; it does not alter V6 portal-leg spectral/transmission math.",
-                "Implicit open-top geometry uses zero aperture distance in this isolated test to preserve the V6 open-top result.")
+                "This multiplies the validated portal amplitude without changing portal-leg spectral/transmission math.",
+                "Implicit open-top geometry uses zero aperture distance to preserve the accepted open-top result.")
                 .defineInRange("aperture_spread_scale", 3.0D, 0.25D, 16.0D);
 
         HORIZON_FADE_START_RATIO = builder.comment(
                 "Fraction of search radius where an artificial scan-horizon fade begins.",
-                "This exists only to prevent a portal contribution from disappearing abruptly at the finite search radius.")
+                "This prevents a portal contribution from disappearing abruptly at the finite search radius.")
                 .defineInRange("horizon_fade_start_ratio", 0.75D, 0.0D, 0.99D);
 
         CANDIDATE_SEPARATION = builder.comment(
@@ -124,7 +124,7 @@ public final class DiffractionConfig {
         }
     }
 
-    public static boolean enabled() { return b(ENABLED, false); }
+    public static boolean enabled() { return b(ENABLED, true); }
     public static double minSourceAboveListener() { return d(MIN_SOURCE_ABOVE_LISTENER, 0.25D); }
     public static double escapeClearance() { return d(ESCAPE_CLEARANCE, 1.5D); }
     public static double openingSearchRadius() { return d(OPENING_SEARCH_RADIUS, 8.0D); }
