@@ -4,13 +4,15 @@ Compatibility layer between **CC:HQ Speakers** and **Sound Physics Remastered (S
 
 ## Current state
 
-The Beta11 Hotfix3 source reconstruction is complete. The project is now in Phase 5 finalization: stable acoustic behavior has been established, a small performance housekeeping pass has been validated, and the current lifecycle/state fixes are awaiting user runtime validation.
+The Beta11 Hotfix3 source reconstruction is complete. The project is now in Phase 5 finalization: stable acoustic behavior has been established, a small performance housekeeping pass has been validated, and the current lifecycle/state source has passed CI/source audit and is awaiting user runtime lifecycle validation.
 
 For a fresh session, read:
 
-1. `docs/NEXT_CHAT_HANDOFF_2026-09-06.md` — detailed current handoff
-2. `RECONSTRUCTION_STATUS.md` — compact current status
-3. `docs/BETA11_RECONSTRUCTION_HANDOFF.md` — durable reconstruction/Phase 5 background
+1. `docs/NEXT_CHAT_HANDOFF_2026-09-06.md` — detailed project/history handoff
+2. `docs/LIFECYCLE_SOURCE_AUDIT_2026-09-06.md` — superseding lifecycle source/JAR checkpoint
+3. `docs/RELEASE_CLEANUP_AUDIT_2026-09-06.md` — release-cleanup inventory and decisions
+4. `RECONSTRUCTION_STATUS.md` — compact current status
+5. `docs/BETA11_RECONSTRUCTION_HANDOFF.md` — durable reconstruction/Phase 5 background
 
 Older phase documents remain useful as audit history.
 
@@ -45,40 +47,54 @@ HF50 JAR SHA-256:
 
 ---
 
-## Current working branch
+## Current working branch and audited lifecycle source
+
+Working branch:
 
 `phase5-v7-1-lifecycle-state-finish`
 
-Clean lifecycle source checkpoint before documentation-only handoff commits:
+Audited production-source checkpoint:
 
-`be03d30efe98ca03bdf27764bcea567df5ef3875`
+`2a6a2f4ecd9e2faad51de9818797f5a16c14b0f7`
 
-This branch descends from the performance pass, which descends from frozen V7.1.
-
-The lifecycle pass changes only:
+Documentation-only commits advance the branch beyond that SHA. Relative to the clean performance baseline, production Java changes remain limited to:
 
 - `CompatAudioManager.java`
 - `SoundEngineLifecycleMixin.java`
 
-relative to the clean performance baseline.
-
-The fixes cover:
+The lifecycle/state work now covers:
 
 - real `ClientLevel` identity changes across disconnect/rejoin and dimension/world replacement;
 - blocking sound-thread teardown before normal stop-all/emergency sound-engine destruction continues;
-- cleanup of compat registrations when source startup fails after registration but before installation.
+- cleanup of compat registrations when source startup fails after registration but before installation;
+- rejecting OpenAL source ID `0` before compat registration;
+- best-effort active-source teardown so one cleanup failure does not skip later cleanup steps;
+- pause/resume using actual OpenAL state so pending synchronized `AL_INITIAL` sources cannot be resumed individually before their group starts;
+- vector pause/resume for eligible compat sources.
 
-Successful lifecycle CI run:
+Successful audited lifecycle CI run:
 
-`33962380234`
+`33996243988`
 
-Lifecycle candidate JAR SHA-256:
+Job:
 
-`6d0fa98ee6c76d23a3e0764501d16dc5c993149e0de77181cdab6fc0a9abdc18`
+`101387190106`
+
+Artifact:
+
+`9978159512`
+
+Audited lifecycle candidate JAR SHA-256:
+
+`4b3c8c52cc00a37274d5829cff93933d6e548b733b83918fcc5570ab8d6ad3c5`
 
 Class count: 81.
 
-The lifecycle candidate still reports internal version `0.1.0-beta11-phase5-v7-1-performance-test`; final release naming cleanup comes after runtime lifecycle validation.
+The previous lifecycle candidate SHA `6d0fa98e...` is superseded. Future runtime lifecycle testing should use the `4b3c8c52...` candidate.
+
+The candidate still carries development/test-era internal naming. Release naming/default/config-presentation cleanup is being audited separately and is intentionally not applied before the runtime lifecycle gate.
+
+See `docs/LIFECYCLE_SOURCE_AUDIT_2026-09-06.md` for the exact source findings and `docs/RELEASE_CLEANUP_AUDIT_2026-09-06.md` for release decisions that remain open.
 
 ---
 
@@ -209,9 +225,13 @@ These are documented properties of the current stable sound reference.
 
 ---
 
-## Immediate next step
+## Immediate next runtime gate
 
-The current lifecycle candidate is source/CI validated and still needs the user's runtime lifecycle run.
+The audited lifecycle candidate is source/CI validated and still needs the user's runtime lifecycle run.
+
+Candidate SHA-256:
+
+`4b3c8c52cc00a37274d5829cff93933d6e548b733b83918fcc5570ab8d6ad3c5`
 
 Test sequence:
 
@@ -224,6 +244,6 @@ Test sequence:
 7. four speakers for several minutes while moving
 8. upload `latest.log` and `debug.log`
 
-If that run is clean, the project moves naturally to release cleanup and final audit: final version naming, presentation cleanup, final source comparison, final JAR/resource/hash inspection, and a final stable/archive checkpoint.
+After a clean runtime lifecycle result, resolve the release decisions in `docs/RELEASE_CLEANUP_AUDIT_2026-09-06.md`, apply final naming/presentation/default/config cleanup, rebuild, perform the final source/JAR/resource/hash audit, and create a final stable/archive checkpoint.
 
-`main` remains untouched at this handoff; an eventual merge can be treated as a separate release decision.
+`main` remains untouched; an eventual merge can stay a separate release decision.
