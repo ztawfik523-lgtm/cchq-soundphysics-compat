@@ -2,11 +2,13 @@
 
 Authoritative runtime baseline: `cchq_soundphysics_compat-0.1.0-beta11-hotfix3.jar`
 
-SHA-256: `83500f182fc9829aa1a5a51fbfa11ba6cdfb645699b25d1c445167666dabc1ef`
+Authoritative Hotfix3 SHA-256:
+`83500f182fc9829aa1a5a51fbfa11ba6cdfb645699b25d1c445167666dabc1ef`
 
-Branch: `beta11-source-reconstruction`
+Current investigation branch:
+`phase5-issue-a-reflection-diagnostics`
 
-Hotfix3 remains the behavioral authority. Phase 4 is now closed; Phase 5 has not been started.
+Hotfix3 remains the behavioral authority for the frozen parity baseline. Phase 5 is active and has already received substantial real-game runtime validation. It is **not complete** because the final maintained behavior/source handover is still being resolved around synchronized multi-speaker coloration and a separate elevation/occlusion limitation.
 
 ## Canonical five-phase status
 
@@ -15,27 +17,22 @@ Hotfix3 remains the behavioral authority. Phase 4 is now closed; Phase 5 has not
 | Phase 1 — Freeze and inventory binary baseline | **COMPLETE / JAR-RECHECKED** |
 | Phase 2 — Reconstruct build project | **COMPLETE / JAR-RECHECKED** |
 | Phase 3 — Reconstruct every Java class | **COMPLETE / RECHECKED** |
-| Phase 4 — Structural and behavioral equivalence audit | **COMPLETE / RECHECKED** |
-| Phase 5 — Runtime validation and source handover | **NOT STARTED** |
+| Phase 4 — Structural and behavioral equivalence audit | **COMPLETE / RECHECKED / FROZEN** |
+| Phase 5 — Runtime validation and source handover | **IN PROGRESS — CORE RUNTIME PASSED / ISSUE A DIAGNOSTICS IN PROGRESS** |
 
 Canonical plan: `docs/RECONSTRUCTION_PHASES.md`.
 
+---
+
 ## Phase 1 — COMPLETE / JAR-RECHECKED
 
-The exact Hotfix3 JAR independently confirms the frozen baseline:
+The exact Hotfix3 JAR independently confirmed the frozen baseline:
 
-- whole-JAR SHA-256 exactly matches the frozen authority;
+- whole-JAR SHA-256 matches the authority;
 - 75 ZIP entries, 65 files and 60 Java-21 classfiles;
-- all frozen entry fingerprints were recorded;
-- five source-relevant runtime resources were frozen byte-for-byte.
+- five source-relevant runtime resources frozen byte-for-byte.
 
-Evidence:
-
-- `docs/baseline/BETA11_HOTFIX3_INVENTORY.md`
-- `docs/baseline/HOTFIX3_SHA256SUMS.txt`
-- `docs/baseline/PHASE1_FINAL_VERIFICATION.md`
-- `docs/baseline/PHASE1_JAR_RECHECK_2026-09-04.md`
-- `docs/PHASE1_HOTFIX3_BYTECODE_AUDIT.md`
+See the `docs/baseline/` evidence and `docs/PHASE1_HOTFIX3_BYTECODE_AUDIT.md`.
 
 ## Phase 2 — COMPLETE / JAR-RECHECKED
 
@@ -47,141 +44,157 @@ Pinned build environment:
 - ModDevGradle 2.0.144
 - Gradle wrapper 9.2.1
 - CC:Tweaked 1.120.2
-- tested SPR artifact `qyVF9oeo-Dd2tmpsk.jar`
-- tested HQ Speakers artifact `ygA78R8l-u5PEI5Ax.jar`
-- Cloth Config optional UI dependency
+- SPR 1.21.1-1.5.1 (pinned Modrinth version ID `Dd2tmpsk`)
+- HQ Speakers pinned Modrinth project/version `ygA78R8l/u5PEI5Ax`
+- Cloth Config 15.0.140
 
-Hotfix3 source calls SPR members widened by this mod's access transformer. The reconstruction keeps untouched SPR at runtime while `prepareSprCompileJar` creates an isolated access-transformed compile copy for javac. AT CLI 10.0.6 is build-only.
-
-Final Phase 4 recheck still passes the Phase 2 sanity gates from the final audited code/build head `98e7dedb7ecf6fda22008b084b6bb41956edff78`:
-
-- reconstruction classpath run `33924056408`, job `101188553565` — **SUCCESS**;
-- finish/build/resource run `33924056328`, job `101188553502` — **SUCCESS**.
-
-See `docs/PHASE2_BUILD_AUDIT.md`.
+The source intentionally compiles against an isolated access-transformed SPR copy while runtime uses the untouched tested SPR artifact.
 
 ## Phase 3 — COMPLETE / RECHECKED
 
-All authored Java source is present. The original Phase 3 closure was followed by repeated closure gates after Phase 4 corrections.
+All authored Java source was reconstructed. The final Phase-3/Phase-4 closure reconciled exact 60/60 Hotfix3 class topology before Phase-5 extensions were introduced.
 
-Final Phase 3 recheck on the final Phase 4 code/build head:
+## Phase 4 — COMPLETE / RECHECKED / FROZEN
 
-- head: `98e7dedb7ecf6fda22008b084b6bb41956edff78`;
-- run: `33924056330`;
-- job: `101188553632`;
-- result: **SUCCESS**.
+Permanent frozen parity branch:
 
-That gate cleanly compiled the complete source and reconciled:
+`phase4-hotfix3-parity`
 
-- exact **60/60** Hotfix3 class topology;
-- source-relevant processed resources;
-- complete source closure.
+Permanent archive ref:
 
-Evidence: `docs/PHASE3_FINAL_VERIFICATION.md`.
+`archive-phase4-hotfix3-parity`
 
-## Phase 4 — COMPLETE / RECHECKED
+Both preserve the Phase-4 freeze rooted at:
 
-Final verification record:
+`79eed29767343ee34022e8f6268b386f75e84c9f`
 
-`docs/PHASE4_FINAL_VERIFICATION.md`
-
-Supporting records:
-
-- `docs/PHASE4_START_AUDIT.md`
-- `docs/PHASE4_PROGRESS_2026-09-04.md`
-- `docs/PHASE4_MIXIN_ANNOTATION_AUDIT.md`
-
-### Final audited code/build head
+Final audited Phase-4 code/build head:
 
 `98e7dedb7ecf6fda22008b084b6bb41956edff78`
 
-This final Phase 4 code/build head includes the manifest packaging correction so the rebuilt JAR consumes the exact frozen Hotfix3 manifest rather than Gradle's generated minimal manifest.
+Phase 4 established:
 
-### Final hard gates
+- 60/60 class paths exact;
+- 60/60 structural ABI exact;
+- 69/69 compiled `ConstantValue` entries exact;
+- zero bootstrap/string-concat recipe mismatches;
+- 11/11 Mixin/accessor semantic annotation sets reconciled;
+- 5/5 non-class Hotfix3 resources byte-for-byte exact;
+- 550 methods audited;
+- no unresolved proven Hotfix3 behavioral discrepancy.
 
-| Gate | Run | Job | Result |
-| --- | ---: | ---: | --- |
-| Phase 2 classpath sanity | `33924056408` | `101188553565` | **SUCCESS** |
-| Phase 2 finish/build/resource sanity | `33924056328` | `101188553502` | **SUCCESS** |
-| Phase 3 source closure | `33924056330` | `101188553632` | **SUCCESS** |
-| Phase 4 structural ABI | `33924056396` | `101188553422` | **SUCCESS** |
-| Phase 4 structural export | `33924056370` | `101188553458` | **SUCCESS** |
+Phase-4 frozen behavior is not modified by any Phase-5 experiment.
 
-### Final exported evidence
+---
 
-- artifact id: `9956169844`
-- artifact digest: `sha256:eabb3f3cfd54bcd113c5b3af5a018ee740dcbec0fd5167d817511e32ef5c9215`
-- rebuilt JAR SHA-256: `efd8c44fec7e0446d97e8e60a99e811a4e57be1f83782a55c2fa74dc8bc09bf6`
+# Phase 5 — IN PROGRESS
 
-Whole-JAR byte identity with the historical artifact is not required because normal recompilation changes classfile compiler/debug/layout metadata. Phase 4 instead established the equivalence layers below.
+## Known-good runtime candidate
 
-### Final equivalence results
+Frozen branch:
 
-- **65/65 file topology** in the rebuilt JAR;
-- **60/60 class paths exact**;
-- **60/60 structural ABI exact** under the class/field/method fingerprint;
-- **69/69 compiled `ConstantValue` entries exact**;
-- **0 bootstrap method argument / string-concat recipe mismatches**;
-- **11/11 configured Mixin/accessor semantic annotation sets reconciled**;
-- **5/5 non-class JAR resources byte-for-byte exact**, including the exact 55-byte CRLF manifest;
-- method/control-flow audit covered **550 methods**;
-- normalized comparison yielded 478 instruction-equivalent methods and 72 residual compiler-shape differences in 13 reviewed classes;
-- all residual differences were reviewed and no unresolved proven Hotfix3 behavior discrepancy remains.
+`phase5-test-candidate-1`
 
-The final manifest-only build correction did not perturb Java output: all 60 compiled classfiles in the final `98e7dedb...` export are byte-for-byte identical to the previously audited `ed7db4e8...` export.
+Candidate commit:
 
-### Important Phase 4 corrections retained
+`44612192d875e43ecef66ca51798cab7adb17020`
 
-Phase 4 corrected proven discrepancies before closure, including:
+Verified JAR SHA-256:
 
-- exact HQ receive and stop Mixin descriptors/metadata/coercion;
-- restoration of the HQ receive reported-hook field;
-- exact SyncStartCoordinator removal/source-state/play-vector behavior/source shape;
-- removal of the non-Hotfix3 Beta9 reset helper;
-- exact Beta9 registration, unknown-audibility and invalid-distance behavior;
-- restoration of Beta10's reflection-based private Beta9 controller reset;
-- exact `ProgressiveOcclusionModel.State` access/constructor ABI;
-- exact EnvironmentSmoother OpenAL failure-code formatting;
-- exact ClientConfigAccess reflection failure diagnostic text;
-- exact Hotfix3 manifest packaging.
+`6d782812f7915de1870a8b5ae0f619556e7ec1d24ef2eaffa7b5b225aa00bd93`
 
-### Frozen invariants at Phase 4 closure
+The candidate keeps original `ClientConfig.java` unchanged from the frozen Phase-4 source and adds advanced/debug controls whose defaults preserve Hotfix3 values.
 
-Preserved by the reconstructed source/audit:
+## Real-game evidence already obtained
 
-- no Lua changes;
-- approved `SoundSource.BLOCKS` distance behavior;
-- center + 8 inner + 8 outer progressive direct geometry;
-- private per-source EFX isolation;
-- direct/aux EFX reattachment on every actual environment application;
-- no private EFX before PLAYING/PAUSED eligibility;
-- `PositionStabilizer` behavior;
-- do not cancel or replace SPR `calculateOcclusion()`;
-- no worker-thread SPR world/geometry raycasts;
-- strict source lifetime identity/generation semantics;
-- scheduling must not intentionally alter PCM sample position, OpenAL playback clock, buffer offset or synchronized-start timing;
-- Hotfix3 100 ms partial sync grace and pending-INITIAL protection;
-- Beta10 exact direct reuse and bit-identical OpenAL write suppression;
-- Beta11 same-clone room-ray cache scope.
+The user performed the real Minecraft/audio validation. Core findings already supported by runtime logs and listening:
 
-## Phase 5 — NOT STARTED
+- correct Phase-5 build identity loaded;
+- required compat Mixins applied;
+- OpenAL initialized and SPR EFX became ready with four auxiliary sends;
+- private per-source EFX was created successfully for active HQ sources;
+- no observed private-EFX failure/native-fallback fault during ordinary playback;
+- required EFX reattachment invariant held (`efxApplies == efxReattachPasses` in reported windows);
+- 12-source stress playback ran without compat crash;
+- listener/source movement and doorway clearing transitions operated;
+- room/direct reuse and Beta9/Beta10/Beta11 telemetry operated;
+- debug cache/room/EFX reset commands executed while playback survived;
+- source cleanup/unregister and world shutdown completed normally;
+- synchronized playback was heard starting together by the user;
+- the coordinator consistently received one fewer compat audio source than HQ's declared expected count (for example 4/5) and used the existing partial-flush grace rather than losing audible speakers;
+- the user reported the known-good candidate's general acoustics sounded correct.
 
-Phase 4 closure does **not** imply runtime validation.
+The brief static heard only during `/cchqphysics reset_efx` is treated as a debug-command teardown/recreate artifact, not an ordinary playback failure.
 
-Not performed as part of Phase 4:
+## Synchronized-mix experiments
 
-- Minecraft launch/runtime test;
-- runtime Mixin application validation;
-- real CC:HQ + SPR playback test;
-- OpenAL/EFX runtime validation;
-- synchronized-start measurement;
-- runtime room-cache/telemetry validation;
-- source/release handover.
+### V1 amplitude suppression — REJECTED
 
-Those remain Phase 5 work and must not begin unless explicitly requested.
+The first optional attempt reduced the whole-source gain of occluded synchronized copies. It made the mix feel more balanced in one dimension but distorted spatial weighting: a clear off-axis speaker could dominate left/right balance and heavily occluded speakers could nearly disappear.
 
-## Exact next prerequisite
+That design is rejected and remains only as branch/history evidence.
 
-**Stop here. Phase 4 is closed.**
+### V2 spectral-only compensation — FROZEN EXPERIMENT / NOT YET FINAL
 
-The next canonical phase would be Phase 5 runtime validation/source handover, but it is **NOT STARTED** and is outside the current request.
+Frozen test branch:
+
+`phase5-mix-v2-test-candidate`
+
+V2 deliberately did not change source gain, source position, or reverb-send filters. It only bounded a direct low-pass cutoff lift for extremely dark synchronized copies when a clear peer existed.
+
+The implementation/build gates were clean, but during the listening session the user also reported an unclear reverb/treble/spatial coloration. Importantly, the first report occurred before V2 was enabled, so V2 cannot be assumed to be the cause.
+
+V2 therefore remains a separate experiment and is not the final maintained source.
+
+## Issue A — reflected-position / coloration diagnostics
+
+Current branch:
+
+`phase5-issue-a-reflection-diagnostics`
+
+Base:
+
+known-good candidate commit `44612192d875e43ecef66ca51798cab7adb17020`
+
+Issue-A does **not** include synchronized-mix V1 or V2.
+
+Purpose:
+
+Determine whether the hard-to-name perceived coloration is caused by:
+
+1. reflected-position redirection itself;
+2. the interaction of a redirected/muffled correlated copy with other bright/direct synchronized copies; or
+3. another room/reverb behavior.
+
+Diagnostic controls are runtime-only. Global reflection redirection starts ON every launch, matching known-good behavior. Per-source ON/OFF/AUTO overrides allow one member of a synchronized group to be isolated while the others remain unchanged.
+
+Focused documentation and test matrix:
+
+`docs/PHASE5_ISSUE_A_REFLECTION_DIAGNOSTICS.md`
+
+The first diagnostic draft used reflection to inspect private Java state. That implementation was removed after review; the current snapshot uses compile-checked diagnostic paths instead.
+
+## Separate elevation / diffraction issue
+
+A distinct long-standing acoustic-model limitation was discovered when the listener was only a few blocks horizontally from a speaker but several Y-levels below it in an open-topped hole. Straight speaker-to-listener occlusion rays crossed many terrain blocks and produced extremely high occlusion, even though an acoustically plausible route existed around the rim.
+
+This is tracked separately. No elevation/diffraction correction is included in Issue A. A future isolated experiment may probe alternate two-segment escape/diffraction paths while preserving legitimate sealed-floor/ceiling occlusion.
+
+## Branch hygiene
+
+This Issue-A branch was created directly from frozen candidate commit `44612192...`, which predates later Phase-5 documentation and cleanup commits. Therefore its initial snapshot inherited an obsolete status file saying Phase 5 was not started and inherited historical `phase5_apply_batch1..4.py` mutation scripts.
+
+Those statements/files were historical artifacts of the frozen base, not the current project state. The Issue-A branch now removes the one-shot batch scripts and carries current Phase-5 status documentation.
+
+## What remains before Phase 5 can close
+
+1. Clean-build and verify the Issue-A diagnostic JAR.
+2. Run the documented single-speaker / synchronized-group / one-source reflection A/B tests.
+3. Decide from evidence whether reflected positioning needs a behavior change or is exonerated.
+4. Investigate the elevation/diffraction limitation separately if desired before closure.
+5. Decide whether V2 spectral compensation belongs in the maintained build or remains experimental.
+6. Freeze the final extended/configurable source candidate.
+7. Finalize runtime-validation report, reproducible build docs, supported stack/hash, source handover and README/status.
+8. Mark Phase 5 **COMPLETE / RECHECKED** only after those decisions are frozen and verified.
+
+Do not merge to `main` without explicit user approval.
