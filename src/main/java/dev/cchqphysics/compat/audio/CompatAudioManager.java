@@ -362,22 +362,31 @@ public final class CompatAudioManager {
 
     public static void pauseCompatSources() {
         onSoundThread(() -> {
-            for (ActiveSource active : ACTIVE.values()) {
-                if (SyncStartCoordinator.sourceState(active.sourceId, AL10.AL_SOURCE_STATE) == AL10.AL_PLAYING) {
-                    AL10.alSourcePause(active.sourceId);
-                }
-            }
+            int[] sources = actualSourcesInState(AL10.AL_PLAYING);
+            if (sources.length > 0) AL10.alSourcePausev(sources);
         });
     }
 
     public static void resumeCompatSources() {
         onSoundThread(() -> {
-            for (ActiveSource active : ACTIVE.values()) {
-                if (SyncStartCoordinator.sourceState(active.sourceId, AL10.AL_SOURCE_STATE) == AL10.AL_PAUSED) {
-                    AL10.alSourcePlay(active.sourceId);
-                }
-            }
+            int[] sources = actualSourcesInState(AL10.AL_PAUSED);
+            if (sources.length > 0) AL10.alSourcePlayv(sources);
         });
+    }
+
+    private static int[] actualSourcesInState(int state) {
+        int[] sources = new int[ACTIVE.size()];
+        int count = 0;
+        for (ActiveSource active : ACTIVE.values()) {
+            try {
+                if (AL10.alGetSourcei(active.sourceId, AL10.AL_SOURCE_STATE) == state) {
+                    sources[count++] = active.sourceId;
+                }
+            } catch (Throwable t) {
+                logOnce("source-state", "Could not query compatibility OpenAL source " + active.sourceId + ": " + t);
+            }
+        }
+        return count == sources.length ? sources : Arrays.copyOf(sources, count);
     }
 
     public static void stopAllCompatSources() {
