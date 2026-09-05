@@ -8,6 +8,9 @@ final class AcousticMixProbe {
     enum Mode {
         AUTO("auto"),
         SENDS_OFF("sends_off"),
+        HF_LIFT_25("hf_lift_25"),
+        HF_LIFT_50("hf_lift_50"),
+        HF_LIFT_75("hf_lift_75"),
         DIRECT_HF_BYPASS("direct_hf_bypass");
 
         private final String wireName;
@@ -18,6 +21,16 @@ final class AcousticMixProbe {
 
         String wireName() {
             return wireName;
+        }
+
+        float directHfLiftFraction() {
+            return switch (this) {
+                case HF_LIFT_25 -> 0.25F;
+                case HF_LIFT_50 -> 0.50F;
+                case HF_LIFT_75 -> 0.75F;
+                case DIRECT_HF_BYPASS -> 1.00F;
+                default -> 0.00F;
+            };
         }
     }
 
