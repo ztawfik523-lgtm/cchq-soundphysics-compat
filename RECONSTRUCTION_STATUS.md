@@ -8,6 +8,9 @@ Authoritative Hotfix3 SHA-256:
 Current investigation branch:
 `phase5-issue-a-reflection-diagnostics`
 
+Current chat handoff:
+`docs/CHATGPT_HANDOFF_2026-09-05.md`
+
 Hotfix3 remains the behavioral authority for the frozen parity baseline. Phase 5 is active and has already received substantial real-game runtime validation. It is **not complete** because the final maintained behavior/source handover is still being resolved around synchronized multi-speaker coloration and a separate elevation/occlusion limitation.
 
 ## Canonical five-phase status
@@ -18,7 +21,7 @@ Hotfix3 remains the behavioral authority for the frozen parity baseline. Phase 5
 | Phase 2 — Reconstruct build project | **COMPLETE / JAR-RECHECKED** |
 | Phase 3 — Reconstruct every Java class | **COMPLETE / RECHECKED** |
 | Phase 4 — Structural and behavioral equivalence audit | **COMPLETE / RECHECKED / FROZEN** |
-| Phase 5 — Runtime validation and source handover | **IN PROGRESS — CORE RUNTIME PASSED / ISSUE A DIAGNOSTICS IN PROGRESS** |
+| Phase 5 — Runtime validation and source handover | **IN PROGRESS — CORE RUNTIME PASSED / ISSUE A BUILD VERIFIED / AWAITING USER A/B TEST** |
 
 Canonical plan: `docs/RECONSTRUCTION_PHASES.md`.
 
@@ -140,6 +143,14 @@ Frozen test branch:
 
 `phase5-mix-v2-test-candidate`
 
+Exact source commit:
+
+`ab1e1e70a13ebb6f3dadd30581b069f06a15142a`
+
+Verified JAR SHA-256:
+
+`bba8d93e696403ae857dd155db2969c7591886aa1e8734b0b949f1a749c8319c`
+
 V2 deliberately did not change source gain, source position, or reverb-send filters. It only bounded a direct low-pass cutoff lift for extremely dark synchronized copies when a clear peer existed.
 
 The implementation/build gates were clean, but during the listening session the user also reported an unclear reverb/treble/spatial coloration. Importantly, the first report occurred before V2 was enabled, so V2 cannot be assumed to be the cause.
@@ -148,15 +159,36 @@ V2 therefore remains a separate experiment and is not the final maintained sourc
 
 ## Issue A — reflected-position / coloration diagnostics
 
-Current branch:
+Working/docs branch:
 
 `phase5-issue-a-reflection-diagnostics`
 
-Base:
+Known-good base:
 
-known-good candidate commit `44612192d875e43ecef66ca51798cab7adb17020`
+`44612192d875e43ecef66ca51798cab7adb17020`
 
-Issue-A does **not** include synchronized-mix V1 or V2.
+Reviewed frozen runtime-test branch:
+
+`phase5-issue-a-test-candidate-2`
+
+Exact reviewed/test source commit:
+
+`973f1df7dad886fb0f5fffd4264015fecac2e786`
+
+Verified Issue-A JAR SHA-256:
+
+`d649f14cdce89db21a79c396dbdecca681daf3d0389dc794a7ad52929f8c8451`
+
+Verification:
+
+- workflow run `33935819269`
+- job `101223434623`
+- result **SUCCESS**
+- artifact id `9960138065`
+- 67 classfiles
+- build metadata confirms the known-good base, reflection redirect default ON, per-source override support, no reflective private-state introspection, and no synchronized-mix V1/V2 code.
+
+Issue A does **not** include synchronized-mix V1 or V2.
 
 Purpose:
 
@@ -172,7 +204,13 @@ Focused documentation and test matrix:
 
 `docs/PHASE5_ISSUE_A_REFLECTION_DIAGNOSTICS.md`
 
-The first diagnostic draft used reflection to inspect private Java state. That implementation was removed after review; the current snapshot uses compile-checked diagnostic paths instead.
+Verified build record:
+
+`docs/PHASE5_ISSUE_A_BUILD_RECORD.md`
+
+The first diagnostic draft used reflection to inspect private Java state. That implementation was removed after review; the current snapshot uses compile-checked package-local diagnostic paths instead.
+
+External review also correctly identified that a global-only toggle was insufficient. The reviewed candidate now supports per-source isolation and clears those overrides on source unregister.
 
 ## Separate elevation / diffraction issue
 
@@ -188,13 +226,13 @@ Those statements/files were historical artifacts of the frozen base, not the cur
 
 ## What remains before Phase 5 can close
 
-1. Clean-build and verify the Issue-A diagnostic JAR.
-2. Run the documented single-speaker / synchronized-group / one-source reflection A/B tests.
-3. Decide from evidence whether reflected positioning needs a behavior change or is exonerated.
-4. Investigate the elevation/diffraction limitation separately if desired before closure.
+1. Run the documented Issue-A single-speaker / synchronized-group / one-source reflection A/B tests using the verified `phase5-issue-a-test-candidate-2` JAR.
+2. Decide from runtime evidence whether reflected positioning needs a behavior change or is exonerated.
+3. If reflection is exonerated, instrument typed room/reverb-send telemetry before changing acoustic behavior by guesswork.
+4. Decide whether to investigate the separate elevation/diffraction limitation before closure or record it as a known limitation/future experiment.
 5. Decide whether V2 spectral compensation belongs in the maintained build or remains experimental.
 6. Freeze the final extended/configurable source candidate.
-7. Finalize runtime-validation report, reproducible build docs, supported stack/hash, source handover and README/status.
+7. Finalize the runtime-validation report, reproducible build docs, supported stack/hash, source handover and README/status.
 8. Mark Phase 5 **COMPLETE / RECHECKED** only after those decisions are frozen and verified.
 
 Do not merge to `main` without explicit user approval.
