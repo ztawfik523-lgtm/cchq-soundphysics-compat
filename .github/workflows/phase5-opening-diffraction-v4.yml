@@ -73,8 +73,12 @@ jobs:
           set -euo pipefail
           probe=src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java
           grep -F 'OPENING_VERIFY_CANDIDATES = 2' "$probe"
+          grep -F 'OPENING_VERTICAL_SCAN_BLOCKS = 8' "$probe"
           grep -F 'LevelAccessUtils.getClientLevelProxy' "$probe"
           grep -F 'getBlockState(cursor).isAir()' "$probe"
+          grep -F 'getOpeningTopology(listener)' "$probe"
+          grep -F 'nearby-opening-barrier-not-between' "$probe"
+          grep -F 'int scanTopY = baseY + OPENING_VERTICAL_SCAN_BLOCKS;' "$probe"
           grep -F 'LOWER_LEG_CACHE' "$probe"
           grep -F 'CROSS_LEG_CACHE' "$probe"
           grep -F 'openingLegRecheckDistanceSq()' "$probe"
@@ -84,6 +88,7 @@ jobs:
           grep -F 'radius * DiffractionConfig.openingDistancePenalty()' "$probe"
           grep -F 'Beta10Optimizer.runOcclusionDirect' "$probe"
           ! grep -F 'OPENING_DIRECTIONS' "$probe"
+          ! grep -F 'getOpeningTopology(Vec3 listener, Vec3 source)' "$probe"
 
       - name: Assert approved V3 core outside diffraction remains unchanged
         shell: bash
@@ -157,6 +162,8 @@ jobs:
             echo 'direct_open_top_behavior_preserved=true'
             echo 'nearby_opening_discovery=spr_cloned_level_blockstate'
             echo 'nearby_opening_search_radius=3.0'
+            echo 'nearby_opening_vertical_scan_blocks=8'
+            echo 'nearby_opening_topology_shared_across_sources=true'
             echo 'nearby_opening_topology_candidate_limit=8'
             echo 'nearby_opening_verify_candidates=2'
             echo 'nearby_opening_base_penalty=0.75'
@@ -166,7 +173,7 @@ jobs:
             echo 'nearby_opening_ray_cache_ms=5000'
             echo 'shared_listener_opening_leg=true'
             echo 'per_source_cross_leg_cache=true'
-            echo 'stationary_nearby_opening_expected_extra_spr_rays_after_cache=0'
+            echo 'stationary_nearby_opening_expected_extra_spr_rays_between_rechecks=0'
             echo 'diffraction_default_enabled=false'
             echo 'source_gain_mutation=false'
             echo 'source_position_mutation=false'
