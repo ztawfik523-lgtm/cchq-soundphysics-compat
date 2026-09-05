@@ -4,10 +4,10 @@ license="MIT"
 
 [[mods]]
 modId="cchq_soundphysics_compat"
-version="0.1.0-beta11-phase5-syncdiag-test"
+version="0.1.0-beta11-phase5-acousticprobe-test"
 displayName="CC:HQ Sound Physics Compat"
 authors="CC:HQ / Sound Physics compatibility"
-description='''Phase 5 synchronized-playback diagnostic build based directly on the verified Issue-A lineage. Runtime acoustics and synchronization behavior remain unchanged. /cchqphysics dump adds typed applied reverb-send telemetry plus read-only OpenAL playback-cursor measurements so micro-desync and correlated acoustic-mix hypotheses can be tested in the same playback without conflating their conclusions.'''
+description='''Phase 5 acoustic-mix isolation build. It retains the verified synchronized playback-cursor telemetry and Issue-A diagnostics, and adds runtime-only per-source A/B probes that can silence only auxiliary reverb sends or bypass only the direct high-frequency low-pass factor while preserving source gain, source position and playback timing.'''
 
 [[mixins]]
 config="cchq_soundphysics_compat.mixins.json"

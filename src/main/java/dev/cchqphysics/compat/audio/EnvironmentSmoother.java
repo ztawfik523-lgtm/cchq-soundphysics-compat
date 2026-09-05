@@ -50,6 +50,7 @@ public final class EnvironmentSmoother {
         PositionStabilizer.unregister(sourceId);
         SoundPhysicsBridge.unregisterSource(sourceId);
         SyncStartCoordinator.removeSource(sourceId);
+        AcousticMixProbe.clearSource(sourceId);
         if (state != null) destroyPrivateEfx(sourceId, state);
     }
 
@@ -68,8 +69,6 @@ public final class EnvironmentSmoother {
                     || state.sendFilters[2] != 0 || state.sendFilters[3] != 0) {
                 destroyPrivateEfx(sourceId, state);
             }
-            // Turning the feature off is also an explicit retry boundary: if it
-            // is enabled again later, allow a fresh isolated-EFX setup attempt.
             state.privateEfxFailed = false;
             state.failureLogged = false;
             DebugDiagnostics.efx("source={} private EFX disabled; detached compat filters and using native SPR fallback", sourceId);
@@ -154,7 +153,8 @@ public final class EnvironmentSmoother {
                     + " h2=" + round3(state.h2)
                     + " h3=" + round3(state.h3)
                     + " cutoff=" + round3(state.cutoff)
-                    + " gain=" + round3(state.gain));
+                    + " gain=" + round3(state.gain)
+                    + " probe=" + AcousticMixProbe.modeFor(entry.getKey()).wireName());
         }
     }
 
@@ -206,6 +206,7 @@ public final class EnvironmentSmoother {
     private static void applyPrivateEfx(int sourceId, State state) {
         refreshAirAbsorption();
         drainAlErrors();
+        AcousticMixProbe.Mode probe = AcousticMixProbe.modeFor(sourceId);
         float[] gains = {state.r0, state.r1, state.r2, state.r3};
         float[] cutoffs = {state.h0, state.h1, state.h2, state.h3};
         for (int i = 0; i < 4; i++) {
@@ -213,12 +214,14 @@ public final class EnvironmentSmoother {
             if (state.maxAuxSends < requiredSends) continue;
             int sendIndex = 3 - i;
             int filter = state.sendFilters[i];
-            Beta10Optimizer.alFilterfMaybe(filter, AL_LOWPASS_GAIN, clamp01(gains[i]));
+            float appliedSendGain = probe == AcousticMixProbe.Mode.SENDS_OFF ? 0.0F : gains[i];
+            Beta10Optimizer.alFilterfMaybe(filter, AL_LOWPASS_GAIN, clamp01(appliedSendGain));
             Beta10Optimizer.alFilterfMaybe(filter, AL_LOWPASS_GAINHF, clamp01(cutoffs[i]));
             AL11.alSource3i(sourceId, AL_AUXILIARY_SEND_FILTER, state.auxSlots[i], sendIndex, filter);
         }
+        float appliedDirectHf = probe == AcousticMixProbe.Mode.DIRECT_HF_BYPASS ? 1.0F : state.cutoff;
         Beta10Optimizer.alFilterfMaybe(state.directFilter, AL_LOWPASS_GAIN, clamp01(state.gain));
-        Beta10Optimizer.alFilterfMaybe(state.directFilter, AL_LOWPASS_GAINHF, clamp01(state.cutoff));
+        Beta10Optimizer.alFilterfMaybe(state.directFilter, AL_LOWPASS_GAINHF, clamp01(appliedDirectHf));
         AL11.alSourcei(sourceId, AL_DIRECT_FILTER, state.directFilter);
         AL11.alSourcef(sourceId, AL_AIR_ABSORPTION_FACTOR, cachedAirAbsorption);
         int error = AL10.alGetError();

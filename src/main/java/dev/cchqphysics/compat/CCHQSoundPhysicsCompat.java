@@ -1,5 +1,6 @@
 package dev.cchqphysics.compat;
 
+import dev.cchqphysics.compat.audio.AcousticProbeCommands;
 import dev.cchqphysics.compat.audio.DebugCommands;
 import dev.cchqphysics.compat.config.ClientConfig;
 import dev.cchqphysics.compat.config.ConfigScreenFactory;
@@ -15,7 +16,7 @@ import org.slf4j.LoggerFactory;
 @Mod(value = CCHQSoundPhysicsCompat.MOD_ID, dist = Dist.CLIENT)
 public final class CCHQSoundPhysicsCompat {
     public static final String MOD_ID = "cchq_soundphysics_compat";
-    public static final String VERSION = "0.1.0-beta11-phase5-syncdiag-test";
+    public static final String VERSION = "0.1.0-beta11-phase5-acousticprobe-test";
     private static final Logger LOGGER = LoggerFactory.getLogger("CC:HQ Sound Physics Compat");
 
     public CCHQSoundPhysicsCompat(ModContainer container) {
@@ -23,7 +24,8 @@ public final class CCHQSoundPhysicsCompat {
         container.registerConfig(ModConfig.Type.CLIENT, ExtendedClientConfig.SPEC, "cchq_soundphysics_compat-advanced.toml");
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigScreenFactory::create);
         DebugCommands.init();
-        LOGGER.info("CC:HQ Sound Physics Compat {} initialized; known-good Phase 5 acoustics are default; synchronized timing + EFX telemetry available", VERSION);
+        AcousticProbeCommands.init();
+        LOGGER.info("CC:HQ Sound Physics Compat {} initialized; synchronized cursor telemetry retained; runtime acoustic A/B probe available", VERSION);
         if (ExtendedClientConfig.logConfig()) {
             LOGGER.info("Phase 5 advanced config: {}", ExtendedClientConfig.summary());
         }

@@ -1,0 +1,156 @@
+name: Phase 5 acoustic mix isolation verification
+
+on:
+  push:
+    branches:
+      - phase5-acoustic-mix-isolation
+    paths:
+      - 'src/main/java/**'
+      - 'src/main/resources/**'
+      - 'build.gradle'
+      - 'gradle.properties'
+      - 'tools/phase5_verify_defaults.py'
+      - 'docs/PHASE5_ACOUSTIC_MIX_ISOLATION.md'
+      - '.github/workflows/phase5-acoustic-mix-isolation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out acoustic probe branch
+        uses: actions/checkout@v4
+        with:
+          ref: phase5-acoustic-mix-isolation
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Assert frozen baselines
+        shell: bash
+        run: |
+          set -euo pipefail
+          phase4_expected='79eed29767343ee34022e8f6268b386f75e84c9f'
+          candidate_expected='44612192d875e43ecef66ca51798cab7adb17020'
+          issuea_expected='973f1df7dad886fb0f5fffd4264015fecac2e786'
+          phase4_actual="$(git ls-remote origin refs/heads/phase4-hotfix3-parity | awk '{print $1}')"
+          candidate_actual="$(git ls-remote origin refs/heads/phase5-test-candidate-1 | awk '{print $1}')"
+          issuea_actual="$(git ls-remote origin refs/heads/phase5-issue-a-test-candidate-2 | awk '{print $1}')"
+          test "$phase4_actual" = "$phase4_expected"
+          test "$candidate_actual" = "$candidate_expected"
+          test "$issuea_actual" = "$issuea_expected"
+          git cat-file -e 95bd4b06b78786d4f7b1ad33b665f4685e45a54b^{commit}
+
+      - name: Assert diagnostic identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fx 'mod_version=0.1.0-beta11-phase5-acousticprobe-test' gradle.properties
+          grep -F 'VERSION = "0.1.0-beta11-phase5-acousticprobe-test"' src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java
+          grep -F 'version="0.1.0-beta11-phase5-acousticprobe-test"' src/main/resources/META-INF/neoforge.mods.toml
+
+      - name: Audit Phase 5 parity defaults
+        run: python3 tools/phase5_verify_defaults.py
+
+      - name: Confirm original Hotfix3 config source unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin phase4-hotfix3-parity
+          git diff --exit-code origin/phase4-hotfix3-parity -- src/main/java/dev/cchqphysics/compat/config/ClientConfig.java
+
+      - name: Assert playback and geometry core unchanged from sync diagnostic runtime source
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=95bd4b06b78786d4f7b1ad33b665f4685e45a54b
+          for path in \
+            src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java \
+            src/main/java/dev/cchqphysics/compat/audio/DistanceBridge.java \
+            src/main/java/dev/cchqphysics/compat/audio/ProgressiveOcclusionModel.java \
+            src/main/java/dev/cchqphysics/compat/audio/PositionStabilizer.java \
+            src/main/java/dev/cchqphysics/compat/audio/ReflectionDiagnostics.java \
+            src/main/java/dev/cchqphysics/compat/audio/SoundPhysicsBridge.java \
+            src/main/java/dev/cchqphysics/compat/audio/SyncStartCoordinator.java \
+            src/main/java/dev/cchqphysics/compat/audio/SyncAcousticDiagnostics.java \
+            src/main/java/dev/cchqphysics/compat/audio/Beta9Optimizer.java \
+            src/main/java/dev/cchqphysics/compat/audio/Beta10Optimizer.java \
+            src/main/java/dev/cchqphysics/compat/audio/Beta11RoomRayCache.java; do
+            git diff --exit-code "$base" -- "$path"
+          done
+
+      - name: Assert probe scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'Mode.SENDS_OFF ? 0.0F : gains[i]' src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java
+          grep -F 'Mode.DIRECT_HF_BYPASS ? 1.0F : state.cutoff' src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java
+          grep -F 'AL_LOWPASS_GAIN, clamp01(state.gain)' src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java
+          grep -F 'AcousticMixProbe.clearSource(sourceId)' src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java
+          grep -F 'sends_off' src/main/java/dev/cchqphysics/compat/audio/AcousticProbeCommands.java
+          grep -F 'direct_hf_bypass' src/main/java/dev/cchqphysics/compat/audio/AcousticProbeCommands.java
+          ! grep -F 'alSourcePlay' src/main/java/dev/cchqphysics/compat/audio/AcousticMixProbe.java
+          ! grep -F 'AL_POSITION' src/main/java/dev/cchqphysics/compat/audio/AcousticMixProbe.java
+          ! grep -F 'AL_GAIN' src/main/java/dev/cchqphysics/compat/audio/AcousticMixProbe.java
+
+      - name: Clean compile acoustic probe source
+        run: ./gradlew --no-configuration-cache clean compileJava --stacktrace
+
+      - name: Build acoustic probe JAR
+        run: ./gradlew --no-configuration-cache jar --stacktrace
+
+      - name: Inspect acoustic probe artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          jars=(build/libs/*phase5-acousticprobe-test*.jar)
+          test "${#jars[@]}" -eq 1
+          jar="${jars[0]}"
+          jar tf "$jar" | sort > acousticprobe-jar-contents.txt
+          class_count="$(grep -c '\.class$' acousticprobe-jar-contents.txt)"
+          echo "class_count=$class_count"
+          test "$class_count" -ge 72
+          for class in \
+            dev/cchqphysics/compat/audio/AcousticMixProbe.class \
+            dev/cchqphysics/compat/audio/AcousticMixProbe\$Mode.class \
+            dev/cchqphysics/compat/audio/AcousticProbeCommands.class \
+            dev/cchqphysics/compat/audio/SyncAcousticDiagnostics.class \
+            dev/cchqphysics/compat/audio/EnvironmentSmoother.class; do
+            grep -Fx "$class" acousticprobe-jar-contents.txt
+          done
+          unzip -p "$jar" META-INF/neoforge.mods.toml | grep -F 'version="0.1.0-beta11-phase5-acousticprobe-test"'
+          sha256sum "$jar" | tee acousticprobe-jar-sha256.txt
+          printf '%s\n' "source_commit=${GITHUB_SHA}" > acousticprobe-build-info.txt
+          printf '%s\n' "syncdiag_runtime_source=95bd4b06b78786d4f7b1ad33b665f4685e45a54b" >> acousticprobe-build-info.txt
+          printf '%s\n' "known_good_candidate=44612192d875e43ecef66ca51798cab7adb17020" >> acousticprobe-build-info.txt
+          printf '%s\n' "issue_a_reviewed=973f1df7dad886fb0f5fffd4264015fecac2e786" >> acousticprobe-build-info.txt
+          printf '%s\n' "phase4_frozen=79eed29767343ee34022e8f6268b386f75e84c9f" >> acousticprobe-build-info.txt
+          printf '%s\n' "per_source_sends_off_probe=true" >> acousticprobe-build-info.txt
+          printf '%s\n' "per_source_direct_hf_bypass_probe=true" >> acousticprobe-build-info.txt
+          printf '%s\n' "source_gain_mutation=false" >> acousticprobe-build-info.txt
+          printf '%s\n' "source_position_mutation=false" >> acousticprobe-build-info.txt
+          printf '%s\n' "playback_timing_mutation=false" >> acousticprobe-build-info.txt
+          printf '%s\n' "spectral_mix_v1_included=false" >> acousticprobe-build-info.txt
+          printf '%s\n' "spectral_mix_v2_included=false" >> acousticprobe-build-info.txt
+          printf '%s\n' "game_launch_performed=false" >> acousticprobe-build-info.txt
+
+      - name: Upload verified acoustic probe build
+        uses: actions/upload-artifact@v4
+        with:
+          name: cchq-phase5-acoustic-mix-isolation
+          path: |
+            build/libs/*phase5-acousticprobe-test*.jar
+            acousticprobe-jar-contents.txt
+            acousticprobe-jar-sha256.txt
+            acousticprobe-build-info.txt
