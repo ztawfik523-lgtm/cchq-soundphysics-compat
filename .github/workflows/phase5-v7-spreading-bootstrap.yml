@@ -19,7 +19,9 @@ jobs:
           distribution: temurin
           java-version: '21'
       - name: Apply asserted V7 source patch
-        run: python3 tools/phase5_v7_spreading_patch.py
+        run: |
+          sed -i 's/Phase 5 isolated V6 aperture-energy diffraction experiment/Phase 5 isolated aperture-energy diffraction experiment V6/' tools/phase5_v7_spreading_patch.py
+          python3 tools/phase5_v7_spreading_patch.py
       - name: Diff sanity
         run: |
           git diff --check
@@ -32,7 +34,7 @@ jobs:
         run: ./gradlew --no-daemon --no-configuration-cache clean compileJava
       - name: Commit compiled V7 source
         run: |
-          if git diff --quiet; then
+          if git diff --quiet -- gradle.properties src/main/java src/main/resources/META-INF/neoforge.mods.toml; then
             echo 'No source changes to commit'
             exit 0
           fi
