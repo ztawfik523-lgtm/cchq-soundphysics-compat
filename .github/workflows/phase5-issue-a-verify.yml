@@ -9,6 +9,7 @@ on:
       - 'src/main/resources/**'
       - 'build.gradle'
       - 'gradle.properties'
+      - 'tools/phase5_verify_defaults.py'
       - 'docs/PHASE5_ISSUE_A_REFLECTION_DIAGNOSTICS.md'
       - '.github/workflows/phase5-issue-a-verify.yml'
   workflow_dispatch:
@@ -43,39 +44,63 @@ jobs:
           candidate_expected='44612192d875e43ecef66ca51798cab7adb17020'
           phase4_actual="$(git ls-remote origin refs/heads/phase4-hotfix3-parity | awk '{print $1}')"
           candidate_actual="$(git ls-remote origin refs/heads/phase5-test-candidate-1 | awk '{print $1}')"
-          echo "Phase 4 frozen head: $phase4_actual"
-          echo "Known-good Phase 5 candidate: $candidate_actual"
+          echo "phase4=$phase4_actual"
+          echo "candidate1=$candidate_actual"
           test "$phase4_actual" = "$phase4_expected"
           test "$candidate_actual" = "$candidate_expected"
 
-      - name: Assert Issue A identity and default behavior
+      - name: Assert Issue A identity
         shell: bash
         run: |
           set -euo pipefail
           grep -Fx 'mod_version=0.1.0-beta11-phase5-issuea-test' gradle.properties
           grep -F 'VERSION = "0.1.0-beta11-phase5-issuea-test"' src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java
           grep -F 'version="0.1.0-beta11-phase5-issuea-test"' src/main/resources/META-INF/neoforge.mods.toml
-          grep -F 'private static volatile boolean redirectEnabled = true;' src/main/java/dev/cchqphysics/compat/audio/ReflectionDiagnostics.java
-          grep -F 'ReflectionDiagnostics.redirectEnabled() && requestedRedirect' src/main/java/dev/cchqphysics/compat/audio/PositionStabilizer.java
-          grep -F 'IssueADiagnostics.dump();' src/main/java/dev/cchqphysics/compat/audio/DebugCommands.java
 
-      - name: Assert unrelated acoustic/runtime core unchanged from known-good candidate
+      - name: Audit Phase 5 parity defaults
+        run: python3 tools/phase5_verify_defaults.py
+
+      - name: Confirm original Hotfix3 config source unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin phase4-hotfix3-parity
+          git diff --exit-code origin/phase4-hotfix3-parity -- src/main/java/dev/cchqphysics/compat/config/ClientConfig.java
+
+      - name: Assert unrelated acoustic core unchanged from known-good candidate
         shell: bash
         run: |
           set -euo pipefail
           git fetch --no-tags origin phase5-test-candidate-1
           base=origin/phase5-test-candidate-1
           for path in \
-            src/main/java/dev/cchqphysics/compat/config/ClientConfig.java \
             src/main/java/dev/cchqphysics/compat/config/ExtendedClientConfig.java \
             src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java \
             src/main/java/dev/cchqphysics/compat/audio/DistanceBridge.java \
             src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java \
             src/main/java/dev/cchqphysics/compat/audio/ProgressiveOcclusionModel.java \
             src/main/java/dev/cchqphysics/compat/audio/SoundPhysicsBridge.java \
-            src/main/java/dev/cchqphysics/compat/audio/SyncStartCoordinator.java; do
+            src/main/java/dev/cchqphysics/compat/audio/SyncStartCoordinator.java \
+            src/main/java/dev/cchqphysics/compat/audio/Beta9Optimizer.java \
+            src/main/java/dev/cchqphysics/compat/audio/Beta10Optimizer.java \
+            src/main/java/dev/cchqphysics/compat/audio/Beta11RoomRayCache.java; do
             git diff --exit-code "$base" -- "$path"
           done
+
+      - name: Assert Issue A diagnostic safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'private static boolean globalRedirectEnabled = true;' src/main/java/dev/cchqphysics/compat/audio/ReflectionDiagnostics.java
+          grep -F 'SOURCE_OVERRIDES' src/main/java/dev/cchqphysics/compat/audio/ReflectionDiagnostics.java
+          grep -F 'ReflectionDiagnostics.redirectEnabled(sourceId)' src/main/java/dev/cchqphysics/compat/audio/PositionStabilizer.java
+          grep -F 'ReflectionDiagnostics.clearSourceOverride(sourceId)' src/main/java/dev/cchqphysics/compat/audio/PositionStabilizer.java
+          grep -F 'setSourceOverride(sourceId, false)' src/main/java/dev/cchqphysics/compat/audio/DebugCommands.java
+          grep -F 'setSourceOverride(sourceId, null)' src/main/java/dev/cchqphysics/compat/audio/DebugCommands.java
+          grep -F 'reflection_redirect source' docs/PHASE5_ISSUE_A_REFLECTION_DIAGNOSTICS.md
+          ! grep -F 'java.lang.reflect' src/main/java/dev/cchqphysics/compat/audio/IssueADiagnostics.java
+          ! grep -F 'getDeclaredField' src/main/java/dev/cchqphysics/compat/audio/IssueADiagnostics.java
+          ! grep -R -F 'ReflectionDiagnostics' src/main/java/dev/cchqphysics/compat/config
 
       - name: Clean compile Issue A source
         run: ./gradlew --no-configuration-cache clean compileJava --stacktrace
@@ -100,7 +125,8 @@ jobs:
             dev/cchqphysics/compat/audio/ReflectionDiagnostics.class \
             dev/cchqphysics/compat/audio/IssueADiagnostics.class \
             dev/cchqphysics/compat/audio/DebugCommands.class \
-            dev/cchqphysics/compat/audio/PositionStabilizer.class; do
+            dev/cchqphysics/compat/audio/PositionStabilizer.class \
+            dev/cchqphysics/compat/config/ExtendedClientConfig.class; do
             grep -Fx "$class" issue-a-jar-contents.txt
           done
           unzip -p "$jar" META-INF/neoforge.mods.toml | grep -F 'version="0.1.0-beta11-phase5-issuea-test"'
@@ -108,7 +134,9 @@ jobs:
           printf '%s\n' "source_commit=${GITHUB_SHA}" > issue-a-build-info.txt
           printf '%s\n' "known_good_candidate=44612192d875e43ecef66ca51798cab7adb17020" >> issue-a-build-info.txt
           printf '%s\n' "phase4_frozen=79eed29767343ee34022e8f6268b386f75e84c9f" >> issue-a-build-info.txt
-          printf '%s\n' "reflection_redirect_default=true" >> issue-a-build-info.txt
+          printf '%s\n' "reflection_redirect_global_default=true" >> issue-a-build-info.txt
+          printf '%s\n' "per_source_override=true" >> issue-a-build-info.txt
+          printf '%s\n' "reflective_issue_a_introspection=false" >> issue-a-build-info.txt
           printf '%s\n' "spectral_mix_v1_included=false" >> issue-a-build-info.txt
           printf '%s\n' "spectral_mix_v2_included=false" >> issue-a-build-info.txt
           printf '%s\n' "game_launch_performed=false" >> issue-a-build-info.txt
