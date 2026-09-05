@@ -13,6 +13,8 @@ import java.util.UUID;
 /** Sound-thread-owned synchronized-start coordinator reconstructed from Beta11 Hotfix3 bytecode. */
 final class SyncStartCoordinator {
     private static final Map<UUID, Group> GROUPS = new HashMap<>();
+    private static final Map<Integer, UUID> LIVE_SOURCE_GROUPS = new HashMap<>();
+    private static final Map<UUID, List<Integer>> LIVE_GROUP_SOURCES = new HashMap<>();
     // Phase 5 exposes the two Hotfix3 sync timers through ExtendedClientConfig.
 
     private SyncStartCoordinator() {
@@ -31,6 +33,7 @@ final class SyncStartCoordinator {
             return;
         }
 
+        rememberLiveGroup(sourceId, groupId);
         Group group = GROUPS.get(groupId);
         if (group == null) {
             group = new Group(expected);
@@ -97,8 +100,10 @@ final class SyncStartCoordinator {
     }
 
     static synchronized void clear() {
-        DebugDiagnostics.sync("clear pending sync groups count={}", GROUPS.size());
+        DebugDiagnostics.sync("clear pending sync groups count={} liveGroups={}", GROUPS.size(), LIVE_GROUP_SOURCES.size());
         GROUPS.clear();
+        LIVE_SOURCE_GROUPS.clear();
+        LIVE_GROUP_SOURCES.clear();
     }
 
     static synchronized void removeSource(int sourceId) {
@@ -112,12 +117,61 @@ final class SyncStartCoordinator {
                 iterator.remove();
             }
         }
+
+        UUID liveGroupId = LIVE_SOURCE_GROUPS.remove(sourceId);
+        if (liveGroupId != null) {
+            List<Integer> live = LIVE_GROUP_SOURCES.get(liveGroupId);
+            if (live != null) {
+                live.remove((Integer) sourceId);
+                if (live.isEmpty()) LIVE_GROUP_SOURCES.remove(liveGroupId);
+            }
+        }
+    }
+
+    static synchronized int[] livePeerSources(int sourceId) {
+        UUID groupId = LIVE_SOURCE_GROUPS.get(sourceId);
+        if (groupId == null) return new int[0];
+        List<Integer> sources = LIVE_GROUP_SOURCES.get(groupId);
+        if (sources == null || sources.size() <= 1) return new int[0];
+
+        int[] result = new int[sources.size() - 1];
+        int index = 0;
+        for (int id : sources) {
+            if (id != sourceId) result[index++] = id;
+        }
+        if (index == result.length) return result;
+
+        int[] trimmed = new int[index];
+        System.arraycopy(result, 0, trimmed, 0, index);
+        return trimmed;
+    }
+
+    static synchronized int[] liveGroupedSources() {
+        int[] result = new int[LIVE_SOURCE_GROUPS.size()];
+        int index = 0;
+        for (int sourceId : LIVE_SOURCE_GROUPS.keySet()) result[index++] = sourceId;
+        return result;
+    }
+
+    private static void rememberLiveGroup(int sourceId, UUID groupId) {
+        UUID previous = LIVE_SOURCE_GROUPS.put(sourceId, groupId);
+        if (previous != null && !previous.equals(groupId)) {
+            List<Integer> old = LIVE_GROUP_SOURCES.get(previous);
+            if (old != null) {
+                old.remove((Integer) sourceId);
+                if (old.isEmpty()) LIVE_GROUP_SOURCES.remove(previous);
+            }
+        }
+
+        List<Integer> live = LIVE_GROUP_SOURCES.computeIfAbsent(groupId, ignored -> new ArrayList<>());
+        if (!live.contains(sourceId)) live.add(sourceId);
     }
 
     static synchronized String debugSummary() {
         int pendingSources = 0;
         for (Group group : GROUPS.values()) pendingSources += group.sources.size();
-        return "syncGroups=" + GROUPS.size() + " pendingSources=" + pendingSources;
+        return "syncGroups=" + GROUPS.size() + " pendingSources=" + pendingSources
+                + " liveSyncGroups=" + LIVE_GROUP_SOURCES.size() + " liveGroupedSources=" + LIVE_SOURCE_GROUPS.size();
     }
 
     private static final class Group {
