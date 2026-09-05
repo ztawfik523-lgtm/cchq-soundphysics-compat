@@ -18,6 +18,17 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - name: Correct patcher telemetry marker
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('tools/phase5_v7_1_spreading_only_patch.py')
+          s = p.read_text()
+          if 'progressivePasses' not in s:
+              raise SystemExit('expected old patcher marker missing')
+          p.write_text(s.replace('progressivePasses', 'progressiveEvals'))
+          PY
       - name: Apply asserted V7.1 source patch
         run: python3 tools/phase5_v7_1_spreading_only_patch.py
       - name: Diff sanity
@@ -25,7 +36,6 @@ jobs:
         run: |
           set -euo pipefail
           base='f72c106cd94108a418cb6d64cdeb4eb09a68de58'
-          git diff --name-only "$base"...HEAD || true
           probe=src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java
           grep -F 'double rawRatio =' "$probe"
           grep -F 'Math.pow(clampFilter(gain), rawRatio)' "$probe"
