@@ -8,7 +8,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Locale;
 
 /**
- * Spectral-only synchronized-copy correction derived from the Phase-5 HF dose A/B.
+ * Direct-clarity balancing for synchronized copies of the same sound.
  * This class never changes OpenAL source gain or position and never touches
  * reverb-send filters or playback timing.
  */
@@ -47,7 +47,7 @@ final class SynchronizedSpectralBalancer {
     static void debugDump() {
         int[] sources = SyncStartCoordinator.liveGroupedSources();
         if (sources.length == 0) {
-            LOGGER.info("[phase5/dump] sync-hf50 activeGroupedSources=0 {}", SpectralMixConfig.summary());
+            LOGGER.info("[dump] sync-balance activeGroupedSources=0 {}", SpectralMixConfig.summary());
             return;
         }
         for (int sourceId : sources) {
@@ -55,7 +55,7 @@ final class SynchronizedSpectralBalancer {
             double peerMax = clearestPeerCutoff(sourceId);
             double gap = Double.isFinite(base) && Double.isFinite(peerMax) ? peerMax - base : Double.NaN;
             float adjusted = Double.isFinite(base) ? adjustDirectCutoff(sourceId, (float) base) : Float.NaN;
-            LOGGER.info("[phase5/dump] sync-hf50 source={} peers={} intrinsicCutoff={} clearestPeer={} gap={} adjustedCutoff={} delta={} enabled={} darkGate={} clearPeerGate={} gapGate={} peerBlend={} maxLift={}",
+            LOGGER.info("[dump] sync-balance source={} peers={} intrinsicCutoff={} clearestPeer={} gap={} adjustedCutoff={} delta={} enabled={} muffledThreshold={} clearThreshold={} differenceThreshold={} correctionStrength={} maxIncrease={}",
                     sourceId, SyncStartCoordinator.livePeerSources(sourceId).length,
                     round3(base), round3(peerMax), round3(gap), round3(adjusted),
                     Double.isFinite(base) && Float.isFinite(adjusted) ? round3(adjusted - base) : "nan",
