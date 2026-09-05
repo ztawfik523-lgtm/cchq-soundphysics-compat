@@ -1,30 +1,29 @@
-name: Phase 5 spectral mix v2 experiment
+name: Phase 5 synchronized HF50 candidate verification
 
 on:
   push:
     branches:
-      - phase5-mix-v2
+      - phase5-sync-hf50-test-candidate
     paths:
-      - 'tools/phase5_mix_v2_patch_core.py'
-      - 'tools/phase5_mix_v2_patch_ui.py'
       - '.github/workflows/phase5-mix-v2-build.yml'
       - 'src/main/java/**'
       - 'src/main/resources/**'
       - 'gradle.properties'
       - 'build.gradle'
+      - 'docs/PHASE5_SYNC_HF50_CANDIDATE.md'
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  patch-build-verify:
+  verify:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out experiment branch
+      - name: Check out synchronized HF50 candidate
         uses: actions/checkout@v4
         with:
-          ref: phase5-mix-v2
+          ref: phase5-sync-hf50-test-candidate
           fetch-depth: 0
 
       - name: Set up Java 21
@@ -33,60 +32,66 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Apply deterministic core and UI patches
-        run: |
-          python3 tools/phase5_mix_v2_patch_core.py
-          python3 tools/phase5_mix_v2_patch_ui.py
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
 
-      - name: Commit patched large sources when needed
+      - name: Assert frozen baselines
         shell: bash
         run: |
           set -euo pipefail
-          if ! git diff --quiet; then
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add src/main/java/dev/cchqphysics/compat/audio/ProgressiveOcclusionModel.java \
-                    src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java \
-                    src/main/java/dev/cchqphysics/compat/config/ClothConfigScreen.java
-            git commit -m 'Phase 5: wire spectral-only synchronized mix v2'
-            git push origin HEAD:phase5-mix-v2
-          fi
+          phase4_expected='79eed29767343ee34022e8f6268b386f75e84c9f'
+          known_good_expected='44612192d875e43ecef66ca51798cab7adb17020'
+          issuea_expected='973f1df7dad886fb0f5fffd4264015fecac2e786'
+          mixv2_expected='ab1e1e70a13ebb6f3dadd30581b069f06a15142a'
+          test "$(git ls-remote origin refs/heads/phase4-hotfix3-parity | awk '{print $1}')" = "$phase4_expected"
+          test "$(git ls-remote origin refs/heads/phase5-test-candidate-1 | awk '{print $1}')" = "$known_good_expected"
+          test "$(git ls-remote origin refs/heads/phase5-issue-a-test-candidate-2 | awk '{print $1}')" = "$issuea_expected"
+          test "$(git ls-remote origin refs/heads/phase5-mix-v2-test-candidate | awk '{print $1}')" = "$mixv2_expected"
 
-      - name: Assert frozen known-good candidate remains unchanged
+      - name: Assert candidate identity and isolated config
         shell: bash
         run: |
           set -euo pipefail
-          expected='44612192d875e43ecef66ca51798cab7adb17020'
-          actual="$(git ls-remote origin refs/heads/phase5-test-candidate-1 | awk '{print $1}')"
-          test "$actual" = "$expected"
-          echo "Known-good candidate still frozen at $actual"
+          grep -Fx 'mod_version=0.1.0-beta11-phase5-sync-hf50-test' gradle.properties
+          grep -F 'VERSION = "0.1.0-beta11-phase5-sync-hf50-test"' src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java
+          grep -F 'version="0.1.0-beta11-phase5-sync-hf50-test"' src/main/resources/META-INF/neoforge.mods.toml
+          grep -F 'cchq_soundphysics_compat-sync-hf50.toml' src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java
 
-      - name: Assert v2 never changes source gain/position path
+      - name: Assert change scope from frozen v2 infrastructure
         shell: bash
         run: |
           set -euo pipefail
-          git fetch --no-tags origin phase5-test-candidate-1
-          git diff --exit-code origin/phase5-test-candidate-1 -- \
-            src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java \
-            src/main/java/dev/cchqphysics/compat/audio/DistanceBridge.java \
-            src/main/java/dev/cchqphysics/compat/audio/PositionStabilizer.java
-          ! grep -q 'AL_GAIN' src/main/java/dev/cchqphysics/compat/audio/SynchronizedSpectralBalancer.java
-          ! grep -q 'AL_POSITION' src/main/java/dev/cchqphysics/compat/audio/SynchronizedSpectralBalancer.java
-          ! grep -q 'AL_AUXILIARY_SEND_FILTER' src/main/java/dev/cchqphysics/compat/audio/SynchronizedSpectralBalancer.java
-          grep -F 'float targetCutoff = SynchronizedSpectralBalancer.adjustDirectCutoff(sourceId, adjusted[0]);' src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java
-          grep -F 'float targetGain = adjusted[1];' src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java
+          base='ab1e1e70a13ebb6f3dadd30581b069f06a15142a'
+          git diff --name-only "$base"...HEAD | sort > changed.txt
+          while IFS= read -r path; do
+            case "$path" in
+              .github/workflows/phase5-mix-v2-build.yml|gradle.properties|src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java|src/main/java/dev/cchqphysics/compat/audio/SynchronizedSpectralBalancer.java|src/main/java/dev/cchqphysics/compat/config/SpectralMixConfig.java|src/main/resources/META-INF/neoforge.mods.toml|docs/PHASE5_SYNC_HF50_CANDIDATE.md) ;;
+              *) echo "Unexpected changed path: $path" >&2; exit 1 ;;
+            esac
+          done < changed.txt
+          git diff --exit-code "$base" -- src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java
+          git diff --exit-code "$base" -- src/main/java/dev/cchqphysics/compat/audio/SyncStartCoordinator.java
+          git diff --exit-code "$base" -- src/main/java/dev/cchqphysics/compat/audio/ProgressiveOcclusionModel.java
+          git diff --exit-code "$base" -- src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java
+          git diff --exit-code "$base" -- src/main/java/dev/cchqphysics/compat/audio/PositionStabilizer.java
 
-      - name: Assert v2 defaults OFF and conservative
+      - name: Assert HF50 algorithm scope
         shell: bash
         run: |
           set -euo pipefail
-          f=src/main/java/dev/cchqphysics/compat/config/SpectralMixConfig.java
-          grep -F '.define("enabled", false)' "$f"
-          grep -F '.defineInRange("peer_clear_cutoff", 0.65D, 0.0D, 1.0D)' "$f"
-          grep -F '.defineInRange("clarity_floor_ratio", 0.18D, 0.0D, 0.75D)' "$f"
-          grep -F '.defineInRange("max_cutoff_lift", 0.12D, 0.0D, 0.75D)' "$f"
-          grep -Fx 'mod_version=0.1.0-beta11-phase5-mixv2-test' gradle.properties
-          grep -F 'version="0.1.0-beta11-phase5-mixv2-test"' src/main/resources/META-INF/neoforge.mods.toml
+          f=src/main/java/dev/cchqphysics/compat/audio/SynchronizedSpectralBalancer.java
+          cfg=src/main/java/dev/cchqphysics/compat/config/SpectralMixConfig.java
+          grep -F 'DARK_SOURCE_CUTOFF = 0.35D' "$f"
+          grep -F 'MIN_PEER_GAP = 0.40D' "$f"
+          grep -F 'baseCutoff + gap * SpectralMixConfig.clarityFloorRatio()' "$f"
+          grep -F '.define("enabled", true)' "$cfg"
+          grep -F '.defineInRange("peer_clear_cutoff", 0.75D, 0.0D, 1.0D)' "$cfg"
+          grep -F '.defineInRange("clarity_floor_ratio", 0.50D, 0.0D, 0.75D)' "$cfg"
+          grep -F '.defineInRange("max_cutoff_lift", 0.55D, 0.0D, 0.75D)' "$cfg"
+          ! grep -q 'AL_GAIN' "$f"
+          ! grep -q 'AL_POSITION' "$f"
+          ! grep -q 'AL_AUXILIARY_SEND_FILTER' "$f"
+          ! grep -q 'alSourcePlay' "$f"
 
       - name: Verify reconstruction compile classpath
         run: ./gradlew --no-configuration-cache verifyReconstructionClasspath --stacktrace
@@ -94,41 +99,50 @@ jobs:
       - name: Verify resource wiring
         run: ./gradlew --no-configuration-cache verifyResourceWiring --stacktrace
 
-      - name: Clean compile v2
+      - name: Clean compile synchronized HF50 candidate
         run: ./gradlew --no-configuration-cache clean compileJava --stacktrace
 
-      - name: Build v2 JAR
+      - name: Build synchronized HF50 candidate JAR
         run: ./gradlew --no-configuration-cache jar --stacktrace
 
-      - name: Inspect artifact
+      - name: Inspect synchronized HF50 artifact
         shell: bash
         run: |
           set -euo pipefail
           shopt -s nullglob
-          jars=(build/libs/*phase5-mixv2-test*.jar)
+          jars=(build/libs/*phase5-sync-hf50-test*.jar)
           test "${#jars[@]}" -eq 1
           jar="${jars[0]}"
-          jar tf "$jar" | sort > phase5-mixv2-jar-contents.txt
-          count="$(grep -c '\.class$' phase5-mixv2-jar-contents.txt)"
+          jar tf "$jar" | sort > phase5-sync-hf50-jar-contents.txt
+          count="$(grep -c '\.class$' phase5-sync-hf50-jar-contents.txt)"
+          echo "class_count=$count"
           test "$count" -eq 67
-          grep -Fx 'dev/cchqphysics/compat/config/SpectralMixConfig.class' phase5-mixv2-jar-contents.txt
-          grep -Fx 'dev/cchqphysics/compat/audio/SynchronizedSpectralBalancer.class' phase5-mixv2-jar-contents.txt
-          unzip -p "$jar" META-INF/neoforge.mods.toml | grep -F 'version="0.1.0-beta11-phase5-mixv2-test"'
-          sha256sum "$jar" | tee phase5-mixv2-jar-sha256.txt
-          printf '%s\n' "source_commit=$(git rev-parse HEAD)" > phase5-mixv2-build-info.txt
-          printf '%s\n' 'base_candidate=44612192d875e43ecef66ca51798cab7adb17020' >> phase5-mixv2-build-info.txt
-          printf '%s\n' 'feature_default_enabled=false' >> phase5-mixv2-build-info.txt
-          printf '%s\n' 'source_gain_path_changed=false' >> phase5-mixv2-build-info.txt
-          printf '%s\n' 'position_path_changed=false' >> phase5-mixv2-build-info.txt
-          printf '%s\n' 'reverb_send_filters_changed=false' >> phase5-mixv2-build-info.txt
-          printf '%s\n' 'game_launch_performed=false' >> phase5-mixv2-build-info.txt
+          grep -Fx 'dev/cchqphysics/compat/config/SpectralMixConfig.class' phase5-sync-hf50-jar-contents.txt
+          grep -Fx 'dev/cchqphysics/compat/audio/SynchronizedSpectralBalancer.class' phase5-sync-hf50-jar-contents.txt
+          unzip -p "$jar" META-INF/neoforge.mods.toml | grep -F 'version="0.1.0-beta11-phase5-sync-hf50-test"'
+          sha256sum "$jar" | tee phase5-sync-hf50-jar-sha256.txt
+          printf '%s\n' "source_commit=${GITHUB_SHA}" > phase5-sync-hf50-build-info.txt
+          printf '%s\n' 'known_good_candidate=44612192d875e43ecef66ca51798cab7adb17020' >> phase5-sync-hf50-build-info.txt
+          printf '%s\n' 'mix_v2_infrastructure=ab1e1e70a13ebb6f3dadd30581b069f06a15142a' >> phase5-sync-hf50-build-info.txt
+          printf '%s\n' 'hf_dose_runtime_source=620f6428b48187e40bcc96c8576e2070fc79a512' >> phase5-sync-hf50-build-info.txt
+          printf '%s\n' 'user_selected_dose=0.50' >> phase5-sync-hf50-build-info.txt
+          printf '%s\n' 'dark_source_cutoff=0.35' >> phase5-sync-hf50-build-info.txt
+          printf '%s\n' 'clear_peer_cutoff=0.75' >> phase5-sync-hf50-build-info.txt
+          printf '%s\n' 'minimum_peer_gap=0.40' >> phase5-sync-hf50-build-info.txt
+          printf '%s\n' 'peer_blend=0.50' >> phase5-sync-hf50-build-info.txt
+          printf '%s\n' 'max_cutoff_lift=0.55' >> phase5-sync-hf50-build-info.txt
+          printf '%s\n' 'source_gain_mutation=false' >> phase5-sync-hf50-build-info.txt
+          printf '%s\n' 'source_position_mutation=false' >> phase5-sync-hf50-build-info.txt
+          printf '%s\n' 'reverb_send_mutation=false' >> phase5-sync-hf50-build-info.txt
+          printf '%s\n' 'playback_timing_mutation=false' >> phase5-sync-hf50-build-info.txt
+          printf '%s\n' 'game_launch_performed=false' >> phase5-sync-hf50-build-info.txt
 
-      - name: Upload v2 experiment build
+      - name: Upload synchronized HF50 candidate
         uses: actions/upload-artifact@v4
         with:
-          name: cchq-phase5-spectral-mix-v2
+          name: cchq-phase5-sync-hf50-test
           path: |
-            build/libs/*phase5-mixv2-test*.jar
-            phase5-mixv2-jar-contents.txt
-            phase5-mixv2-jar-sha256.txt
-            phase5-mixv2-build-info.txt
+            build/libs/*phase5-sync-hf50-test*.jar
+            phase5-sync-hf50-jar-contents.txt
+            phase5-sync-hf50-jar-sha256.txt
+            phase5-sync-hf50-build-info.txt
