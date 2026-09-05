@@ -10,7 +10,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Client-only Phase-5 validation commands. No command mutates server state. */
+/** Client-only diagnostics and maintenance commands. No command mutates server state. */
 public final class DebugCommands {
     private static final Logger LOGGER = LoggerFactory.getLogger("CC:HQ Sound Physics Compat");
     private static boolean initialized;
@@ -33,8 +33,8 @@ public final class DebugCommands {
                         }))
                 .then(Commands.literal("dump")
                         .executes(context -> {
-                            LOGGER.info("[phase5/dump] config {} {} {}", ExtendedClientConfig.summary(), SpectralMixConfig.summary(), DiffractionConfig.summary());
-                            LOGGER.info("[phase5/dump] {}", DebugControl.compactStatus());
+                            LOGGER.info("[dump] config {} {} {}", ExtendedClientConfig.summary(), SpectralMixConfig.summary(), DiffractionConfig.summary());
+                            LOGGER.info("[dump] {}", DebugControl.compactStatus());
                             SoundPhysicsBridge.debugDumpSources();
                             EnvironmentSmoother.debugDumpEfx();
                             SynchronizedSpectralBalancer.debugDump();
@@ -48,21 +48,21 @@ public final class DebugCommands {
                                 .executes(context -> {
                                     DiffractionConfig.setEnabled(true);
                                     context.getSource().sendSuccess(
-                                            () -> Component.literal("CC:HQ diffraction test: ON (runtime only)"), false);
+                                            () -> Component.literal("CC:HQ opening-aware sound: ON (runtime only)"), false);
                                     return 1;
                                 }))
                         .then(Commands.literal("off")
                                 .executes(context -> {
                                     DiffractionConfig.setEnabled(false);
                                     context.getSource().sendSuccess(
-                                            () -> Component.literal("CC:HQ diffraction test: OFF (runtime only)"), false);
+                                            () -> Component.literal("CC:HQ opening-aware sound: OFF (runtime only)"), false);
                                     return 1;
                                 }))
                         .then(Commands.literal("status")
                                 .executes(context -> {
                                     String summary = DiffractionConfig.summary();
                                     context.getSource().sendSuccess(
-                                            () -> Component.literal("CC:HQ diffraction test: " + summary), false);
+                                            () -> Component.literal("CC:HQ openings: " + summary), false);
                                     return 1;
                                 })))
                 .then(Commands.literal("refresh_rooms")
@@ -83,13 +83,13 @@ public final class DebugCommands {
                         .executes(context -> {
                             DebugControl.requestEfxReset();
                             context.getSource().sendSuccess(
-                                    () -> Component.literal("CC:HQ Physics private EFX reset queued on the sound thread"), false);
+                                    () -> Component.literal("CC:HQ Physics private filter reset queued on the sound thread"), false);
                             return 1;
                         }))
                 .then(Commands.literal("config")
                         .executes(context -> {
                             String summary = ExtendedClientConfig.summary() + " " + SpectralMixConfig.summary() + " " + DiffractionConfig.summary();
-                            LOGGER.info("[phase5/config] {}", summary);
+                            LOGGER.info("[config] {}", summary);
                             context.getSource().sendSuccess(() -> Component.literal("CC:HQ Physics: " + summary), false);
                             return 1;
                         })));
