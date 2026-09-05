@@ -4,7 +4,7 @@ import dev.cchqphysics.compat.config.ExtendedClientConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Targeted Phase-5 diagnostics that can be enabled without global DEBUG logging. */
+/** Targeted diagnostics that can be enabled without global DEBUG logging. */
 final class DebugDiagnostics {
     private static final Logger LOGGER = LoggerFactory.getLogger("CC:HQ Sound Physics Compat");
 
@@ -39,7 +39,7 @@ final class DebugDiagnostics {
     }
 
     private static void info(String category, String format, Object... args) {
-        LOGGER.info("[phase5/{}] " + format, prepend(category, args));
+        LOGGER.info("[{}] " + format, prepend(category, args));
     }
 
     private static Object[] prepend(String category, Object[] args) {
