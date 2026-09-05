@@ -1,0 +1,116 @@
+name: Phase 5 spectral mix v2 verification
+
+on:
+  push:
+    branches:
+      - phase5-mix-v2
+    paths:
+      - 'src/main/java/**'
+      - 'src/main/resources/**'
+      - 'build.gradle'
+      - 'gradle.properties'
+      - '.github/workflows/phase5-mix-v2-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out cleaned experiment source
+        uses: actions/checkout@v4
+        with:
+          ref: phase5-mix-v2
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Assert frozen refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          known_good='44612192d875e43ecef66ca51798cab7adb17020'
+          v2_candidate='ab1e1e70a13ebb6f3dadd30581b069f06a15142a'
+          test "$(git ls-remote origin refs/heads/phase5-test-candidate-1 | awk '{print $1}')" = "$known_good"
+          test "$(git ls-remote origin refs/heads/phase5-mix-v2-test-candidate | awk '{print $1}')" = "$v2_candidate"
+          echo "Known-good and v2 test candidates are frozen"
+
+      - name: Assert v2 identity and defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fx 'mod_version=0.1.0-beta11-phase5-mixv2-test' gradle.properties
+          grep -F 'VERSION = "0.1.0-beta11-phase5-mixv2-test"' src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java
+          grep -F 'version="0.1.0-beta11-phase5-mixv2-test"' src/main/resources/META-INF/neoforge.mods.toml
+          f=src/main/java/dev/cchqphysics/compat/config/SpectralMixConfig.java
+          grep -F '.define("enabled", false)' "$f"
+          grep -F '.defineInRange("peer_clear_cutoff", 0.65D, 0.0D, 1.0D)' "$f"
+          grep -F '.defineInRange("clarity_floor_ratio", 0.18D, 0.0D, 0.75D)' "$f"
+          grep -F '.defineInRange("max_cutoff_lift", 0.12D, 0.0D, 0.75D)' "$f"
+
+      - name: Assert no amplitude or position regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin phase5-test-candidate-1
+          git diff --exit-code origin/phase5-test-candidate-1 -- \
+            src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java \
+            src/main/java/dev/cchqphysics/compat/audio/DistanceBridge.java \
+            src/main/java/dev/cchqphysics/compat/audio/PositionStabilizer.java
+          balancer=src/main/java/dev/cchqphysics/compat/audio/SynchronizedSpectralBalancer.java
+          ! grep -q 'AL_GAIN' "$balancer"
+          ! grep -q 'AL_POSITION' "$balancer"
+          ! grep -q 'AL_AUXILIARY_SEND_FILTER' "$balancer"
+          grep -F 'float targetCutoff = SynchronizedSpectralBalancer.adjustDirectCutoff(sourceId, adjusted[0]);' src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java
+          grep -F 'float targetGain = adjusted[1];' src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java
+
+      - name: Verify reconstruction compile classpath
+        run: ./gradlew --no-configuration-cache verifyReconstructionClasspath --stacktrace
+
+      - name: Verify resource wiring
+        run: ./gradlew --no-configuration-cache verifyResourceWiring --stacktrace
+
+      - name: Clean compile v2
+        run: ./gradlew --no-configuration-cache clean compileJava --stacktrace
+
+      - name: Build v2 JAR
+        run: ./gradlew --no-configuration-cache jar --stacktrace
+
+      - name: Inspect rebuilt artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          jars=(build/libs/*phase5-mixv2-test*.jar)
+          test "${#jars[@]}" -eq 1
+          jar="${jars[0]}"
+          jar tf "$jar" | sort > phase5-mixv2-verified-contents.txt
+          test "$(grep -c '\.class$' phase5-mixv2-verified-contents.txt)" -eq 67
+          grep -Fx 'dev/cchqphysics/compat/config/SpectralMixConfig.class' phase5-mixv2-verified-contents.txt
+          grep -Fx 'dev/cchqphysics/compat/audio/SynchronizedSpectralBalancer.class' phase5-mixv2-verified-contents.txt
+          unzip -p "$jar" META-INF/neoforge.mods.toml | grep -F 'version="0.1.0-beta11-phase5-mixv2-test"'
+          sha256sum "$jar" | tee phase5-mixv2-verified-sha256.txt
+          printf '%s\n' "source_commit=${GITHUB_SHA}" > phase5-mixv2-verified-info.txt
+          printf '%s\n' 'v2_test_candidate=ab1e1e70a13ebb6f3dadd30581b069f06a15142a' >> phase5-mixv2-verified-info.txt
+          printf '%s\n' 'feature_default_enabled=false' >> phase5-mixv2-verified-info.txt
+          printf '%s\n' 'gain_and_position_paths_equal_known_good=true' >> phase5-mixv2-verified-info.txt
+          printf '%s\n' 'game_launch_performed=false' >> phase5-mixv2-verified-info.txt
+
+      - name: Upload read-only verified v2 build
+        uses: actions/upload-artifact@v4
+        with:
+          name: cchq-phase5-spectral-mix-v2-readonly
+          path: |
+            build/libs/*phase5-mixv2-test*.jar
+            phase5-mixv2-verified-contents.txt
+            phase5-mixv2-verified-sha256.txt
+            phase5-mixv2-verified-info.txt
