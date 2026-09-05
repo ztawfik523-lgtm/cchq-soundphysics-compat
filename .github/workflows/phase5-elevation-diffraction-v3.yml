@@ -1,0 +1,152 @@
+name: Phase 5 elevation diffraction V3 verification
+
+on:
+  push:
+    branches:
+      - phase5-elevation-diffraction-test-v3
+    paths:
+      - '.github/workflows/phase5-elevation-diffraction-v3.yml'
+      - 'src/main/java/**'
+      - 'src/main/resources/**'
+      - 'gradle.properties'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out diffraction V3 branch
+        uses: actions/checkout@v4
+        with:
+          ref: phase5-elevation-diffraction-test-v3
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Assert frozen baselines and approved HF50 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          phase4='79eed29767343ee34022e8f6268b386f75e84c9f'
+          known_good='44612192d875e43ecef66ca51798cab7adb17020'
+          hf50='62d3a7a0a176c901402b913946d98f3cb455a8f4'
+          test "$(git ls-remote origin refs/heads/phase4-hotfix3-parity | awk '{print $1}')" = "$phase4"
+          test "$(git ls-remote origin refs/heads/phase5-test-candidate-1 | awk '{print $1}')" = "$known_good"
+          test "$(git ls-remote origin refs/heads/archive-phase5-hf50-config-runtime-approved | awk '{print $1}')" = "$hf50"
+
+      - name: Assert V3 identity, relaxed gates, and fresh config filename
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fx 'mod_version=0.1.0-beta11-phase5-diffraction-v3-test' gradle.properties
+          grep -F 'VERSION = "0.1.0-beta11-phase5-diffraction-v3-test"' src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java
+          grep -F 'version="0.1.0-beta11-phase5-diffraction-v3-test"' src/main/resources/META-INF/neoforge.mods.toml
+          grep -F '"cchq_soundphysics_compat-diffraction-v3-test.toml"' src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java
+          ! grep -F '"cchq_soundphysics_compat-diffraction-test.toml"' src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java
+          cfg=src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java
+          grep -F '.defineInRange("min_vertical_separation", 0.75D' "$cfg"
+          grep -F '.defineInRange("min_vertical_horizontal_ratio", 0.10D' "$cfg"
+          grep -F '.define("enabled", false)' "$cfg"
+
+      - name: Assert V2 diffraction algorithm and approved core remain unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          v2='896fffb6fe0ee6840079e9b1c3a64644181f5d42'
+          for f in \
+            src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java \
+            src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java \
+            src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java \
+            src/main/java/dev/cchqphysics/compat/audio/SoundPhysicsBridge.java \
+            src/main/java/dev/cchqphysics/compat/audio/SynchronizedSpectralBalancer.java \
+            src/main/java/dev/cchqphysics/compat/config/SpectralMixConfig.java \
+            src/main/java/dev/cchqphysics/compat/audio/ProgressiveOcclusionModel.java \
+            src/main/java/dev/cchqphysics/compat/audio/SyncStartCoordinator.java \
+            src/main/java/dev/cchqphysics/compat/audio/PositionStabilizer.java \
+            src/main/java/dev/cchqphysics/compat/audio/Beta9Optimizer.java \
+            src/main/java/dev/cchqphysics/compat/audio/Beta10Optimizer.java \
+            src/main/java/dev/cchqphysics/compat/audio/Beta11RoomRayCache.java \
+            src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java \
+            src/main/java/dev/cchqphysics/compat/config/ClientConfig.java; do
+            git diff --exit-code "$v2" -- "$f"
+          done
+
+      - name: Assert V3 change scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          v2='896fffb6fe0ee6840079e9b1c3a64644181f5d42'
+          git diff --name-only "$v2"...HEAD | sort > changed.txt
+          cat changed.txt
+          while read -r f; do
+            case "$f" in
+              .github/workflows/phase5-elevation-diffraction-v3.yml|gradle.properties|src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java|src/main/resources/META-INF/neoforge.mods.toml) ;;
+              *) echo "unexpected V3 change: $f" >&2; exit 1 ;;
+            esac
+          done < changed.txt
+
+      - name: Verify reconstruction compile classpath
+        run: ./gradlew --no-configuration-cache verifyReconstructionClasspath --stacktrace
+
+      - name: Verify resource wiring
+        run: ./gradlew --no-configuration-cache verifyResourceWiring --stacktrace
+
+      - name: Clean compile diffraction V3
+        run: ./gradlew --no-configuration-cache clean compileJava --stacktrace
+
+      - name: Build diffraction V3 JAR
+        run: ./gradlew --no-configuration-cache jar --stacktrace
+
+      - name: Inspect diffraction V3 artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          jars=(build/libs/*phase5-diffraction-v3-test*.jar)
+          test "${#jars[@]}" -eq 1
+          jar="${jars[0]}"
+          jar tf "$jar" | sort > phase5-diffraction-v3-jar-contents.txt
+          count="$(grep -c '\.class$' phase5-diffraction-v3-jar-contents.txt)"
+          echo "class_count=$count"
+          test "$count" -eq 71
+          grep -Fx 'dev/cchqphysics/compat/config/DiffractionConfig.class' phase5-diffraction-v3-jar-contents.txt
+          grep -Fx 'dev/cchqphysics/compat/audio/VerticalDiffractionRelief.class' phase5-diffraction-v3-jar-contents.txt
+          unzip -p "$jar" META-INF/neoforge.mods.toml | grep -F 'version="0.1.0-beta11-phase5-diffraction-v3-test"'
+          sha256sum "$jar" | tee phase5-diffraction-v3-jar-sha256.txt
+          {
+            echo "source_commit=$(git rev-parse HEAD)"
+            echo 'parent_v2_runtime_source=896fffb6fe0ee6840079e9b1c3a64644181f5d42'
+            echo 'hf50_config_runtime_approved=62d3a7a0a176c901402b913946d98f3cb455a8f4'
+            echo 'diffraction_config_file=cchq_soundphysics_compat-diffraction-v3-test.toml'
+            echo 'min_vertical_separation=0.75'
+            echo 'min_vertical_horizontal_ratio=0.10'
+            echo 'diffraction_default_enabled=false'
+            echo 'v2_diffraction_algorithm_unchanged=true'
+            echo 'source_gain_mutation=false'
+            echo 'source_position_mutation=false'
+            echo 'reflection_mutation=false'
+            echo 'reverb_send_mutation=false'
+            echo 'playback_timing_mutation=false'
+            echo 'synchronized_start_mutation=false'
+            echo 'game_launch_performed=false'
+          } > phase5-diffraction-v3-build-info.txt
+
+      - name: Upload diffraction V3 test
+        uses: actions/upload-artifact@v4
+        with:
+          name: cchq-phase5-elevation-diffraction-v3-test
+          path: |
+            build/libs/*phase5-diffraction-v3-test*.jar
+            phase5-diffraction-v3-jar-contents.txt
+            phase5-diffraction-v3-jar-sha256.txt
+            phase5-diffraction-v3-build-info.txt
