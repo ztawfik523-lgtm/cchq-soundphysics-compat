@@ -1,0 +1,160 @@
+name: Final release prep validation
+
+on:
+  push:
+    branches: [phase5-v7-1-final-release-prep]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out release prep branch
+        uses: actions/checkout@v4
+        with:
+          ref: phase5-v7-1-final-release-prep
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Assert ancestry and frozen acoustic refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          audited='2a6a2f4ecd9e2faad51de9818797f5a16c14b0f7'
+          frozen='ffcf5f6e05d85b69f1f1dff8cfae1b082b71604d'
+          git merge-base --is-ancestor "$audited" HEAD
+          test "$(git ls-remote origin refs/heads/phase5-diffraction-v7-1-runtime-approved | awk '{print $1}')" = "$frozen"
+          test "$(git ls-remote origin refs/heads/archive-phase5-diffraction-v7-1-runtime-approved | awk '{print $1}')" = "$frozen"
+
+      - name: Assert frozen behavior files unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          audited='2a6a2f4ecd9e2faad51de9818797f5a16c14b0f7'
+          for f in \
+            src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java \
+            src/main/java/dev/cchqphysics/compat/mixin/SoundEngineLifecycleMixin.java \
+            src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java \
+            src/main/java/dev/cchqphysics/compat/audio/SynchronizedSpectralBalancer.java \
+            src/main/java/dev/cchqphysics/compat/audio/ProgressiveOcclusionModel.java \
+            src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java \
+            src/main/java/dev/cchqphysics/compat/audio/SyncStartCoordinator.java \
+            src/main/java/dev/cchqphysics/compat/audio/PositionStabilizer.java \
+            src/main/java/dev/cchqphysics/compat/audio/Beta9Optimizer.java \
+            src/main/java/dev/cchqphysics/compat/audio/Beta10Optimizer.java \
+            src/main/java/dev/cchqphysics/compat/audio/Beta11RoomRayCache.java \
+            src/main/java/dev/cchqphysics/compat/audio/SoundPhysicsBridge.java; do
+            git diff --exit-code "$audited" -- "$f"
+          done
+          test -z "$(git diff --name-only "$audited"...HEAD -- '*.lua')"
+
+      - name: Assert release policy source invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          main=src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java
+          diff=src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java
+          spectral=src/main/java/dev/cchqphysics/compat/config/SpectralMixConfig.java
+          bridge=src/main/java/dev/cchqphysics/compat/audio/SoundPhysicsBridge.java
+
+          grep -Fx 'mod_version=0.1.0' gradle.properties
+          grep -F 'version="${mod_version}"' src/main/resources/META-INF/neoforge.mods.toml
+          ! grep -F 'Created-By:' src/main/resources/META-INF/MANIFEST.MF
+          grep -F '"cchq_soundphysics_compat-diffraction.toml"' "$main"
+          ! grep -F 'diffraction-v7-1-spreading-only-test.toml' "$main"
+          grep -F 'builder.push("portal_diffraction");' "$diff"
+          ! grep -F 'portal_diffraction_v7_1_spreading_only_test' "$diff"
+          grep -F '.define("enabled", true);' "$diff"
+          grep -F 'public static boolean enabled() { return b(ENABLED, true); }' "$diff"
+
+          grep -F '.defineInRange("min_source_above_listener", 0.25D, 0.0D, 8.0D);' "$diff"
+          grep -F '.defineInRange("escape_clearance", 1.5D, 0.25D, 8.0D);' "$diff"
+          grep -F '.defineInRange("search_radius", 8.0D, 1.0D, 8.0D);' "$diff"
+          grep -F '.defineInRange("portal_coupling", 0.25D, 0.0D, 1.0D);' "$diff"
+          grep -F '.defineInRange("portal_activation_raw", 2.0D, 0.25D, 8.0D);' "$diff"
+          grep -F '.defineInRange("low_delta_scale", 4.0D, 0.10D, 32.0D);' "$diff"
+          grep -F '.defineInRange("high_delta_scale", 1.5D, 0.05D, 32.0D);' "$diff"
+          grep -F '.defineInRange("aperture_spread_scale", 3.0D, 0.25D, 16.0D);' "$diff"
+          grep -F '.defineInRange("horizon_fade_start_ratio", 0.75D, 0.0D, 0.99D);' "$diff"
+          grep -F '.defineInRange("candidate_separation", 2.0D, 0.0D, 8.0D);' "$diff"
+          grep -F '.defineInRange("selection_hysteresis", 0.35D, 0.0D, 4.0D);' "$diff"
+          grep -F '.defineInRange("scan_interval_ms", 1000.0D, 100.0D, 5000.0D);' "$diff"
+          grep -F '.defineInRange("leg_recheck_distance", 0.75D, 0.10D, 4.0D);' "$diff"
+          grep -F '.defineInRange("ray_cache_ms", 5000.0D, 250.0D, 30000.0D);' "$diff"
+
+          grep -F '.define("enabled", true);' "$spectral"
+          grep -F '.defineInRange("dark_source_cutoff", 0.35D, 0.0D, 1.0D);' "$spectral"
+          grep -F '.defineInRange("peer_clear_cutoff", 0.75D, 0.0D, 1.0D);' "$spectral"
+          grep -F '.defineInRange("min_peer_gap", 0.40D, 0.0D, 1.0D);' "$spectral"
+          grep -F '.defineInRange("clarity_floor_ratio", 0.50D, 0.0D, 1.0D);' "$spectral"
+          grep -F '.defineInRange("max_cutoff_lift", 0.55D, 0.0D, 1.0D);' "$spectral"
+
+          grep -F 'return Beta9Optimizer.isAudibleAndRecord(state.sourceId) & beta9EligibleReal(state, now);' "$bridge"
+
+      - name: Verify reconstruction compile classpath
+        run: ./gradlew --no-configuration-cache verifyReconstructionClasspath --stacktrace
+
+      - name: Verify resource wiring and version expansion
+        run: ./gradlew --no-configuration-cache verifyResourceWiring --stacktrace
+
+      - name: Clean
+        run: ./gradlew --no-configuration-cache clean --stacktrace
+
+      - name: Compile Java 21
+        run: ./gradlew --no-configuration-cache compileJava --stacktrace
+
+      - name: Build release-prep JAR
+        run: ./gradlew --no-configuration-cache jar --stacktrace
+
+      - name: Inspect release-prep JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          jars=(build/libs/*.jar)
+          test "${#jars[@]}" -eq 1
+          jar="${jars[0]}"
+          test "$(basename "$jar")" = 'cchq_soundphysics_compat-0.1.0.jar'
+          jar tf "$jar" | sort > final-release-prep-jar-contents.txt
+          count="$(grep -c '\.class$' final-release-prep-jar-contents.txt)"
+          echo "class_count=$count"
+          test "$count" -eq 81
+          unzip -p "$jar" META-INF/neoforge.mods.toml > final-release-prep-neoforge.mods.toml
+          grep -F 'version="0.1.0"' final-release-prep-neoforge.mods.toml
+          unzip -p "$jar" META-INF/MANIFEST.MF > final-release-prep-manifest.txt
+          ! grep -F 'Created-By: 21.0.11 (Debian)' final-release-prep-manifest.txt
+          sha256sum "$jar" | tee final-release-prep-jar-sha256.txt
+          {
+            echo "source_commit=$(git rev-parse HEAD)"
+            echo 'audited_lifecycle_source=2a6a2f4ecd9e2faad51de9818797f5a16c14b0f7'
+            echo 'frozen_acoustic_base=ffcf5f6e05d85b69f1f1dff8cfae1b082b71604d'
+            echo 'release_version=0.1.0'
+            echo 'diffraction_default=true'
+            echo 'diffraction_config=cchq_soundphysics_compat-diffraction.toml'
+            echo 'diffraction_root=portal_diffraction'
+            echo 'old_diffraction_config_migration=false'
+            echo 'runtime_gate1_passed=false'
+            echo 'runtime_gate2_passed=false'
+          } > final-release-prep-build-info.txt
+
+      - name: Upload release-prep candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: cchq-final-release-prep
+          path: |
+            build/libs/*.jar
+            final-release-prep-jar-contents.txt
+            final-release-prep-neoforge.mods.toml
+            final-release-prep-manifest.txt
+            final-release-prep-jar-sha256.txt
+            final-release-prep-build-info.txt
