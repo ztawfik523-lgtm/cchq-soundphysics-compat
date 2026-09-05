@@ -57,7 +57,7 @@ public final class ClientConfig {
                 .translation("cchq_soundphysics_compat.configuration.distance.scale_range_above_one")
                 .define("scale_range_above_one", true);
         AUDIBLE_RANGE_MULTIPLIER = builder
-                .comment("Multiplier applied to the compat audible endpoint after SPR-derived range calculation. 1.0 reproduces alpha20.")
+                .comment("Multiplier applied to the compat audible endpoint after SPR-derived range calculation. 1.0 is the validated default.")
                 .translation("cchq_soundphysics_compat.configuration.distance.audible_range_multiplier")
                 .defineInRange("audible_range_multiplier", 1.0D, 0.25D, 4.0D);
         builder.pop();
@@ -153,19 +153,19 @@ public final class ClientConfig {
 
         builder.push("performance");
         FULL_SPR_UPDATE_MS = builder
-                .comment("Minimum interval between full SPR processSound evaluations for each compat speaker. Alpha20 = 100 ms.")
+                .comment("Minimum interval between full SPR processSound evaluations for each compat speaker.")
                 .translation("cchq_soundphysics_compat.configuration.performance.full_spr_update_ms")
                 .defineInRange("full_spr_update_ms", 100, 50, 2000);
         OCCLUSION_MIN_UPDATE_MS = builder
-                .comment("Minimum interval between progressive obstruction calculations while moving. Alpha20 = 100 ms.")
+                .comment("Minimum interval between progressive obstruction calculations while moving.")
                 .translation("cchq_soundphysics_compat.configuration.performance.occlusion_min_update_ms")
                 .defineInRange("occlusion_min_update_ms", 100, 50, 2000);
         OCCLUSION_STATIONARY_UPDATE_MS = builder
-                .comment("Progressive obstruction refresh interval while the listener is effectively stationary. Alpha20 = 200 ms.")
+                .comment("Progressive obstruction refresh interval while the listener is effectively stationary.")
                 .translation("cchq_soundphysics_compat.configuration.performance.occlusion_stationary_update_ms")
                 .defineInRange("occlusion_stationary_update_ms", 200, 50, 5000);
         OCCLUSION_MOVE_THRESHOLD = builder
-                .comment("Listener movement in blocks that counts as movement for progressive obstruction refreshes. Alpha20 = 0.15.")
+                .comment("Listener movement in blocks that counts as movement for progressive obstruction refreshes.")
                 .translation("cchq_soundphysics_compat.configuration.performance.occlusion_move_threshold")
                 .defineInRange("occlusion_move_threshold", 0.15D, 0.01D, 2.0D);
         ADAPTIVE_PROBE_CACHE = builder
