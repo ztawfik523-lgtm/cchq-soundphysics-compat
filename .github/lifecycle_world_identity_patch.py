@@ -46,5 +46,5 @@ assert text.count(old_block) == 1, 'expected exact tickClient level lifecycle bl
 text = text.replace(old_block, new_block)
 
 assert 'hadLevel' not in text, 'old level flag remains'
-assert text.count('trackedLevel') == 6, 'unexpected trackedLevel occurrence count'
+assert text.count('trackedLevel') == 7, 'unexpected trackedLevel occurrence count'
 path.write_text(text, encoding='utf-8')
