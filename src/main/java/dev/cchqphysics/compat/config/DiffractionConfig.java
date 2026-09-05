@@ -70,7 +70,7 @@ public final class DiffractionConfig {
 
         DIFFRACTION_PENALTY = builder.comment(
                 "Synthetic raw-occlusion penalty for the already-validated direct open-top route.")
-                .defineInRange("diffraction_penalty", 1.0D, 0.0D, 8.0D);
+                .defineInRange("diffraction_penalty", 0.5D, 0.0D, 8.0D);
 
         MIN_RAW_IMPROVEMENT = builder.comment(
                 "Direct open-top route must improve raw occlusion by at least this much.")
@@ -148,7 +148,7 @@ public final class DiffractionConfig {
     public static double rawOcclusionGate() { return d(RAW_OCCLUSION_GATE, 3.0D); }
     public static double escapeClearance() { return d(ESCAPE_CLEARANCE, 1.5D); }
     public static double verticalOpenGate() { return d(VERTICAL_OPEN_GATE, 0.25D); }
-    public static double diffractionPenalty() { return d(DIFFRACTION_PENALTY, 1.0D); }
+    public static double diffractionPenalty() { return d(DIFFRACTION_PENALTY, 0.5D); }
     public static double minRawImprovement() { return d(MIN_RAW_IMPROVEMENT, 1.0D); }
 
     public static double openingRawOcclusionGate() { return d(OPENING_RAW_OCCLUSION_GATE, 1.25D); }

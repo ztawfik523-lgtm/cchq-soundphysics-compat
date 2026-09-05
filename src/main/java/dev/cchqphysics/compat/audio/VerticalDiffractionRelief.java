@@ -212,7 +212,7 @@ final class VerticalDiffractionRelief {
 
         return applyCandidate(sourceId, cutoff, gain, raw, center, physical, listener,
                 opening.waypointY, opening.lowerLeg, opening.crossLeg, opening.candidateRaw,
-                "applied-nearby-opening", opening.radius, opening.blockChecks,
+                "applied-nearby-opening-v5", opening.radius, opening.blockChecks,
                 opening.sprRays, opening.cached);
     }
 
@@ -287,13 +287,16 @@ final class VerticalDiffractionRelief {
         for (int index : selected) {
             if (index < 0) continue;
             OpeningCandidate candidate = topology.candidates[index];
-            double waypointY = topology.barrierY + DiffractionConfig.escapeClearance();
-            Vec3 waypoint = new Vec3(candidate.x + 0.5D, waypointY, candidate.z + 0.5D);
-            double radius = horizontalDistance(listener, waypoint);
+            // V5: verify each side of the aperture without forcing a diagonal ray through the roof plane.
+            double lowerWaypointY = topology.barrierY - 0.25D;
+            double upperWaypointY = topology.barrierY + Math.max(1.0D, DiffractionConfig.escapeClearance());
+            Vec3 lowerWaypoint = new Vec3(candidate.x + 0.5D, lowerWaypointY, candidate.z + 0.5D);
+            Vec3 upperWaypoint = new Vec3(candidate.x + 0.5D, upperWaypointY, candidate.z + 0.5D);
+            double radius = horizontalDistance(listener, lowerWaypoint);
 
             LegSample lowerLeg;
             try {
-                lowerLeg = sampleLowerLeg(candidate, topology.barrierY, listener, waypoint);
+                lowerLeg = sampleLowerLeg(candidate, topology.barrierY, listener, lowerWaypoint);
             } catch (Throwable throwable) {
                 continue;
             }
@@ -306,7 +309,7 @@ final class VerticalDiffractionRelief {
 
             LegSample crossLeg;
             try {
-                crossLeg = sampleCrossLeg(sourceId, candidate, topology.barrierY, source, waypoint);
+                crossLeg = sampleCrossLeg(sourceId, candidate, topology.barrierY, source, upperWaypoint);
             } catch (Throwable throwable) {
                 continue;
             }
@@ -320,8 +323,8 @@ final class VerticalDiffractionRelief {
                     + radius * DiffractionConfig.openingDistancePenalty();
             if (!Double.isFinite(candidateRaw)) continue;
 
-            OpeningProbe probe = new OpeningProbe("nearby-opening-candidate", candidateRaw,
-                    lowerLeg.value, crossLeg.value, radius, waypointY,
+            OpeningProbe probe = new OpeningProbe("nearby-opening-candidate-v5", candidateRaw,
+                    lowerLeg.value, crossLeg.value, radius, upperWaypointY,
                     topology.blockChecks, sprRays, allCached);
             if (best == null || probe.candidateRaw < best.candidateRaw) {
                 best = probe;

@@ -4,7 +4,7 @@ license="MIT"
 
 [[mods]]
 modId="cchq_soundphysics_compat"
-version="0.1.0-beta11-phase5-diffraction-v4-opening-test"
+version="0.1.0-beta11-phase5-diffraction-v5-aperture-test"
 displayName="CC:HQ Sound Physics Compat"
 authors="CC:HQ / Sound Physics compatibility"
 description='''Phase 5 isolated nearby-opening diffraction experiment V4 built on the runtime-approved configurable HF50 baseline and the user-approved V3 open-top result. V3 direct open-top behavior is preserved. V4 adds a rate-limited fallback which probes a small escape plane around the lower endpoint when the direct vertical route is blocked, allowing a genuine nearby aperture to reduce muffling. Candidate routes carry a base diffraction penalty plus a distance-to-opening penalty so relief increases as the listener approaches the opening. A fully enclosed geometry with no qualifying aperture remains unchanged. Normal progressive occlusion remains authoritative; source position, source AL gain, synchronized playback timing, reflection routing, and reverb sends are not mutated. The experiment is OFF by default.'''
