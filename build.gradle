@@ -151,6 +151,14 @@ tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }
 
+tasks.named('processResources').configure {
+    def releaseProperties = [mod_version: mod_version]
+    inputs.properties releaseProperties
+    filesMatching('META-INF/neoforge.mods.toml') {
+        expand releaseProperties
+    }
+}
+
 tasks.named('jar') {
     manifest {
         from(file('src/main/resources/META-INF/MANIFEST.MF'))
@@ -214,6 +222,9 @@ tasks.register('verifyResourceWiring') {
         }
         if (!modsToml.contains('file="META-INF/accesstransformer.cfg"')) {
             throw new GradleException('neoforge.mods.toml does not register the access transformer')
+        }
+        if (!modsToml.contains("version=\"${mod_version}\"")) {
+            throw new GradleException("neoforge.mods.toml version was not expanded from mod_version=${mod_version}")
         }
 
         def mixinConfig = new groovy.json.JsonSlurper().parse(new File(outputRoot, 'cchq_soundphysics_compat.mixins.json'))
