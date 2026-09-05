@@ -4,6 +4,7 @@ import dev.cchqphysics.compat.config.ClientConfig;
 import dev.cchqphysics.compat.mixin.SoundEngineAccessor;
 import dev.cchqphysics.compat.mixin.SoundManagerAccessor;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.sounds.SoundEngine;
 import net.minecraft.client.sounds.SoundEngineExecutor;
 import org.lwjgl.openal.AL10;
@@ -50,7 +51,7 @@ public final class CompatAudioManager {
     private static double lastListenerY = Double.NaN;
     private static double lastListenerZ = Double.NaN;
     private static final AtomicInteger SESSION_EPOCH = new AtomicInteger();
-    private static boolean hadLevel;
+    private static ClientLevel trackedLevel;
 
     private CompatAudioManager() {
     }
@@ -116,17 +117,24 @@ public final class CompatAudioManager {
     public static void tickClient() {
         clientTicks++;
         Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null) {
-            if (hadLevel) {
-                hadLevel = false;
+        ClientLevel level = mc.level;
+        if (level == null) {
+            if (trackedLevel != null) {
+                trackedLevel = null;
                 invalidateSession();
                 onSoundThread(CompatAudioManager::stopAllSources);
             }
             return;
         }
-        hadLevel = true;
+        if (trackedLevel != level) {
+            if (trackedLevel != null) {
+                invalidateSession();
+                onSoundThread(CompatAudioManager::stopAllSources);
+            }
+            trackedLevel = level;
+        }
 
-        long gameTime = mc.level.getGameTime();
+        long gameTime = level.getGameTime();
         ArrayList<StartRequest> deferred = new ArrayList<>();
         StartRequest request;
         while ((request = READY.poll()) != null) {
@@ -341,7 +349,7 @@ public final class CompatAudioManager {
 
     public static void resetForSoundEngine() {
         invalidateSession();
-        onSoundThread(CompatAudioManager::stopAllSources);
+        onSoundThreadBlocking(CompatAudioManager::stopAllSources);
     }
 
     public static void pauseCompatSources() {
@@ -366,21 +374,32 @@ public final class CompatAudioManager {
 
     public static void stopAllCompatSources() {
         invalidateSession();
-        onSoundThread(CompatAudioManager::stopAllSources);
+        onSoundThreadBlocking(CompatAudioManager::stopAllSources);
     }
 
     private static void clearAlErrors() {
         while (AL10.alGetError() != AL10.AL_NO_ERROR) { }
     }
 
+    private static SoundEngineExecutor soundExecutor() {
+        Minecraft mc = Minecraft.getInstance();
+        SoundEngine engine = ((SoundManagerAccessor) mc.getSoundManager()).cchqphysics$getSoundEngine();
+        return ((SoundEngineAccessor) engine).cchqphysics$getExecutor();
+    }
+
     private static void onSoundThread(Runnable task) {
         try {
-            Minecraft mc = Minecraft.getInstance();
-            SoundEngine engine = ((SoundManagerAccessor) mc.getSoundManager()).cchqphysics$getSoundEngine();
-            SoundEngineExecutor executor = ((SoundEngineAccessor) engine).cchqphysics$getExecutor();
-            executor.execute(task);
+            soundExecutor().execute(task);
         } catch (Throwable t) {
             logOnce("sound-thread", "Could not schedule work on Minecraft's sound thread: " + t);
+        }
+    }
+
+    private static void onSoundThreadBlocking(Runnable task) {
+        try {
+            soundExecutor().executeBlocking(task);
+        } catch (Throwable t) {
+            logOnce("sound-thread-blocking", "Could not complete blocking work on Minecraft's sound thread: " + t);
         }
     }
 

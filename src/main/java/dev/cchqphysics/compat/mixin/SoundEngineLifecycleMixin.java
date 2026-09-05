@@ -25,18 +25,8 @@ public abstract class SoundEngineLifecycleMixin {
         CompatAudioManager.stopAllCompatSources();
     }
 
-    @Inject(method = "destroy", at = @At("HEAD"))
-    private void cchqphysics$destroy(CallbackInfo ci) {
-        CompatAudioManager.resetForSoundEngine();
-    }
-
     @Inject(method = "emergencyShutdown", at = @At("HEAD"))
     private void cchqphysics$emergencyShutdown(CallbackInfo ci) {
-        CompatAudioManager.resetForSoundEngine();
-    }
-
-    @Inject(method = "reload", at = @At("HEAD"))
-    private void cchqphysics$reload(CallbackInfo ci) {
         CompatAudioManager.resetForSoundEngine();
     }
 }
