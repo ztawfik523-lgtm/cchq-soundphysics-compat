@@ -2,7 +2,7 @@ package dev.cchqphysics.compat.config;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
 
-/** Experimental V7.1 spreading-only aperture-energy model. */
+/** Opening-aware vertical sound controls. */
 public final class DiffractionConfig {
     public static final ModConfigSpec SPEC;
 
@@ -24,85 +24,96 @@ public final class DiffractionConfig {
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
-        builder.push("portal_diffraction_v7_1_spreading_only_test");
+        builder.push("openings");
 
         ENABLED = builder.comment(
-                "Experimental Phase-5 V7.1 spreading-only aperture-energy model.",
-                "OFF by default. The normal progressive direct path remains authoritative.",
-                "A verified opening only adds a bounded secondary energy contribution; it never replaces the direct path.",
-                "Never changes source position, playback timing, synchronized starts, reflection routing, or reverb sends.")
-                .define("enabled", false);
+                "Lets blocked sound use a real nearby opening as a secondary path instead of relying only on the straight speaker-to-listener path.",
+                "This mainly helps tunnels, shafts and lower floors sound less unnaturally sealed when an opening exists.",
+                "It does not change playback timing, source position, synchronized starts or reverb routing.")
+                .define("enabled", true);
 
         MIN_SOURCE_ABOVE_LISTENER = builder.comment(
-                "Narrow experiment scope: source must be at least this far above the listener before the portal model is considered.",
-                "This avoids broadening the Phase-5 elevation fix into unrelated same-height room acoustics.")
-                .defineInRange("min_source_above_listener", 0.25D, 0.0D, 8.0D);
+                "Minimum vertical separation, in blocks, before opening-aware sound is considered.",
+                "Higher = this feature is restricted to more clearly above/below situations.",
+                "Lower = it can activate in shallower height differences.")
+                .defineInRange("minimum_vertical_separation", 0.25D, 0.0D, 8.0D);
 
         ESCAPE_CLEARANCE = builder.comment(
-                "Height above a detected roof plane used for the source-side aperture waypoint.",
-                "For open-top geometry the same clearance is used by the implicit listener-column aperture.")
-                .defineInRange("escape_clearance", 1.5D, 0.25D, 8.0D);
+                "How far above the detected ceiling/opening the source-side route point is placed, in blocks.",
+                "Higher = the route clears thicker roof edges more aggressively.",
+                "Lower = the route stays closer to the opening plane.")
+                .defineInRange("opening_clearance", 1.5D, 0.25D, 8.0D);
 
         OPENING_SEARCH_RADIUS = builder.comment(
-                "Maximum listener-side roof-opening search radius in blocks.",
-                "Discovery uses cheap BlockState reads from SPR's cloned level, not SPR occlusion rays.",
-                "The last part of this radius is smoothly faded so there is no hard audible edge.")
+                "How far around the listener, in blocks, the mod looks for a usable ceiling opening.",
+                "Higher = openings can be found farther away but scanning costs more CPU.",
+                "Lower = cheaper scans, but distant openings are ignored.")
                 .defineInRange("search_radius", 8.0D, 1.0D, 8.0D);
 
         PORTAL_COUPLING = builder.comment(
-                "Maximum amplitude coupling of the secondary aperture path before diffraction and leg losses.",
-                "Conservative default: an opening may add clarity/loudness but cannot become a second full-strength direct source.")
-                .defineInRange("portal_coupling", 0.25D, 0.0D, 1.0D);
+                "Overall strength of the opening effect.",
+                "Higher = a usable opening makes blocked sound clearer/louder more strongly.",
+                "Lower = the opening effect is subtler. 0 disables its contribution without disabling detection.")
+                .defineInRange("effect_strength", 0.25D, 0.0D, 1.0D);
 
         PORTAL_ACTIVATION_RAW = builder.comment(
-                "Progressive raw occlusion at which portal contribution reaches full activation.",
-                "Below this value activation follows a smoothstep, preventing openings from boosting already-clear direct sound.")
-                .defineInRange("portal_activation_raw", 2.0D, 0.25D, 8.0D);
+                "How blocked the normal direct sound must become before the opening effect reaches full strength.",
+                "Higher = the opening needs stronger direct obstruction before reaching full effect.",
+                "Lower = the opening reaches full effect sooner.")
+                .defineInRange("full_effect_occlusion", 2.0D, 0.25D, 8.0D);
 
         LOW_DELTA_SCALE = builder.comment(
-                "Path-length-difference scale for the low-band diffraction approximation.",
-                "Larger values make low-frequency aperture energy persist farther into the acoustic shadow.")
-                .defineInRange("low_delta_scale", 4.0D, 0.10D, 32.0D);
+                "How well bass carries through an indirect opening route.",
+                "Higher = more low-frequency sound survives a longer detour around the opening.",
+                "Lower = bass falls off more strongly when the route is indirect.")
+                .defineInRange("bass_carry", 4.0D, 0.10D, 32.0D);
 
         HIGH_DELTA_SCALE = builder.comment(
-                "Path-length-difference scale for the high-band diffraction approximation.",
-                "Smaller than the low-band scale so highs attenuate more strongly as the detour worsens.")
-                .defineInRange("high_delta_scale", 1.5D, 0.05D, 32.0D);
+                "How well clarity/high frequencies carry through an indirect opening route.",
+                "Higher = sound through an opening stays brighter/clearer on longer detours.",
+                "Lower = highs fade more strongly, making indirect sound darker.")
+                .defineInRange("clarity_carry", 1.5D, 0.05D, 32.0D);
 
         APERTURE_SPREAD_SCALE = builder.comment(
-                "Softened inverse-distance amplitude scale for explicit roof-opening leakage into the listener enclosure.",
-                "This multiplies the exact V6 portal amplitude only; it does not alter V6 portal-leg spectral/transmission math.",
-                "Implicit open-top geometry uses zero aperture distance in this isolated test to preserve the V6 open-top result.")
-                .defineInRange("aperture_spread_scale", 3.0D, 0.25D, 16.0D);
+                "Controls how quickly an opening's effect weakens as you move away from it inside the enclosed area.",
+                "Higher = the opening remains noticeable farther away.",
+                "Lower = the effect fades sooner with distance.")
+                .defineInRange("influence_distance", 3.0D, 0.25D, 16.0D);
 
         HORIZON_FADE_START_RATIO = builder.comment(
-                "Fraction of search radius where an artificial scan-horizon fade begins.",
-                "This exists only to prevent a portal contribution from disappearing abruptly at the finite search radius.")
-                .defineInRange("horizon_fade_start_ratio", 0.75D, 0.0D, 0.99D);
+                "Where the opening effect starts fading near the outer edge of the search radius, as a fraction from 0 to 1.",
+                "Higher = the effect stays stronger until closer to the search limit.",
+                "Lower = it begins fading earlier.")
+                .defineInRange("edge_fade_start", 0.75D, 0.0D, 0.99D);
 
         CANDIDATE_SEPARATION = builder.comment(
-                "Minimum horizontal separation between the two expensive verified candidates.",
-                "Prevents adjacent cells of the same one-block neighborhood from consuming both verification slots.")
-                .defineInRange("candidate_separation", 2.0D, 0.0D, 8.0D);
+                "Minimum horizontal spacing, in blocks, between the two openings that may be fully checked.",
+                "Higher = prefers openings that are farther apart instead of checking adjacent cells of the same hole.",
+                "Lower = allows two nearby opening cells to use both verification slots.")
+                .defineInRange("opening_separation", 2.0D, 0.0D, 8.0D);
 
         SELECTION_HYSTERESIS = builder.comment(
-                "Cheap path-score advantage required before replacing the previously preferred aperture candidate.",
-                "Reduces candidate-selection flicker when two openings have nearly equal path lengths.")
-                .defineInRange("selection_hysteresis", 0.35D, 0.0D, 4.0D);
+                "How much better a different opening must become before the mod switches to it.",
+                "Higher = steadier selection with less switching between similar openings.",
+                "Lower = reacts sooner when another opening becomes slightly better.")
+                .defineInRange("switch_stability", 0.35D, 0.0D, 4.0D);
 
         OPENING_SCAN_INTERVAL_MS = builder.comment(
-                "Minimum interval between shared listener-side topology scans.",
-                "The scan reads only cached BlockStates from SPR's thread-safe level clone.")
+                "Minimum time between nearby-opening scans while staying in the same listener block.",
+                "Lower = block changes are noticed sooner but use more CPU.",
+                "Higher = cheaper scanning but slower reaction to changed geometry.")
                 .defineInRange("scan_interval_ms", 1000.0D, 100.0D, 5000.0D);
 
         OPENING_LEG_RECHECK_DISTANCE = builder.comment(
-                "Listener movement required before re-running a cached listener-to-aperture SPR leg.",
-                "Path-length attenuation itself still updates from geometry whenever the direct environment is applied.")
-                .defineInRange("leg_recheck_distance", 0.75D, 0.10D, 4.0D);
+                "How far the listener must move, in blocks, before a cached listener-to-opening path is checked again.",
+                "Lower = more frequent geometry checks and higher CPU use.",
+                "Higher = more reuse while moving.")
+                .defineInRange("movement_recheck_distance", 0.75D, 0.10D, 4.0D);
 
         OPENING_RAY_CACHE_MS = builder.comment(
-                "Maximum age of verified aperture SPR legs while endpoints remain stable.",
-                "Stationary scenes should therefore approach zero extra aperture SPR calls between rechecks.")
+                "Maximum time a verified opening path may be reused while its endpoints remain stable.",
+                "Higher = fewer extra Sound Physics checks in stable scenes.",
+                "Lower = geometry is rechecked more often.")
                 .defineInRange("ray_cache_ms", 5000.0D, 250.0D, 30000.0D);
 
         builder.pop();
@@ -124,7 +135,7 @@ public final class DiffractionConfig {
         }
     }
 
-    public static boolean enabled() { return b(ENABLED, false); }
+    public static boolean enabled() { return b(ENABLED, true); }
     public static double minSourceAboveListener() { return d(MIN_SOURCE_ABOVE_LISTENER, 0.25D); }
     public static double escapeClearance() { return d(ESCAPE_CLEARANCE, 1.5D); }
     public static double openingSearchRadius() { return d(OPENING_SEARCH_RADIUS, 8.0D); }
@@ -151,24 +162,37 @@ public final class DiffractionConfig {
     }
 
     public static void setEnabled(boolean value) { ENABLED.set(value); }
+    public static void setMinSourceAboveListener(double value) { MIN_SOURCE_ABOVE_LISTENER.set(value); }
+    public static void setEscapeClearance(double value) { ESCAPE_CLEARANCE.set(value); }
+    public static void setOpeningSearchRadius(double value) { OPENING_SEARCH_RADIUS.set(value); }
+    public static void setPortalCoupling(double value) { PORTAL_COUPLING.set(value); }
+    public static void setPortalActivationRaw(double value) { PORTAL_ACTIVATION_RAW.set(value); }
+    public static void setLowDeltaScale(double value) { LOW_DELTA_SCALE.set(value); }
+    public static void setHighDeltaScale(double value) { HIGH_DELTA_SCALE.set(value); }
+    public static void setApertureSpreadScale(double value) { APERTURE_SPREAD_SCALE.set(value); }
+    public static void setHorizonFadeStartRatio(double value) { HORIZON_FADE_START_RATIO.set(value); }
+    public static void setCandidateSeparation(double value) { CANDIDATE_SEPARATION.set(value); }
+    public static void setSelectionHysteresis(double value) { SELECTION_HYSTERESIS.set(value); }
+    public static void setOpeningScanIntervalMs(double value) { OPENING_SCAN_INTERVAL_MS.set(value); }
+    public static void setOpeningLegRecheckDistance(double value) { OPENING_LEG_RECHECK_DISTANCE.set(value); }
+    public static void setOpeningRayCacheMs(double value) { OPENING_RAY_CACHE_MS.set(value); }
     public static void save() { SPEC.save(); }
 
     public static String summary() {
-        return "diffraction=" + enabled()
-                + " portalV7_1=true"
-                + " minSourceAbove=" + minSourceAboveListener()
+        return "openings=" + enabled()
+                + " minVertical=" + minSourceAboveListener()
                 + " clearance=" + escapeClearance()
-                + " openingRadius=" + openingSearchRadius()
-                + " portalCoupling=" + portalCoupling()
-                + " portalActivationRaw=" + portalActivationRaw()
-                + " lowDeltaScale=" + lowDeltaScale()
-                + " highDeltaScale=" + highDeltaScale()
-                + " apertureSpreadScale=" + apertureSpreadScale()
-                + " horizonFadeStart=" + horizonFadeStartRatio()
-                + " candidateSeparation=" + Math.sqrt(candidateSeparationSq())
-                + " selectionHysteresis=" + selectionHysteresis()
-                + " openingScanMs=" + (openingScanIntervalNs() / 1_000_000L)
-                + " openingLegRecheck=" + Math.sqrt(openingLegRecheckDistanceSq())
-                + " openingRayCacheMs=" + (openingRayCacheNs() / 1_000_000L);
+                + " searchRadius=" + openingSearchRadius()
+                + " effectStrength=" + portalCoupling()
+                + " fullEffectOcclusion=" + portalActivationRaw()
+                + " bassCarry=" + lowDeltaScale()
+                + " clarityCarry=" + highDeltaScale()
+                + " influenceDistance=" + apertureSpreadScale()
+                + " edgeFadeStart=" + horizonFadeStartRatio()
+                + " openingSeparation=" + Math.sqrt(candidateSeparationSq())
+                + " switchStability=" + selectionHysteresis()
+                + " scanMs=" + (openingScanIntervalNs() / 1_000_000L)
+                + " movementRecheck=" + Math.sqrt(openingLegRecheckDistanceSq())
+                + " rayCacheMs=" + (openingRayCacheNs() / 1_000_000L);
     }
 }
