@@ -2,125 +2,102 @@ package dev.cchqphysics.compat.config;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
 
-/** Experimental vertical/opening diffraction relief for straight-ray over-occlusion. */
+/** Experimental V6 aperture-energy diffraction model. */
 public final class DiffractionConfig {
     public static final ModConfigSpec SPEC;
 
     private static final ModConfigSpec.BooleanValue ENABLED;
-    private static final ModConfigSpec.DoubleValue MIN_VERTICAL_SEPARATION;
-    private static final ModConfigSpec.DoubleValue MIN_HORIZONTAL_SEPARATION;
-    private static final ModConfigSpec.DoubleValue MAX_HORIZONTAL_SEPARATION;
-    private static final ModConfigSpec.DoubleValue MIN_VERTICAL_HORIZONTAL_RATIO;
-    private static final ModConfigSpec.DoubleValue RAW_OCCLUSION_GATE;
+    private static final ModConfigSpec.DoubleValue MIN_SOURCE_ABOVE_LISTENER;
     private static final ModConfigSpec.DoubleValue ESCAPE_CLEARANCE;
-    private static final ModConfigSpec.DoubleValue VERTICAL_OPEN_GATE;
-    private static final ModConfigSpec.DoubleValue DIFFRACTION_PENALTY;
-    private static final ModConfigSpec.DoubleValue MIN_RAW_IMPROVEMENT;
-
-    private static final ModConfigSpec.DoubleValue OPENING_RAW_OCCLUSION_GATE;
     private static final ModConfigSpec.DoubleValue OPENING_SEARCH_RADIUS;
-    private static final ModConfigSpec.DoubleValue OPENING_LEG_GATE;
-    private static final ModConfigSpec.DoubleValue OPENING_BASE_PENALTY;
-    private static final ModConfigSpec.DoubleValue OPENING_DISTANCE_PENALTY;
-    private static final ModConfigSpec.DoubleValue OPENING_MIN_RAW_IMPROVEMENT;
+    private static final ModConfigSpec.DoubleValue PORTAL_COUPLING;
+    private static final ModConfigSpec.DoubleValue PORTAL_ACTIVATION_RAW;
+    private static final ModConfigSpec.DoubleValue LOW_DELTA_SCALE;
+    private static final ModConfigSpec.DoubleValue HIGH_DELTA_SCALE;
+    private static final ModConfigSpec.DoubleValue HORIZON_FADE_START_RATIO;
+    private static final ModConfigSpec.DoubleValue CANDIDATE_SEPARATION;
+    private static final ModConfigSpec.DoubleValue SELECTION_HYSTERESIS;
     private static final ModConfigSpec.DoubleValue OPENING_SCAN_INTERVAL_MS;
     private static final ModConfigSpec.DoubleValue OPENING_LEG_RECHECK_DISTANCE;
     private static final ModConfigSpec.DoubleValue OPENING_RAY_CACHE_MS;
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
-        builder.push("vertical_diffraction_test");
+        builder.push("portal_diffraction_v6_test");
 
         ENABLED = builder.comment(
-                "Experimental Phase-5 vertical/opening diffraction relief.",
-                "OFF by default. Enable only while validating elevation and nearby-opening leakage behavior.",
+                "Experimental Phase-5 V6 aperture-energy diffraction model.",
+                "OFF by default. The normal progressive direct path remains authoritative.",
+                "A verified opening only adds a bounded secondary energy contribution; it never replaces the direct path.",
                 "Never changes source position, playback timing, synchronized starts, reflection routing, or reverb sends.")
                 .define("enabled", false);
 
-        MIN_VERTICAL_SEPARATION = builder.comment(
-                "Minimum absolute ear-to-source Y separation before the diffraction probe is considered.",
-                "Player camera/ear height means a visually 2-3 block-deep hole has a smaller acoustic Y delta than its floor depth.")
-                .defineInRange("min_vertical_separation", 0.75D, 0.0D, 32.0D);
-
-        MIN_HORIZONTAL_SEPARATION = builder.comment(
-                "Minimum source/listener horizontal separation for the original direct open-top probe only.",
-                "Nearby-opening search may still run below this value so a side opening can matter while standing under a ceiling.")
-                .defineInRange("min_horizontal_separation", 1.5D, 0.0D, 32.0D);
-
-        MAX_HORIZONTAL_SEPARATION = builder.comment(
-                "Maximum source/listener horizontal separation for this narrowly-scoped test path.")
-                .defineInRange("max_horizontal_separation", 12.0D, 0.5D, 64.0D);
-
-        MIN_VERTICAL_HORIZONTAL_RATIO = builder.comment(
-                "Minimum |dy| / horizontal-distance ratio.",
-                "Relaxed after runtime evidence showed a 3-block-deep open pit measured only ~1.88 Y over ~7.25 horizontal.")
-                .defineInRange("min_vertical_horizontal_ratio", 0.10D, 0.0D, 8.0D);
-
-        RAW_OCCLUSION_GATE = builder.comment(
-                "Normal progressive raw occlusion required by the original direct open-top probe.")
-                .defineInRange("raw_occlusion_gate", 3.0D, 0.0D, 16.0D);
+        MIN_SOURCE_ABOVE_LISTENER = builder.comment(
+                "Narrow experiment scope: source must be at least this far above the listener before the portal model is considered.",
+                "This avoids broadening the Phase-5 elevation fix into unrelated same-height room acoustics.")
+                .defineInRange("min_source_above_listener", 0.25D, 0.0D, 8.0D);
 
         ESCAPE_CLEARANCE = builder.comment(
-                "Waypoint height above the higher endpoint for the direct open-top route, and above the detected roof barrier for nearby openings.")
+                "Height above a detected roof plane used for the source-side aperture waypoint.",
+                "For open-top geometry the same clearance is used by the implicit listener-column aperture.")
                 .defineInRange("escape_clearance", 1.5D, 0.25D, 8.0D);
 
-        VERTICAL_OPEN_GATE = builder.comment(
-                "A candidate direct escape leg must be this clear or clearer.")
-                .defineInRange("vertical_open_gate", 0.25D, 0.0D, 4.0D);
-
-        DIFFRACTION_PENALTY = builder.comment(
-                "Synthetic raw-occlusion penalty for the already-validated direct open-top route.")
-                .defineInRange("diffraction_penalty", 0.5D, 0.0D, 8.0D);
-
-        MIN_RAW_IMPROVEMENT = builder.comment(
-                "Direct open-top route must improve raw occlusion by at least this much.")
-                .defineInRange("min_raw_improvement", 1.0D, 0.0D, 16.0D);
-
-        builder.push("nearby_opening");
-
-        OPENING_RAW_OCCLUSION_GATE = builder.comment(
-                "Lower raw-occlusion gate for a verified nearby opening.",
-                "This lets a real aperture soften even a one- or two-block ceiling case without making a fully sealed ceiling transparent.")
-                .defineInRange("raw_occlusion_gate", 1.25D, 0.0D, 16.0D);
-
         OPENING_SEARCH_RADIUS = builder.comment(
-                "Maximum horizontal distance, in blocks, searched around the listener for a nearby roof opening.",
-                "Discovery uses cheap BlockState reads from SPR's cached level, not SPR occlusion rays.")
-                .defineInRange("search_radius", 3.0D, 1.0D, 8.0D);
+                "Maximum listener-side roof-opening search radius in blocks.",
+                "Discovery uses cheap BlockState reads from SPR's cloned level, not SPR occlusion rays.",
+                "The last part of this radius is smoothly faded so there is no hard audible edge.")
+                .defineInRange("search_radius", 8.0D, 1.0D, 8.0D);
 
-        OPENING_LEG_GATE = builder.comment(
-                "Listener-to-opening SPR verification must be this clear or clearer.")
-                .defineInRange("opening_leg_gate", 0.25D, 0.0D, 4.0D);
+        PORTAL_COUPLING = builder.comment(
+                "Maximum amplitude coupling of the secondary aperture path before diffraction and leg losses.",
+                "Conservative default: an opening may add clarity/loudness but cannot become a second full-strength direct source.")
+                .defineInRange("portal_coupling", 0.25D, 0.0D, 1.0D);
 
-        OPENING_BASE_PENALTY = builder.comment(
-                "Base diffraction penalty for routing through a nearby opening.")
-                .defineInRange("base_penalty", 0.75D, 0.0D, 8.0D);
+        PORTAL_ACTIVATION_RAW = builder.comment(
+                "Progressive raw occlusion at which portal contribution reaches full activation.",
+                "Below this value activation follows a smoothstep, preventing openings from boosting already-clear direct sound.")
+                .defineInRange("portal_activation_raw", 2.0D, 0.25D, 8.0D);
 
-        OPENING_DISTANCE_PENALTY = builder.comment(
-                "Additional raw penalty per block of horizontal detour to the opening.",
-                "This is recomputed mathematically every update, so moving closer can sound clearer without re-running geometry.")
-                .defineInRange("distance_penalty_per_block", 0.20D, 0.0D, 4.0D);
+        LOW_DELTA_SCALE = builder.comment(
+                "Path-length-difference scale for the low-band diffraction approximation.",
+                "Larger values make low-frequency aperture energy persist farther into the acoustic shadow.")
+                .defineInRange("low_delta_scale", 4.0D, 0.10D, 32.0D);
 
-        OPENING_MIN_RAW_IMPROVEMENT = builder.comment(
-                "Nearby-opening route must beat the normal raw occlusion by at least this amount.")
-                .defineInRange("min_raw_improvement", 0.25D, 0.0D, 16.0D);
+        HIGH_DELTA_SCALE = builder.comment(
+                "Path-length-difference scale for the high-band diffraction approximation.",
+                "Smaller than the low-band scale so highs attenuate more strongly as the detour worsens.")
+                .defineInRange("high_delta_scale", 1.5D, 0.05D, 32.0D);
+
+        HORIZON_FADE_START_RATIO = builder.comment(
+                "Fraction of search radius where an artificial scan-horizon fade begins.",
+                "This exists only to prevent a portal contribution from disappearing abruptly at the finite search radius.")
+                .defineInRange("horizon_fade_start_ratio", 0.75D, 0.0D, 0.99D);
+
+        CANDIDATE_SEPARATION = builder.comment(
+                "Minimum horizontal separation between the two expensive verified candidates.",
+                "Prevents adjacent cells of the same one-block neighborhood from consuming both verification slots.")
+                .defineInRange("candidate_separation", 2.0D, 0.0D, 8.0D);
+
+        SELECTION_HYSTERESIS = builder.comment(
+                "Cheap path-score advantage required before replacing the previously preferred aperture candidate.",
+                "Reduces candidate-selection flicker when two openings have nearly equal path lengths.")
+                .defineInRange("selection_hysteresis", 0.35D, 0.0D, 4.0D);
 
         OPENING_SCAN_INTERVAL_MS = builder.comment(
-                "Minimum interval between cheap nearby-opening topology scans.",
-                "The scan only reads cached BlockStates from SPR's thread-safe level clone.")
+                "Minimum interval between shared listener-side topology scans.",
+                "The scan reads only cached BlockStates from SPR's thread-safe level clone.")
                 .defineInRange("scan_interval_ms", 1000.0D, 100.0D, 5000.0D);
 
         OPENING_LEG_RECHECK_DISTANCE = builder.comment(
-                "Listener movement required before re-running the expensive listener-to-opening SPR verification.",
-                "Distance-to-opening clarity still updates continuously between these checks.")
+                "Listener movement required before re-running a cached listener-to-aperture SPR leg.",
+                "Path-length attenuation itself still updates from geometry whenever the direct environment is applied.")
                 .defineInRange("leg_recheck_distance", 0.75D, 0.10D, 4.0D);
 
         OPENING_RAY_CACHE_MS = builder.comment(
-                "Maximum age of verified SPR opening legs while geometry remains otherwise stable.",
-                "Long caching keeps stationary multi-speaker scenes close to zero extra SPR-ray cost.")
+                "Maximum age of verified aperture SPR legs while endpoints remain stable.",
+                "Stationary scenes should therefore approach zero extra aperture SPR calls between rechecks.")
                 .defineInRange("ray_cache_ms", 5000.0D, 250.0D, 30000.0D);
 
-        builder.pop();
         builder.pop();
         SPEC = builder.build();
     }
@@ -141,22 +118,19 @@ public final class DiffractionConfig {
     }
 
     public static boolean enabled() { return b(ENABLED, false); }
-    public static double minVerticalSeparation() { return d(MIN_VERTICAL_SEPARATION, 0.75D); }
-    public static double minHorizontalSeparation() { return d(MIN_HORIZONTAL_SEPARATION, 1.5D); }
-    public static double maxHorizontalSeparation() { return d(MAX_HORIZONTAL_SEPARATION, 12.0D); }
-    public static double minVerticalHorizontalRatio() { return d(MIN_VERTICAL_HORIZONTAL_RATIO, 0.10D); }
-    public static double rawOcclusionGate() { return d(RAW_OCCLUSION_GATE, 3.0D); }
+    public static double minSourceAboveListener() { return d(MIN_SOURCE_ABOVE_LISTENER, 0.25D); }
     public static double escapeClearance() { return d(ESCAPE_CLEARANCE, 1.5D); }
-    public static double verticalOpenGate() { return d(VERTICAL_OPEN_GATE, 0.25D); }
-    public static double diffractionPenalty() { return d(DIFFRACTION_PENALTY, 0.5D); }
-    public static double minRawImprovement() { return d(MIN_RAW_IMPROVEMENT, 1.0D); }
-
-    public static double openingRawOcclusionGate() { return d(OPENING_RAW_OCCLUSION_GATE, 1.25D); }
-    public static double openingSearchRadius() { return d(OPENING_SEARCH_RADIUS, 3.0D); }
-    public static double openingLegGate() { return d(OPENING_LEG_GATE, 0.25D); }
-    public static double openingBasePenalty() { return d(OPENING_BASE_PENALTY, 0.75D); }
-    public static double openingDistancePenalty() { return d(OPENING_DISTANCE_PENALTY, 0.20D); }
-    public static double openingMinRawImprovement() { return d(OPENING_MIN_RAW_IMPROVEMENT, 0.25D); }
+    public static double openingSearchRadius() { return d(OPENING_SEARCH_RADIUS, 8.0D); }
+    public static double portalCoupling() { return d(PORTAL_COUPLING, 0.25D); }
+    public static double portalActivationRaw() { return d(PORTAL_ACTIVATION_RAW, 2.0D); }
+    public static double lowDeltaScale() { return d(LOW_DELTA_SCALE, 4.0D); }
+    public static double highDeltaScale() { return d(HIGH_DELTA_SCALE, 1.5D); }
+    public static double horizonFadeStartRatio() { return d(HORIZON_FADE_START_RATIO, 0.75D); }
+    public static double selectionHysteresis() { return d(SELECTION_HYSTERESIS, 0.35D); }
+    public static double candidateSeparationSq() {
+        double value = Math.max(0.0D, d(CANDIDATE_SEPARATION, 2.0D));
+        return value * value;
+    }
     public static long openingScanIntervalNs() {
         return Math.max(100L, Math.round(d(OPENING_SCAN_INTERVAL_MS, 1000.0D))) * 1_000_000L;
     }
@@ -173,21 +147,17 @@ public final class DiffractionConfig {
 
     public static String summary() {
         return "diffraction=" + enabled()
-                + " minY=" + minVerticalSeparation()
-                + " minXZ=" + minHorizontalSeparation()
-                + " maxXZ=" + maxHorizontalSeparation()
-                + " minSlope=" + minVerticalHorizontalRatio()
-                + " rawGate=" + rawOcclusionGate()
+                + " portalV6=true"
+                + " minSourceAbove=" + minSourceAboveListener()
                 + " clearance=" + escapeClearance()
-                + " verticalOpenGate=" + verticalOpenGate()
-                + " penalty=" + diffractionPenalty()
-                + " minImprove=" + minRawImprovement()
-                + " openingRawGate=" + openingRawOcclusionGate()
                 + " openingRadius=" + openingSearchRadius()
-                + " openingLegGate=" + openingLegGate()
-                + " openingBasePenalty=" + openingBasePenalty()
-                + " openingDistancePenalty=" + openingDistancePenalty()
-                + " openingMinImprove=" + openingMinRawImprovement()
+                + " portalCoupling=" + portalCoupling()
+                + " portalActivationRaw=" + portalActivationRaw()
+                + " lowDeltaScale=" + lowDeltaScale()
+                + " highDeltaScale=" + highDeltaScale()
+                + " horizonFadeStart=" + horizonFadeStartRatio()
+                + " candidateSeparation=" + Math.sqrt(candidateSeparationSq())
+                + " selectionHysteresis=" + selectionHysteresis()
                 + " openingScanMs=" + (openingScanIntervalNs() / 1_000_000L)
                 + " openingLegRecheck=" + Math.sqrt(openingLegRecheckDistanceSq())
                 + " openingRayCacheMs=" + (openingRayCacheNs() / 1_000_000L);
