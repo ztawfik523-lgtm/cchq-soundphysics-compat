@@ -166,7 +166,7 @@ final class PerformanceStats {
             double transitionAvgMs = transitionSamples == 0L ? 0.0D : (transitionTotalNs / 1_000_000.0D) / transitionSamples;
             long coalesced = schedulerCoalesced.getAndSet(0L);
 
-            String format = "beta9 perf window={}s sprCalls={} ({}/s) sprAvg={}ms sprMax={}ms roomRefreshes={} ({}/s) roomReuses={} ({}/s) applyPasses={} ({}/s) occlusionPaths={} ({}/s) portalPaths={} ({}/s) portalAvg={}ms portalMax={}ms portalLower={} portalCross={} portalScans={} portalBlockChecks={} progressive={} full={} partial={} savedPaths={} sentinelPaths={} candidates={} confirmed={} immediateDirect={} immediateRoom={} queueAvg={}ms queueMax={}ms coalesced={} directAgeAvg={}ms directAgeMax={}ms roomAgeAvg={}ms roomAgeMax={}ms applyGapAvg={}ms applyGapMax={}ms transitionAvg={}ms transitionMax={}ms efxApplies={} ({}/s) efxReattachPasses={}";
+            String format = "compat perf window={}s sprCalls={} ({}/s) sprAvg={}ms sprMax={}ms roomRefreshes={} ({}/s) roomReuses={} ({}/s) applyPasses={} ({}/s) occlusionPaths={} ({}/s) portalPaths={} ({}/s) portalAvg={}ms portalMax={}ms portalLower={} portalCross={} portalScans={} portalBlockChecks={} progressive={} full={} partial={} savedPaths={} sentinelPaths={} candidates={} confirmed={} immediateDirect={} immediateRoom={} queueAvg={}ms queueMax={}ms coalesced={} directAgeAvg={}ms directAgeMax={}ms roomAgeAvg={}ms roomAgeMax={}ms applyGapAvg={}ms applyGapMax={}ms transitionAvg={}ms transitionMax={}ms efxApplies={} ({}/s) efxReattachPasses={}";
             Object[] args = {
                     round1(seconds),
                     sprCalls, round1(sprCalls / seconds), round3(sprAvgMs), round3(sprMaxNs / 1_000_000.0D),
