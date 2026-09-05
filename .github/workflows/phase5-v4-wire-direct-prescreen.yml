@@ -1,0 +1,69 @@
+name: Phase 5 V4 one-shot direct-roof prescreen
+
+on:
+  push:
+    branches:
+      - phase5-opening-diffraction-test-v4
+    paths:
+      - '.github/workflows/phase5-v4-wire-direct-prescreen.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: phase5-opening-diffraction-test-v4
+          fetch-depth: 0
+
+      - name: Skip known-blocked V3 vertical ray using cheap topology
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java')
+          s = p.read_text()
+          old = '''        // Preserve the runtime-approved V3 direct open-top route exactly for
+        // the geometry it was designed to handle.
+        if (raw >= DiffractionConfig.rawOcclusionGate()
+                && horizontal >= DiffractionConfig.minHorizontalSeparation()) {'''
+          new = '''        // A cheap shared roof scan can prove that the V3 direct vertical leg
+        // is blocked before we spend an SPR occlusion call on it. Open-top V3
+        // behavior is unchanged because no barrier is found in that geometry.
+        OpeningTopology listenerTopology = sourceIsLower ? null : getOpeningTopology(listener);
+        boolean directKnownBlocked = listenerTopology != null
+                && listenerTopology.barrierY != Integer.MIN_VALUE
+                && source.y > listenerTopology.barrierY + 0.5D;
+
+        // Preserve the runtime-approved V3 direct open-top route exactly for
+        // the geometry it was designed to handle.
+        if (!directKnownBlocked
+                && raw >= DiffractionConfig.rawOcclusionGate()
+                && horizontal >= DiffractionConfig.minHorizontalSeparation()) {'''
+          count = s.count(old)
+          if count != 1:
+              raise SystemExit(f'expected one direct-route block, found {count}')
+          p.write_text(s.replace(old, new, 1))
+
+      - name: Assert direct-roof prescreen
+        shell: bash
+        run: |
+          set -euo pipefail
+          f=src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java
+          grep -F 'OpeningTopology listenerTopology = sourceIsLower ? null : getOpeningTopology(listener);' "$f"
+          grep -F 'boolean directKnownBlocked = listenerTopology != null' "$f"
+          grep -F 'if (!directKnownBlocked' "$f"
+
+      - name: Remove one-shot workflow and commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/phase5-v4-wire-direct-prescreen.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'Phase 5: skip known-blocked direct diffraction ray [skip ci]'
+          git push origin HEAD:phase5-opening-diffraction-test-v4
