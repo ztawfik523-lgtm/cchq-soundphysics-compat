@@ -3,21 +3,23 @@ name: Failed-start lifecycle cleanup
 on:
   push:
     branches: [phase5-v7-1-lifecycle-state-finish]
-    paths: [.github/workflows/lifecycle-failed-start-cleanup.yml]
 
 permissions:
   contents: write
 
 jobs:
   patch-and-validate:
+    if: github.event.head_commit.message == 'ci: run failed-start cleanup validation'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out lifecycle branch
+        uses: actions/checkout@v4
         with:
           ref: phase5-v7-1-lifecycle-state-finish
           fetch-depth: 0
 
-      - uses: actions/setup-java@v5
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
@@ -77,8 +79,7 @@ jobs:
           git rev-parse HEAD | tee lifecycle-source-commit.txt
 
       - name: Verify and build
-        run: |
-          ./gradlew --no-configuration-cache verifyReconstructionClasspath verifyResourceWiring clean compileJava jar --stacktrace
+        run: ./gradlew --no-configuration-cache verifyReconstructionClasspath verifyResourceWiring clean compileJava jar --stacktrace
 
       - name: Inspect candidate
         shell: bash
@@ -103,7 +104,8 @@ jobs:
             echo 'game_launch_performed=false'
           } > lifecycle-build-info.txt
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload lifecycle candidate
+        uses: actions/upload-artifact@v4
         with:
           name: cchq-lifecycle-state-finish-v2
           path: |
