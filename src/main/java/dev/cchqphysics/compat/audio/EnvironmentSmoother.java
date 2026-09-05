@@ -76,7 +76,7 @@ public final class EnvironmentSmoother {
             return false;
         }
         float[] adjusted = ProgressiveOcclusionModel.adjust(sourceId, directCutoff, directGain);
-        float targetCutoff = adjusted[0];
+        float targetCutoff = SynchronizedSpectralBalancer.adjustDirectCutoff(sourceId, adjusted[0]);
         float targetGain = adjusted[1];
         long now = System.nanoTime();
         synchronized (EnvironmentSmoother.class) {

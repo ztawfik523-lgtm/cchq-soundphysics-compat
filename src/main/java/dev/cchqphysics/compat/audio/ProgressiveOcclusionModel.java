@@ -81,6 +81,11 @@ public final class ProgressiveOcclusionModel {
         return state != null && state.valid ? state.rawOcclusion : 0.0D;
     }
 
+    public static synchronized double currentCutoff(int sourceId) {
+        State state = STATES.get(sourceId);
+        return state != null && state.valid ? state.cutoff : Double.NaN;
+    }
+
     public static synchronized double currentCenterOcclusion(int sourceId) {
         State state = STATES.get(sourceId);
         return state != null && state.valid ? state.centerOcclusion : Double.NaN;

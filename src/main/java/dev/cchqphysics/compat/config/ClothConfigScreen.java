@@ -27,6 +27,12 @@ public final class ClothConfigScreen {
         return result;
     }
 
+    private static void saveAll() {
+        ClientConfigAccess.save();
+        ExtendedClientConfigAccess.save();
+        SpectralMixConfig.save();
+    }
+
     public static Screen create(Screen parent) {
         ConfigBuilder builder = ConfigBuilder.create()
                 .setParentScreen(parent)
@@ -36,7 +42,7 @@ public final class ClothConfigScreen {
                 .setShouldListSmoothScroll(true)
                 .setAlwaysShowTabs(true)
                 .setDoesConfirmSave(false)
-                .setSavingRunnable(ClientConfigAccess::save);
+                .setSavingRunnable(ClothConfigScreen::saveAll);
 
         ConfigEntryBuilder entries = builder.entryBuilder();
         general(builder, entries);
@@ -46,6 +52,7 @@ public final class ClothConfigScreen {
         smoothing(builder, entries);
         performance(builder, entries);
         advancedRuntime(builder, entries);
+        spectralMix(builder, entries);
         debugValidation(builder, entries);
         return builder.build();
     }
@@ -464,6 +471,37 @@ public final class ClothConfigScreen {
         sync.add(extendedIntervalEntry(entries, "Stale group cleanup", "SYNC_STALE_GROUP_MS", 5000, 250, 30000,
                 "Age after which an abandoned pending group is discarded. Hotfix3 = 5000 ms."));
         category.addEntry(sync.build());
+    }
+
+    private static void spectralMix(ConfigBuilder builder, ConfigEntryBuilder entries) {
+        ConfigCategory category = builder.getOrCreateCategory(t("Synchronized Mix (Experimental)"));
+        category.addEntry(entries.startTextDescription(
+                        t("V2 targets spectral stacking only. It never changes OpenAL source volume, position, or reverb-send filters."))
+                .setColor(DESCRIPTION)
+                .build());
+        category.addEntry(entries.startTextDescription(
+                        t("OFF is the known-good Phase 5 behavior. Enable only for the synchronized multi-speaker test."))
+                .setColor(8374527)
+                .build());
+        category.addEntry(entries.startBooleanToggle(t("Compensate synchronized spectral mud"), SpectralMixConfig.enabled())
+                .setDefaultValue(false)
+                .setTooltip(tip(
+                        "When a genuinely clear synchronized peer exists, only heavily low-passed copies receive a small direct-cutoff lift.",
+                        "No source gain or positional panning is changed."))
+                .setSaveConsumer(SpectralMixConfig::setEnabled)
+                .build());
+        category.addEntry(entries.startDoubleField(t("Clear-peer cutoff threshold"), SpectralMixConfig.peerClearCutoff())
+                .setDefaultValue(0.65D).setMin(0.0D).setMax(1.0D)
+                .setSaveConsumer(SpectralMixConfig::setPeerClearCutoff)
+                .build());
+        category.addEntry(entries.startDoubleField(t("Group clarity floor ratio"), SpectralMixConfig.clarityFloorRatio())
+                .setDefaultValue(0.18D).setMin(0.0D).setMax(0.75D)
+                .setSaveConsumer(SpectralMixConfig::setClarityFloorRatio)
+                .build());
+        category.addEntry(entries.startDoubleField(t("Maximum cutoff lift"), SpectralMixConfig.maxCutoffLift())
+                .setDefaultValue(0.12D).setMin(0.0D).setMax(0.75D)
+                .setSaveConsumer(SpectralMixConfig::setMaxCutoffLift)
+                .build());
     }
 
     private static void debugValidation(ConfigBuilder builder, ConfigEntryBuilder entries) {
