@@ -16,16 +16,17 @@ import org.slf4j.LoggerFactory;
 @Mod(value = CCHQSoundPhysicsCompat.MOD_ID, dist = Dist.CLIENT)
 public final class CCHQSoundPhysicsCompat {
     public static final String MOD_ID = "cchq_soundphysics_compat";
-    public static final String VERSION = "0.1.0-beta11-phase5-mixv2-test";
+    public static final String VERSION = "0.1.0-beta11-phase5-sync-hf50-test";
     private static final Logger LOGGER = LoggerFactory.getLogger("CC:HQ Sound Physics Compat");
 
     public CCHQSoundPhysicsCompat(ModContainer container) {
         container.registerConfig(ModConfig.Type.CLIENT, ClientConfig.SPEC, "cchq_soundphysics_compat-client.toml");
         container.registerConfig(ModConfig.Type.CLIENT, ExtendedClientConfig.SPEC, "cchq_soundphysics_compat-advanced.toml");
-        container.registerConfig(ModConfig.Type.CLIENT, SpectralMixConfig.SPEC, "cchq_soundphysics_compat-spectral-mix.toml");
+        // New filename prevents a stale mix-v2 enabled/default state from deciding this A/B.
+        container.registerConfig(ModConfig.Type.CLIENT, SpectralMixConfig.SPEC, "cchq_soundphysics_compat-sync-hf50.toml");
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigScreenFactory::create);
         DebugCommands.init();
-        LOGGER.info("CC:HQ Sound Physics Compat {} initialized; known-good Phase 5 behavior remains default; experimental spectral sync-mix v2 available", VERSION);
+        LOGGER.info("CC:HQ Sound Physics Compat {} initialized; guarded synchronized HF50 candidate enabled for validation", VERSION);
         if (ExtendedClientConfig.logConfig()) {
             LOGGER.info("Phase 5 advanced config: {} {}", ExtendedClientConfig.summary(), SpectralMixConfig.summary());
         }
