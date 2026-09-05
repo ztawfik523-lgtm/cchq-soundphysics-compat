@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory;
 @Mod(value = CCHQSoundPhysicsCompat.MOD_ID, dist = Dist.CLIENT)
 public final class CCHQSoundPhysicsCompat {
     public static final String MOD_ID = "cchq_soundphysics_compat";
-    public static final String VERSION = "0.1.0-beta11-phase5-diffraction-v6-energy-test";
+    public static final String VERSION = "0.1.0-beta11-phase5-diffraction-v7-1-spreading-only-test";
     private static final Logger LOGGER = LoggerFactory.getLogger("CC:HQ Sound Physics Compat");
 
     public CCHQSoundPhysicsCompat(ModContainer container) {
@@ -26,10 +26,10 @@ public final class CCHQSoundPhysicsCompat {
         // Carry forward the runtime-approved configurable HF50 behavior unchanged.
         container.registerConfig(ModConfig.Type.CLIENT, SpectralMixConfig.SPEC, "cchq_soundphysics_compat-sync-hf50.toml");
         // Fresh V6 filename prevents any V1-V5 experimental values from altering the portal-energy test.
-        container.registerConfig(ModConfig.Type.CLIENT, DiffractionConfig.SPEC, "cchq_soundphysics_compat-diffraction-v6-energy-test.toml");
+        container.registerConfig(ModConfig.Type.CLIENT, DiffractionConfig.SPEC, "cchq_soundphysics_compat-diffraction-v7-1-spreading-only-test.toml");
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigScreenFactory::create);
         DebugCommands.init();
-        LOGGER.info("CC:HQ Sound Physics Compat {} initialized; approved HF50 preserved, V6 aperture-energy diffraction test available and OFF by default", VERSION);
+        LOGGER.info("CC:HQ Sound Physics Compat {} initialized; approved HF50 preserved, V7.1 spreading-only aperture-energy diffraction test available and OFF by default", VERSION);
         if (ExtendedClientConfig.logConfig()) {
             LOGGER.info("Phase 5 advanced config: {} {} {}", ExtendedClientConfig.summary(), SpectralMixConfig.summary(), DiffractionConfig.summary());
         }

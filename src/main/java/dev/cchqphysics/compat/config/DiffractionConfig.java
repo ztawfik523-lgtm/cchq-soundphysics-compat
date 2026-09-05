@@ -2,7 +2,7 @@ package dev.cchqphysics.compat.config;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
 
-/** Experimental V6 aperture-energy diffraction model. */
+/** Experimental V7.1 spreading-only aperture-energy model. */
 public final class DiffractionConfig {
     public static final ModConfigSpec SPEC;
 
@@ -14,6 +14,7 @@ public final class DiffractionConfig {
     private static final ModConfigSpec.DoubleValue PORTAL_ACTIVATION_RAW;
     private static final ModConfigSpec.DoubleValue LOW_DELTA_SCALE;
     private static final ModConfigSpec.DoubleValue HIGH_DELTA_SCALE;
+    private static final ModConfigSpec.DoubleValue APERTURE_SPREAD_SCALE;
     private static final ModConfigSpec.DoubleValue HORIZON_FADE_START_RATIO;
     private static final ModConfigSpec.DoubleValue CANDIDATE_SEPARATION;
     private static final ModConfigSpec.DoubleValue SELECTION_HYSTERESIS;
@@ -23,10 +24,10 @@ public final class DiffractionConfig {
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
-        builder.push("portal_diffraction_v6_test");
+        builder.push("portal_diffraction_v7_1_spreading_only_test");
 
         ENABLED = builder.comment(
-                "Experimental Phase-5 V6 aperture-energy diffraction model.",
+                "Experimental Phase-5 V7.1 spreading-only aperture-energy model.",
                 "OFF by default. The normal progressive direct path remains authoritative.",
                 "A verified opening only adds a bounded secondary energy contribution; it never replaces the direct path.",
                 "Never changes source position, playback timing, synchronized starts, reflection routing, or reverb sends.")
@@ -67,6 +68,12 @@ public final class DiffractionConfig {
                 "Path-length-difference scale for the high-band diffraction approximation.",
                 "Smaller than the low-band scale so highs attenuate more strongly as the detour worsens.")
                 .defineInRange("high_delta_scale", 1.5D, 0.05D, 32.0D);
+
+        APERTURE_SPREAD_SCALE = builder.comment(
+                "Softened inverse-distance amplitude scale for explicit roof-opening leakage into the listener enclosure.",
+                "This multiplies the exact V6 portal amplitude only; it does not alter V6 portal-leg spectral/transmission math.",
+                "Implicit open-top geometry uses zero aperture distance in this isolated test to preserve the V6 open-top result.")
+                .defineInRange("aperture_spread_scale", 3.0D, 0.25D, 16.0D);
 
         HORIZON_FADE_START_RATIO = builder.comment(
                 "Fraction of search radius where an artificial scan-horizon fade begins.",
@@ -125,6 +132,7 @@ public final class DiffractionConfig {
     public static double portalActivationRaw() { return d(PORTAL_ACTIVATION_RAW, 2.0D); }
     public static double lowDeltaScale() { return d(LOW_DELTA_SCALE, 4.0D); }
     public static double highDeltaScale() { return d(HIGH_DELTA_SCALE, 1.5D); }
+    public static double apertureSpreadScale() { return d(APERTURE_SPREAD_SCALE, 3.0D); }
     public static double horizonFadeStartRatio() { return d(HORIZON_FADE_START_RATIO, 0.75D); }
     public static double selectionHysteresis() { return d(SELECTION_HYSTERESIS, 0.35D); }
     public static double candidateSeparationSq() {
@@ -147,7 +155,7 @@ public final class DiffractionConfig {
 
     public static String summary() {
         return "diffraction=" + enabled()
-                + " portalV6=true"
+                + " portalV7_1=true"
                 + " minSourceAbove=" + minSourceAboveListener()
                 + " clearance=" + escapeClearance()
                 + " openingRadius=" + openingSearchRadius()
@@ -155,6 +163,7 @@ public final class DiffractionConfig {
                 + " portalActivationRaw=" + portalActivationRaw()
                 + " lowDeltaScale=" + lowDeltaScale()
                 + " highDeltaScale=" + highDeltaScale()
+                + " apertureSpreadScale=" + apertureSpreadScale()
                 + " horizonFadeStart=" + horizonFadeStartRatio()
                 + " candidateSeparation=" + Math.sqrt(candidateSeparationSq())
                 + " selectionHysteresis=" + selectionHysteresis()

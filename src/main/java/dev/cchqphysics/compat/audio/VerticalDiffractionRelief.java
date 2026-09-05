@@ -16,7 +16,7 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Experimental V6 opening diffraction model.
+ * Experimental V7.1 spreading-only opening diffraction model.
  *
  * Unlike V3-V5, an alternate opening route never replaces the normal direct
  * occlusion result. A verified aperture contributes a bounded secondary energy
@@ -148,15 +148,16 @@ final class VerticalDiffractionRelief {
 
             double lowDiff = diffractionStrength(candidate.delta, DiffractionConfig.lowDeltaScale());
             double highDiff = diffractionStrength(candidate.delta, DiffractionConfig.highDeltaScale());
+            double spread = apertureSpreading(candidate.apertureDistance, DiffractionConfig.apertureSpreadScale());
             double activation = smoothStep(clamp01(raw / Math.max(1.0E-6D, DiffractionConfig.portalActivationRaw())));
-            double coupling = DiffractionConfig.portalCoupling() * activation * candidate.horizonFade;
+            double coupling = DiffractionConfig.portalCoupling() * activation * candidate.horizonFade * spread;
 
             double lowAmplitude = coupling * pathGain * lowDiff;
             double highAmplitude = coupling * pathGain * pathCutoff * highDiff;
-            double quality = candidate.horizonFade / (1.0D + candidate.delta + 0.5D * legRaw);
+            double quality = candidate.horizonFade * spread / (1.0D + candidate.delta + 0.5D * legRaw);
 
             verified.add(new VerifiedPortal(candidate, lower.value, upper.value, legRaw,
-                    lowDiff, highDiff, lowAmplitude, highAmplitude,
+                    lowDiff, highDiff, spread, lowAmplitude, highAmplitude,
                     Math.max(1.0E-9D, quality), lower.cached && upper.cached));
         }
 
@@ -194,7 +195,7 @@ final class VerticalDiffractionRelief {
                 .orElse(verified.get(0));
         Snapshot snapshot = Snapshot.gated(raw, center, vertical, horizontal,
                 adjustedGain > gain + 1.0E-4F || adjustedCutoff > cutoff + 1.0E-4F
-                        ? "applied-portal-energy-v6" : "portal-energy-negligible");
+                        ? "applied-portal-energy-v7-1" : "portal-energy-negligible");
         snapshot.applied = adjustedGain > gain + 1.0E-4F || adjustedCutoff > cutoff + 1.0E-4F;
         snapshot.directDistance = best.candidate.directDistance;
         snapshot.routeDistance = best.candidate.routeDistance;
@@ -204,6 +205,7 @@ final class VerticalDiffractionRelief {
         snapshot.crossLeg = best.upperLeg;
         snapshot.lowDiff = best.lowDiff;
         snapshot.highDiff = best.highDiff;
+        snapshot.spread = best.spread;
         snapshot.portalLowAmplitude = Math.sqrt(portalLowEnergy);
         snapshot.portalHighAmplitude = Math.sqrt(portalHighEnergy);
         snapshot.candidateCount = candidates.size();
@@ -234,7 +236,7 @@ final class VerticalDiffractionRelief {
             double route = listener.distanceTo(waypoint) + source.distanceTo(waypoint);
             double delta = Math.max(0.0D, route - directDistance);
             CandidateKey key = new CandidateKey(floor(listener.x), floor(y), floor(listener.z), true);
-            result.add(new PortalCandidate(key, waypoint, waypoint, 0.0D,
+            result.add(new PortalCandidate(key, waypoint, waypoint, 0.0D, 0.0D,
                     directDistance, route, delta, 1.0D));
             return result;
         }
@@ -255,7 +257,7 @@ final class VerticalDiffractionRelief {
             if (fade <= 1.0E-5D) continue;
             CandidateKey key = new CandidateKey(opening.x, topology.barrierY, opening.z, false);
             result.add(new PortalCandidate(key, lowerWaypoint, upperWaypoint, opening.radius,
-                    directDistance, route, delta, fade));
+                    listener.distanceTo(lowerWaypoint), directDistance, route, delta, fade));
         }
         return result;
     }
@@ -363,6 +365,7 @@ final class VerticalDiffractionRelief {
 
         OpeningTopology result = new OpeningTopology(baseX, baseY, baseZ, scanTopY,
                 now, barrierY, openings.toArray(new OpeningCandidate[0]), blockChecks, false);
+        PerformanceStats.recordPortalTopologyScan(blockChecks);
         synchronized (VerticalDiffractionRelief.class) {
             topologyCache = result;
             pruneCaches(now);
@@ -396,7 +399,7 @@ final class VerticalDiffractionRelief {
             }
         }
 
-        double value = runOcclusion(listener, candidate.lowerWaypoint);
+        double value = runOcclusion(listener, candidate.lowerWaypoint, true);
         synchronized (VerticalDiffractionRelief.class) {
             LOWER_LEG_CACHE.put(key, new LegCache(now,
                     listener.x, listener.y, listener.z,
@@ -424,7 +427,7 @@ final class VerticalDiffractionRelief {
             }
         }
 
-        double value = runOcclusion(source, candidate.upperWaypoint);
+        double value = runOcclusion(source, candidate.upperWaypoint, false);
         synchronized (VerticalDiffractionRelief.class) {
             CROSS_LEG_CACHE.put(key, new LegCache(now,
                     source.x, source.y, source.z,
@@ -434,9 +437,13 @@ final class VerticalDiffractionRelief {
         return new LegSample(value, false);
     }
 
-    private static double runOcclusion(Vec3 from, Vec3 to) throws Exception {
-        PerformanceStats.recordOcclusionPath();
-        return Beta10Optimizer.runOcclusionDirect(from, to);
+    private static double runOcclusion(Vec3 from, Vec3 to, boolean lowerLeg) throws Exception {
+        long start = System.nanoTime();
+        try {
+            return Beta10Optimizer.runOcclusionDirect(from, to);
+        } finally {
+            PerformanceStats.recordPortalOcclusionPath(System.nanoTime() - start, lowerLeg);
+        }
     }
 
     private static void pruneCaches(long now) {
@@ -499,6 +506,7 @@ final class VerticalDiffractionRelief {
                     + " crossLeg=" + r3(s.crossLeg)
                     + " lowDiff=" + r3(s.lowDiff)
                     + " highDiff=" + r3(s.highDiff)
+                    + " spread=" + r3(s.spread)
                     + " portalLow=" + r3(s.portalLowAmplitude)
                     + " portalHigh=" + r3(s.portalHighAmplitude)
                     + " candidates=" + s.candidateCount
@@ -532,6 +540,11 @@ final class VerticalDiffractionRelief {
     private static double diffractionStrength(double delta, double scale) {
         double safeScale = Math.max(1.0E-6D, scale);
         return 1.0D / Math.sqrt(1.0D + Math.max(0.0D, delta) / safeScale);
+    }
+
+    private static double apertureSpreading(double distance, double scale) {
+        double safeScale = Math.max(1.0E-6D, scale);
+        return safeScale / (safeScale + Math.max(0.0D, distance));
     }
 
     private static double horizonFade(double radius, double maxRadius, double startRatio) {
@@ -603,6 +616,7 @@ final class VerticalDiffractionRelief {
                                    Vec3 lowerWaypoint,
                                    Vec3 upperWaypoint,
                                    double radius,
+                                   double apertureDistance,
                                    double directDistance,
                                    double routeDistance,
                                    double delta,
@@ -629,6 +643,7 @@ final class VerticalDiffractionRelief {
                                   double legRaw,
                                   double lowDiff,
                                   double highDiff,
+                                  double spread,
                                   double lowAmplitude,
                                   double highAmplitude,
                                   double quality,
@@ -664,6 +679,7 @@ final class VerticalDiffractionRelief {
         double crossLeg = Double.NaN;
         double lowDiff = Double.NaN;
         double highDiff = Double.NaN;
+        double spread = Double.NaN;
         double portalLowAmplitude = Double.NaN;
         double portalHighAmplitude = Double.NaN;
         int candidateCount;
