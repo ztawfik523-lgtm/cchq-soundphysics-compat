@@ -4,10 +4,10 @@ license="MIT"
 
 [[mods]]
 modId="cchq_soundphysics_compat"
-version="0.1.0-beta11-phase5-sync-hf50-test"
+version="0.1.0-beta11-phase5-sync-hf50-config-test"
 displayName="CC:HQ Sound Physics Compat"
 authors="CC:HQ / Sound Physics compatibility"
-description='''Phase 5 synchronized direct-HF candidate derived from the user's HF dose A/B. When a synchronized source is strongly low-passed, a clear synchronized peer exists, and the spectral gap is large, the candidate lifts only that source's direct low-pass cutoff halfway toward the clearest peer, capped for safety. It never changes source gain, source position, reverb-send filters, PCM timing, or synchronized start behavior.'''
+description='''Phase 5 configurable synchronized direct-HF candidate derived from the user's HF dose A/B. When a synchronized source is strongly low-passed, a clear synchronized peer exists, and the spectral gap is large, the candidate raises only that source's direct low-pass cutoff toward the clearest peer. The dark-source gate, clear-peer gate, minimum gap, lift strength, and maximum lift are configurable; validated defaults reproduce the approved HF50 candidate. It never changes source gain, source position, reverb-send filters, PCM timing, or synchronized start behavior.'''
 
 [[mixins]]
 config="cchq_soundphysics_compat.mixins.json"
@@ -47,5 +47,5 @@ side="CLIENT"
 modId="cloth_config"
 type="optional"
 versionRange="[15.0.140,)"
-ordering="AFTER"
+ordering="NONE"
 side="CLIENT"
