@@ -1,92 +1,135 @@
 # Phase 5 current status — 2026-09-05
 
-Phase 5 remains **IN PROGRESS**. The reconstructed source and known-good runtime candidate are preserved; two optional synchronized-mix experiments and one current reflection/coloration diagnostic branch are isolated from that baseline.
+Phase 5 remains **IN PROGRESS**. Core runtime validation is already strong and all frozen rollback/parity refs remain preserved. The active investigation has moved past reflected-position Issue A into a read-only synchronized timing + acoustic-send diagnostic.
 
 ## Preserved baselines
 
-- Phase 4 Hotfix3 parity branch: `phase4-hotfix3-parity`
-  - frozen head: `79eed29767343ee34022e8f6268b386f75e84c9f`
-- archival Phase 4 ref: `archive-phase4-hotfix3-parity`
-  - same frozen head
-- known-good Phase 5 runtime candidate: `phase5-test-candidate-1`
-  - frozen head: `44612192d875e43ecef66ca51798cab7adb17020`
-  - verified JAR SHA-256: `6d782812f7915de1870a8b5ae0f619556e7ec1d24ef2eaffa7b5b225aa00bd93`
-  - user runtime tests established clean startup, source lifecycle, private EFX isolation, wall/doorway behavior, movement, stress behavior, synchronized starts, safe cache/room reset behavior, and normal shutdown
+- Phase 4 Hotfix3 parity: `phase4-hotfix3-parity` → `79eed29767343ee34022e8f6268b386f75e84c9f`
+- archival Phase 4 ref: `archive-phase4-hotfix3-parity` → same frozen head
+- known-good Phase 5 runtime candidate: `phase5-test-candidate-1` → `44612192d875e43ecef66ca51798cab7adb17020`
+- reviewed Issue-A runtime source: `phase5-issue-a-test-candidate-2` → `973f1df7dad886fb0f5fffd4264015fecac2e786`
+- V2 frozen experiment: `phase5-mix-v2-test-candidate` → `ab1e1e70a13ebb6f3dadd30581b069f06a15142a`
 
-No experiment below changes those frozen refs.
+No current diagnostic changes any frozen ref.
 
-## Synchronized-mix experiments
+## Issue A — reflection result
 
-### V1 — rejected
+Verified Issue-A JAR:
 
-The first multi-speaker compensation experiment reduced whole-source gain for strongly occluded synchronized copies. Runtime listening showed that although the combined mix could sound more balanced spectrally, the algorithm distorted spatial weighting and could pull the apparent image toward a clearer side speaker. This design is rejected; it is retained only as historical evidence.
+- identity: `0.1.0-beta11-phase5-issuea-test`
+- SHA-256: `d649f14cdce89db21a79c396dbdecca681daf3d0389dc794a7ad52929f8c8451`
+- source: `973f1df7dad886fb0f5fffd4264015fecac2e786`
+- workflow run `33935819269`: **SUCCESS**
 
-### V2 — preserved, not accepted yet
+User runtime evidence on 2026-09-05:
 
-Branch/test candidate: `phase5-mix-v2-test-candidate`
+- standalone source `2` reached a real reflected-position redirect with `requestedRedirect=true`, `redirectActive=true`, `offset=2.50`, and occlusion about `3.56`;
+- toggling reflection ON/OFF did **not** produce/remove the hard-to-name brightness/reverb/coloration;
+- the user reported reflection ON gave **more accurate spatial direction**;
+- during a synchronized reproduction snapshot, all four active sources had zero reflected-position offset / no active requested redirect.
 
-Exact frozen source commit: `ab1e1e70a13ebb6f3dadd30581b069f06a15142a`
+Interpretation: reflected-position redirection is **strongly weakened/exonerated for the reproduced coloration** and currently appears useful for localization. Do not remove or retune reflection on this evidence.
 
-Verified V2 JAR SHA-256: `bba8d93e696403ae857dd155db2969c7591886aa1e8734b0b949f1a749c8319c`
+## Clarified remaining sync theory
 
-V2 avoids source gain and position changes. It only provides a conservative bounded lift to extremely low direct low-pass cutoff values when a genuinely clear peer exists in the same synchronized group. Independent verification proved its build reproducible and byte-identical across two builds.
+The user's original "wrong syncing" theory means **micro-desync**: one synchronized copy may be slightly ahead of or behind the others, creating comb-filter/phase-like brightness, smear, or fake-reverb perception.
 
-Runtime listening was technically healthy, but the user still noticed a hard-to-name reverb/treble/spatial coloration that had already been present before V2 was enabled. Therefore V2 is preserved but not yet promoted to the maintained final candidate.
+This is distinct from the second remaining hypothesis: synchronized copies may be time-aligned but receive materially different direct filters and reverb-send states.
 
-## Issue A — reflected-position/coloration investigation
+The two hypotheses should be measured in the **same playback session** but interpreted independently:
 
-Working branch: `phase5-issue-a-reflection-diagnostics`
+1. **micro-desync hypothesis** — actual OpenAL playback-cursor skew;
+2. **correlated acoustic-mix hypothesis** — aligned copies with materially different direct + reverb-send processing.
 
-Known-good base: `44612192d875e43ecef66ca51798cab7adb17020`
+If both appear, timing is isolated first because timing error changes the perceptual result of any acoustic A/B.
 
-Reviewed frozen test branch: `phase5-issue-a-test-candidate-2`
+## Current diagnostic branch
 
-Exact reviewed/test source commit: `973f1df7dad886fb0f5fffd4264015fecac2e786`
+Branch:
 
-Build identity: `0.1.0-beta11-phase5-issuea-test`
+`phase5-sync-acoustic-diagnostics`
 
-Verified Issue-A JAR SHA-256: `d649f14cdce89db21a79c396dbdecca681daf3d0389dc794a7ad52929f8c8451`
+Exact runtime-source commit:
 
-Verification run `33935819269` / job `101223434623` completed **SUCCESS**. Static/build verification is therefore finished; Issue A is now **awaiting user A/B listening evidence**.
+`95bd4b06b78786d4f7b1ad33b665f4685e45a54b`
 
-Purpose: determine whether the perceived coloration is caused by one or more occluded synchronized sources being spatially redirected toward SPR reflected positions while other copies remain clear, versus spectral summation or room/reverb-send behavior.
+Identity:
 
-This branch intentionally excludes both synchronized-mix experiments.
+`0.1.0-beta11-phase5-syncdiag-test`
 
-Current diagnostic additions:
+The branch is based on the verified Issue-A/docs lineage and preserves all known-good acoustic/sync behavior. The diagnostic additions are read-only:
 
-- runtime-only `/cchqphysics reflection_redirect on|off|status`
-- per-source `/cchqphysics reflection_redirect source <sourceId> on|off|auto|status`
-- startup default remains **ON**, matching known-good behavior
-- per-source overrides are cleared when that OpenAL source unregisters
-- `/cchqphysics dump` records real/applied/reflected positions, redirect offset/state, normal source state, and private-EFX direct state
-- the first reflective private-state inspector was removed; current diagnostics use compile-checked package-local paths
+- existing `EnvironmentSmoother` typed state now prints applied `r0..r3` and `h0..h3` during `/cchqphysics dump`;
+- a sound-thread cursor snapshot reads OpenAL source state, buffer id, buffer sample rate, `AL_SAMPLE_OFFSET`, and `AL_SEC_OFFSET`;
+- source cursor reads are performed in ascending and descending order and normalized to the query-window midpoint to reduce sequential-read skew;
+- sources sharing one OpenAL buffer receive a frame/ms spread summary.
 
-External review findings were incorporated before the final verified build: global-only A/B was expanded to per-source isolation, fragile reflective state access was removed, stale inherited Phase-5 docs were corrected, and obsolete one-shot Phase-5 patch scripts were removed.
+No playback offset, PCM, source state, gain, position, reflection setting, direct filter, reverb-send filter, room scheduling, or sync release is written by the new diagnostic.
 
-Detailed procedure and interpretation rules:
+## Verification
 
-- `docs/PHASE5_ISSUE_A_REFLECTION_DIAGNOSTICS.md`
-- `docs/PHASE5_ISSUE_A_BUILD_RECORD.md`
+GitHub Actions:
 
-## Separate elevation issue
+- workflow: `Phase 5 synchronized timing and acoustic diagnostics verification`
+- run: `33939999239`
+- job: `101235407189`
+- exact head SHA: `95bd4b06b78786d4f7b1ad33b665f4685e45a54b`
+- result: **SUCCESS**
+- clean Java compile: **SUCCESS**
+- JAR build: **SUCCESS**
+- artifact inspection/upload: **SUCCESS**
 
-The user also identified excessive muffling when the listener is vertically separated from a nearby speaker by open terrain geometry such as standing down in an open-topped hole. Logs showed very high straight-line occlusion values in that scenario. Source inspection shows the current progressive model samples center + 16 surrounding rays in three dimensions, but all paths remain straight source-to-listener rays and therefore cannot model diffraction/path-around-edge propagation.
+Artifact:
 
-This is a separate future experiment. No elevation/diffraction correction is included in Issue A.
+- name: `cchq-phase5-sync-acoustic-diagnostics`
+- artifact id: `9961502178`
+- artifact digest: `sha256:d721d21f164ed9ce7652f9973e9f824b932d82a7e2d719be44a50c88a3ee1373`
+- JAR: `cchq_soundphysics_compat-0.1.0-beta11-phase5-syncdiag-test.jar`
+- independently rechecked JAR SHA-256: `1910778a12219f84e5ad5a71449e353e99f89ef572fb599a3bc79bc568fcdb9e`
+- class count: `70`
 
-## Immediate next action
+Embedded build metadata records:
 
-Use the verified Issue-A JAR and run the documented A/B matrix:
+- `audio_behavior_mutation=false`
+- `typed_reverb_send_telemetry=true`
+- `openal_cursor_telemetry=true`
+- `reflection_diagnostics_retained=true`
+- `spectral_mix_v1_included=false`
+- `spectral_mix_v2_included=false`
+- `game_launch_performed=false`
 
-1. one standalone speaker with a real non-zero reflected-position offset — reflection ON vs OFF;
-2. synchronized 4-speaker scene — global ON vs OFF only as a coarse sanity check;
-3. synchronized scene — identify the largest redirected source with `/cchqphysics dump`, disable reflection only for that source, and compare without moving.
+See:
 
-The third test is the primary deciding evidence. If disabling one redirected synchronized source reliably removes or changes the reported coloration, reflected-position interaction is implicated. If it does not, the next diagnostic revision should add typed room/reverb-send telemetry (`r0..r3`, `h0..h3`) rather than altering acoustics by guesswork.
+- `docs/PHASE5_SYNC_ACOUSTIC_DIAGNOSTICS.md`
+- `docs/PHASE5_SYNC_ACOUSTIC_BUILD_RECORD.md`
+- `docs/CHATGPT_HANDOFF_2026-09-05_SYNC_DIAG.md`
+
+## Immediate user runtime test
+
+Use the synchronized setup where the unwanted brightness/reverb/spatial coloration is clearly audible.
+
+1. Keep player and speakers stationary.
+2. Start synchronized playback normally.
+3. While the coloration is audible, run `/cchqphysics dump`.
+4. Repeat `/cchqphysics dump` two more times, about 1–2 seconds apart, without moving or restarting playback.
+5. Send `latest.log` and state whether the coloration remained audible during the three snapshots.
+
+No reflection toggles and no source-ID selection are required for this test.
+
+Interpretation uses:
+
+- `[phase5/syncdiag/timing]` for actual cursor spread;
+- `[phase5/syncdiag/cursor]` for per-source cursor estimates;
+- `[phase5/source-efx]` for `r0..r3`, `h0..h3`, direct cutoff and gain.
+
+No runtime conclusion should be recorded until the user performs this test.
+
+## Separate elevation / diffraction issue
+
+The open-top-hole / vertical-separation over-occlusion problem remains separate. It is a straight-ray/diffraction limitation and is not included in the synchronized timing/acoustic diagnostic.
 
 ## Closure rule
 
-Do not mark Phase 5 **COMPLETE / RECHECKED** until Issue A is resolved or explicitly accepted as a known limitation, the elevation decision is made, and the final maintained candidate is frozen and verified. The known-good candidate remains the rollback authority throughout experimental work.
+Do not mark Phase 5 **COMPLETE / RECHECKED** until the synchronized-coloration cause is resolved or accepted as a limitation, the elevation decision is made, the V2 decision is made, and the final maintained candidate is frozen and verified.
 
 Do not merge to `main` without explicit user approval.
