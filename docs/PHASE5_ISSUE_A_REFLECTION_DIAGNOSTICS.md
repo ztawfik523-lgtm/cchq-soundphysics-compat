@@ -106,7 +106,7 @@ Interpretation:
 - if coloration changes clearly with only one source, reflected positioning itself is audible in the reported way;
 - if it does not, the problem is more likely related to correlated multi-source mixing.
 
-### Test B — synchronized group, global A/B
+### Test B — synchronized group, global A/B — coarse sanity check only
 
 1. Start the known 4-speaker synchronized setup.
 2. Keep global redirect ON; reproduce the position where the coloration is easiest to hear.
@@ -115,11 +115,13 @@ Interpretation:
 5. Run `/cchqphysics dump`.
 6. Restore global redirect ON.
 
-Interpretation:
+Methodological limitation:
 
-- if only the synchronized group changes, correlated copies are an important part of the symptom.
+This is **not independent evidence for the multi-source interaction hypothesis**. If Test A already proves that reflection redirect is audible for one source, then changing every source at once in Test B is expected to change the synchronized mix whether or not correlated-source interaction is the real cause of the reported coloration.
 
-### Test C — synchronized group, one-source isolation
+Treat Test B only as a coarse sanity check that the global control produces an audible/state change in the multi-source scene. Do not use a positive Test B result by itself to conclude that correlated copies are the cause.
+
+### Test C — synchronized group, one-source isolation — primary deciding test
 
 1. With the synchronized group playing and global redirect ON, run `/cchqphysics dump`.
 2. Identify a source showing `requestedRedirect=true`, `redirectActive=true`, and the largest meaningful applied offset.
@@ -131,8 +133,41 @@ Interpretation:
 
 Interpretation:
 
-- if disabling one redirected member removes or substantially changes the coloration, the source-specific reflected-position interaction is strongly implicated;
-- if nothing changes, reflected positioning is unlikely to be the main cause and the next investigation should instrument room/reverb send values directly.
+- **strong change / symptom disappears:** the source-specific reflected-position interaction is strongly implicated;
+- **partial change:** this is a valid result, not a failed test. It may mean more than one redirected source contributes to the coloration. Follow with a complement test rather than rejecting the hypothesis;
+- **no reproducible change:** reflected positioning is unlikely to be the main cause and the next investigation should instrument room/reverb send values directly.
+
+#### Complement test after a partial result
+
+If disabling only the largest-offset source produces only a partial improvement:
+
+1. restore every source to `auto`;
+2. capture a fresh dump;
+3. identify the 2–3 sources with meaningful redirect offsets;
+4. test the complementary conditions deliberately, for example:
+   - target source OFF, other redirected sources AUTO;
+   - target source AUTO, other redirected sources OFF;
+   - only target source ON while the other redirected sources are OFF;
+5. keep player position and playback unchanged between conditions as much as possible.
+
+The goal is to determine whether coloration is dominated by one source or accumulated from several moderately redirected synchronized copies.
+
+#### Repeat / low-cost blind check
+
+Because the outcome is subjective, do not rely on one known-state comparison if the effect is subtle.
+
+For the final Test-C judgment, perform at least a few repeated trials. For a simple low-cost blind check, set or have the source override changed without looking at the resulting state, listen first, record whether the scene sounds like the "redirected" or "non-redirected" condition, then query `status` afterward. If the audible call does not track the actual state consistently, treat the effect as too small or uncertain to justify a behavioral change.
+
+## Evidence weighting
+
+For Issue A, weight evidence in this order:
+
+1. **Test C source-isolation/complement result** — primary deciding evidence for the correlated-source hypothesis;
+2. **Test A standalone result** — establishes whether reflected-position redirection is intrinsically audible/coloring by itself;
+3. **Test B global synchronized A/B** — coarse sanity check only, because it is confounded by changing all sources simultaneously;
+4. logs/dumps — objective support for what the source states actually were during each subjective comparison.
+
+Do not merge a reflection behavior change because Test B alone "sounds better."
 
 ## Elevation issue is separate
 
