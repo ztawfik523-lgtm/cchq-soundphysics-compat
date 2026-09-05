@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory;
 @Mod(value = CCHQSoundPhysicsCompat.MOD_ID, dist = Dist.CLIENT)
 public final class CCHQSoundPhysicsCompat {
     public static final String MOD_ID = "cchq_soundphysics_compat";
-    public static final String VERSION = "0.1.0-beta11-phase5-acousticprobe-auto-test";
+    public static final String VERSION = "0.1.0-beta11-phase5-hfdose-test";
     private static final Logger LOGGER = LoggerFactory.getLogger("CC:HQ Sound Physics Compat");
 
     public CCHQSoundPhysicsCompat(ModContainer container) {
@@ -25,7 +25,7 @@ public final class CCHQSoundPhysicsCompat {
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigScreenFactory::create);
         DebugCommands.init();
         AcousticProbeCommands.init();
-        LOGGER.info("CC:HQ Sound Physics Compat {} initialized; synchronized cursor telemetry retained; no-ID acoustic A/B probe available", VERSION);
+        LOGGER.info("CC:HQ Sound Physics Compat {} initialized; synchronized cursor telemetry retained; no-ID direct-HF dose probe available", VERSION);
         if (ExtendedClientConfig.logConfig()) {
             LOGGER.info("Phase 5 advanced config: {}", ExtendedClientConfig.summary());
         }
