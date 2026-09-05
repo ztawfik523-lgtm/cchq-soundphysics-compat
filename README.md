@@ -4,15 +4,17 @@ Compatibility layer between **CC:HQ Speakers** and **Sound Physics Remastered (S
 
 ## Current state
 
-The Beta11 Hotfix3 source reconstruction is complete. The project is now in Phase 5 finalization: stable acoustic behavior has been established, a small performance housekeeping pass has been validated, and the current lifecycle/state source has passed CI/source audit and is awaiting user runtime lifecycle validation.
+The Beta11 Hotfix3 source reconstruction is complete. The project is now in finalization: stable acoustic behavior has been established, the performance housekeeping pass is validated, and the audited lifecycle/state candidate is awaiting user runtime validation. Final release policy and the exact post-runtime cleanup/CI plan are already locked and documented.
 
 For a fresh session, read:
 
 1. `docs/NEXT_CHAT_HANDOFF_2026-09-06.md` — detailed project/history handoff
 2. `docs/LIFECYCLE_SOURCE_AUDIT_2026-09-06.md` — superseding lifecycle source/JAR checkpoint
-3. `docs/RELEASE_CLEANUP_AUDIT_2026-09-06.md` — release-cleanup inventory and decisions
-4. `RECONSTRUCTION_STATUS.md` — compact current status
-5. `docs/BETA11_RECONSTRUCTION_HANDOFF.md` — durable reconstruction/Phase 5 background
+3. `docs/RELEASE_CLEANUP_AUDIT_2026-09-06.md` — release-cleanup inventory
+4. `docs/RELEASE_POLICY_LOCK_2026-09-06.md` — locked final-release decisions and mandatory final smoke-test rule
+5. `docs/FINAL_RELEASE_EXECUTION_PLAN_2026-09-06.md` — exact post-lifecycle release transformation/CI plan
+6. `RECONSTRUCTION_STATUS.md` — compact current status
+7. `docs/BETA11_RECONSTRUCTION_HANDOFF.md` — durable reconstruction/Phase 5 background
 
 Older phase documents remain useful as audit history.
 
@@ -92,9 +94,50 @@ Class count: 81.
 
 The previous lifecycle candidate SHA `6d0fa98e...` is superseded. Future runtime lifecycle testing should use the `4b3c8c52...` candidate.
 
-The candidate still carries development/test-era internal naming. Release naming/default/config-presentation cleanup is being audited separately and is intentionally not applied before the runtime lifecycle gate.
+---
 
-See `docs/LIFECYCLE_SOURCE_AUDIT_2026-09-06.md` for the exact source findings and `docs/RELEASE_CLEANUP_AUDIT_2026-09-06.md` for release decisions that remain open.
+## Locked final-release policy
+
+The release decisions are no longer open-ended. After the lifecycle candidate passes runtime, the final transformation will use:
+
+- private-mod version `0.1.0`;
+- centralized version identity from `mod_version`;
+- accepted V7.1 diffraction **ON by default**;
+- clean diffraction config filename `cchq_soundphysics_compat-diffraction.toml`;
+- clean diffraction root key `portal_diffraction`;
+- **no migration** from the old `...v7-1-spreading-only-test.toml` config/root;
+- clean user-facing names without Phase/Beta/test/candidate wording where it is merely presentation;
+- preserved persisted internal keys/log continuity where useful;
+- removal of stale static manifest `Created-By: 21.0.11 (Debian)` metadata;
+- no change to approved HF50 values, frozen V7.1 equations/parameters, the deliberate bitwise eligibility `&`, or the audited lifecycle fixes.
+
+See `docs/RELEASE_POLICY_LOCK_2026-09-06.md` and `docs/FINAL_RELEASE_EXECUTION_PLAN_2026-09-06.md` for the authoritative details.
+
+---
+
+## Two runtime gates
+
+### Gate 1 — audited lifecycle candidate
+
+The current `4b3c8c52...` candidate must first pass the full lifecycle runtime sequence.
+
+### Gate 2 — final cleaned release
+
+A clean Gate-1 result is **not** the end of runtime validation. After the final cleanup/default/config changes are applied and rebuilt, the final JAR must receive a short targeted smoke test before release freeze.
+
+That second test is required because the final build deliberately differs from the lifecycle candidate in fresh-install behavior: diffraction becomes ON by default and the old diffraction config identity is discarded.
+
+Gate 2 should verify:
+
+- new clean diffraction config generation;
+- diffraction default ON;
+- old beta diffraction config ignored;
+- basic play -> stop -> play;
+- one known V7.1 opening sanity check;
+- synchronized playback plus pause/resume;
+- no suspicious version/config/OpenAL/EFX/lifecycle errors in the logs.
+
+Do not redo the full historical acoustic campaign unless the smoke test exposes a regression.
 
 ---
 
@@ -233,7 +276,7 @@ Candidate SHA-256:
 
 `4b3c8c52cc00a37274d5829cff93933d6e548b733b83918fcc5570ab8d6ad3c5`
 
-Test sequence:
+Gate-1 sequence:
 
 1. play -> stop -> play
 2. pause -> resume
@@ -244,6 +287,6 @@ Test sequence:
 7. four speakers for several minutes while moving
 8. upload `latest.log` and `debug.log`
 
-After a clean runtime lifecycle result, resolve the release decisions in `docs/RELEASE_CLEANUP_AUDIT_2026-09-06.md`, apply final naming/presentation/default/config cleanup, rebuild, perform the final source/JAR/resource/hash audit, and create a final stable/archive checkpoint.
+After a clean Gate-1 result, execute `docs/FINAL_RELEASE_EXECUTION_PLAN_2026-09-06.md`, run final CI, then perform the mandatory short Gate-2 smoke test before freezing the release.
 
 `main` remains untouched; an eventual merge can stay a separate release decision.
