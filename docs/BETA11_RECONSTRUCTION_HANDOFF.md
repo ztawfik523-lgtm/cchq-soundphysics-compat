@@ -1,24 +1,16 @@
 # Beta11 Hotfix3 reconstruction and Phase 5 handoff
 
-> **Authoritative continuation document:** `docs/NEXT_CHAT_HANDOFF_2026-09-06.md`
+> **Current continuation document:** `docs/NEXT_CHAT_HANDOFF_2026-09-06.md`
 >
-> Read that file first in a new session. This file is now a durable project summary and pointer; older Phase 1–4 documents are historical evidence, not the current task state.
+> Read that file first in a new session. This document is the durable project summary; the phase-specific audit files remain the detailed historical evidence.
 
-## Goal
+## Project goal
 
-Maintain a complete, readable, rebuildable source-level compatibility mod for CC:HQ Speakers + Sound Physics Remastered on Minecraft 1.21.1 / NeoForge, while preserving the approved sound behavior and finishing performance, correctness, lifecycle and release work.
+Maintain a readable, rebuildable source-level compatibility layer between CC:HQ Speakers and Sound Physics Remastered on Minecraft 1.21.1 / NeoForge, while preserving the sound behavior that has already been accepted and finishing the remaining performance, lifecycle, validation and release work.
 
-The reconstruction itself is complete. The project is **not** currently reconstructing Beta11 Hotfix3.
+The Beta11 Hotfix3 reconstruction itself is complete. Current work is Phase 5 finalization rather than reconstruction.
 
-The user has frozen feature/acoustic development and explicitly wants only:
-
-- performance work that does not change sound behavior;
-- correctness/bug fixes;
-- lifecycle/stability work;
-- validation;
-- release cleanup and finishing.
-
-Do not start Beta12/Beta13 concepts, new acoustic models, new diffraction radius logic, or HF retuning.
+The user currently prefers the assistant to make ordinary implementation decisions directly, using a practical middle ground between overconservative and aggressive choices.
 
 ## Original authoritative artifact
 
@@ -28,9 +20,7 @@ SHA-256:
 
 `83500f182fc9829aa1a5a51fbfa11ba6cdfb645699b25d1c445167666dabc1ef`
 
-The exact Hotfix3 binary was the authority used to reconstruct and audit the original source behavior.
-
-## Target environment
+Target environment:
 
 - Minecraft 1.21.1
 - NeoForge 21.1.248
@@ -38,12 +28,11 @@ The exact Hotfix3 binary was the authority used to reconstruct and audit the ori
 - ModDevGradle 2.0.144
 - Gradle 9.2.1
 - CC:Tweaked 1.120.2
-- CC:HQ Speakers Modrinth project/version `ygA78R8l/u5PEI5Ax`
-- runtime HQ internal version `1.1.4-neoforge-1.21.1`
-- Sound Physics Remastered 1.21.1-1.5.1 / version `Dd2tmpsk`
-- client-only compat mod
+- CC:HQ Speakers `ygA78R8l/u5PEI5Ax`, runtime `1.1.4-neoforge-1.21.1`
+- Sound Physics Remastered 1.21.1-1.5.1 / `Dd2tmpsk`
+- client-side compatibility mod
 
-Runtime SPR remains untouched. The build uses an isolated AT-transformed SPR compile copy because exact compat source calls members widened by the access transformer.
+Runtime SPR remains the untouched tested artifact. The build uses an isolated access-transformed SPR compile copy because the exact reconstructed source accesses members widened by the compat access transformer.
 
 ## Reconstruction status
 
@@ -53,7 +42,7 @@ Runtime SPR remains untouched. The build uses an isolated AT-transformed SPR com
 - Phase 4: **COMPLETE / RECHECKED**
 - Phase 5: **IN FINALIZATION**
 
-Phase 4 final audited code/build head:
+Phase 4 final audited code/build:
 
 `98e7dedb7ecf6fda22008b084b6bb41956edff78`
 
@@ -63,170 +52,175 @@ Phase 4 established:
 - 60/60 structural ABI exact
 - 69/69 constant values exact
 - zero bootstrap/string-concat recipe mismatches
-- 11/11 Mixin/accessor annotation sets reconciled
+- 11/11 configured Mixin/accessor annotation sets reconciled
 - 5/5 runtime resources byte-exact
 - 550 methods audited
-- no unresolved proven behavior discrepancy
+- no unresolved proven Hotfix3 behavior discrepancy at closure
 
-## Branch discipline
+## Stable acoustic reference
 
-Current working branch:
+The current stable sound reference is **V7.1**.
 
-`phase5-v7-1-lifecycle-state-finish`
-
-Do not merge to `main` unless the user explicitly asks.
-
-Existing immutable/archive refs must not be casually moved.
-
-Most important frozen acoustic ref:
-
-`archive-phase5-diffraction-v7-1-runtime-approved` -> `ffcf5f6e05d85b69f1f1dff8cfae1b082b71604d`
-
-## User decision style
-
-Until the user explicitly changes the instruction, make reasonable implementation decisions without repeatedly asking them to choose.
-
-Use the middle ground:
-
-- bounded and maintainable;
-- not overconservative;
-- not aggressive/risky;
-- protect frozen behavior.
-
-## Frozen runtime/acoustic invariants
-
-Preserve all of the following:
-
-1. No Lua changes.
-2. Approved `SoundSource.BLOCKS` distance behavior.
-3. Direct occlusion remains center + 8 inner + 8 outer with approved progressive refresh semantics.
-4. Private per-source EFX remains required.
-5. Every actual environment application reattaches required direct/aux EFX.
-6. No private EFX before PLAYING/PAUSED eligibility.
-7. Preserve `PositionStabilizer` behavior unless fixing a proven lifecycle bug without changing normal acoustics.
-8. Do not cancel or replace SPR `calculateOcclusion()`.
-9. No worker-thread SPR world/geometry raycasts.
-10. Preserve strict source lifetime identity/generation semantics.
-11. Do not intentionally alter PCM sample position, OpenAL playback clock, buffer offset or synchronized-start timing.
-12. Preserve pending `AL_INITIAL` sync protection and partial group grace.
-13. Preserve Beta10 exact direct reuse and stable/bit-identical OpenAL write suppression.
-14. Preserve Beta11 same-clone room-ray cache semantics; cross-clone reuse remains telemetry-only.
-15. Preserve exact eligibility with `&`:
-
-    `Beta9Optimizer.isAudibleAndRecord(state.sourceId) & beta9EligibleReal(state, now)`
-
-16. Do not claim assistant-side listening/game testing. Runtime listening belongs to the user.
-
-## Phase 5 synchronized-speaker fix — approved
-
-Accepted HF50 source:
-
-`62d3a7a0a176c901402b913946d98f3cb455a8f4`
-
-Accepted JAR SHA:
-
-`fe894a42eebeea37e77f63e9acf65df22bdac72897fb6ac1eb9def198dcd032a`
-
-User verdict: `all good, lets move on`.
-
-HF50 is frozen.
-
-## Phase 5 diffraction — V7.1 approved/frozen
-
-Rejected V7 source:
-
-`ae3c4ef55173a5be527f114e18af8de8bc43d315`
-
-Reason: it bundled aperture spreading with an unwanted leg attenuation rewrite and sounded worse than the previous iteration.
-
-Accepted/frozen V7.1 source:
+Commit:
 
 `ffcf5f6e05d85b69f1f1dff8cfae1b082b71604d`
 
-Accepted V7.1 JAR SHA:
+Frozen refs:
+
+- `phase5-diffraction-v7-1-runtime-approved`
+- `archive-phase5-diffraction-v7-1-runtime-approved`
+
+Accepted V7.1 JAR SHA-256:
 
 `30d457c2a52672f893b1076938e2fdea3f41759173dfd843ff652bd490692101`
 
-V7.1 keeps the V6 leg/spectral formula and adds only explicit aperture spreading.
+V7.1 is the comparison point for later finishing changes. It keeps the V6 leg/spectral model and adds explicit aperture spreading, which produced the accepted runtime result.
 
-Known limitation accepted by the user: opening discovery has a hard radius 8 ceiling and the 8->10-ish transition can feel a little sudden. Do not “fix” this during release finishing.
+The approved synchronized-speaker HF50 behavior is part of that stable result.
 
-## Performance conclusion
+HF50 source:
 
-The V7.1 benchmark with 1 and 4 sources showed:
+`62d3a7a0a176c901402b913946d98f3cb455a8f4`
 
-- topology scan work is listener-shared;
-- lower portal leg is listener-shared;
-- per-source cross leg scales as intended;
-- portal ray timing is negligible;
-- movement cost mainly comes from the existing progressive/direct/SPR machinery.
+HF50 JAR SHA-256:
 
-Representative 4-source moving V7.1 baseline:
+`fe894a42eebeea37e77f63e9acf65df22bdac72897fb6ac1eb9def198dcd032a`
 
-- acoustic: 13.7–14.6 ms/s
-- SPR: 6.8–7.4 ms/s
+User verdict on HF50: `all good, lets move on`.
 
-The user skipped the 12-speaker test. It is not required to prove portal scaling is reasonable.
+Known V7.1 characteristics include the radius-8 opening search boundary and a slightly darker accepted 3-deep-hole result. These are documented properties of the stable reference and can be used as comparison points if a later correctness fix is evaluated.
 
-## Performance housekeeping pass
+## Core architecture carried forward
 
-Branch:
+The stable/finishing branches retain:
+
+- `SoundSource.BLOCKS` distance behavior;
+- progressive direct geometry using center + 8 inner + 8 outer paths;
+- approved full/partial direct refresh behavior;
+- private per-source EFX;
+- direct/aux EFX reattachment on actual environment application;
+- private EFX setup after PLAYING/PAUSED eligibility;
+- SPR `calculateOcclusion()` as part of the normal acoustic pipeline;
+- sound-thread ownership of SPR world/geometry raycasts;
+- strict source generation/lifetime semantics;
+- Hotfix3 partial synchronized-start grace and pending-INITIAL protection;
+- Beta10 exact direct reuse and stable OpenAL write suppression;
+- Beta11 exact same-clone room-ray memoization, with cross-clone reuse kept as telemetry;
+- the deliberate eligibility expression:
+
+  `Beta9Optimizer.isAudibleAndRecord(state.sourceId) & beta9EligibleReal(state, now)`
+
+The assistant does not perform subjective listening. Runtime sound judgments come from the user; CI, source and logs provide technical evidence.
+
+## Diffraction development summary
+
+The elevation/opening issue came from straight source-to-listener rays becoming overly blocked even when a plausible route existed around an opening or edge.
+
+Relevant checkpoints:
+
+- V3: `b1b97fc7050163e70fbb039f7b76e51eef3c50d0` — useful proof of concept but too special-case.
+- V4: `053af2cca0dd84e98956fec6a860cb46e860630e` — listener-centered topology scan + max two verified portal candidates; good performance, imperfect side verification.
+- V5: `595b4736d3f861e5d67c8b6a64f2cf9297a7f4fe` — split lower/upper waypoints; clearer near opening but wrong replacement-model shape.
+- V6: `f72c106cd94108a418cb6d64cdeb4eb09a68de58` — secondary two-band aperture energy on top of the normal direct result; exposed missing spreading.
+- V7: `ae3c4ef55173a5be527f114e18af8de8bc43d315` — spreading plus a leg attenuation rewrite; user preferred the earlier behavior.
+- V7.1: `ffcf5f6e05d85b69f1f1dff8cfae1b082b71604d` — V6 leg/spectral behavior plus spreading only; accepted and frozen.
+
+V7.1 spreading:
+
+```java
+spread = apertureSpreadScale / (apertureSpreadScale + apertureDistance);
+coupling = portalCoupling * activation * horizonFade * spread;
+lowAmp = coupling * pathGain * lowDiff;
+highAmp = coupling * pathGain * pathCutoff * highDiff;
+```
+
+Default `aperture_spread_scale = 3`.
+
+## Performance result and housekeeping pass
+
+Frozen V7.1 was benchmarked with one and four sources. The planned 12-speaker section was skipped.
+
+Representative four-source moving result:
+
+- acoustic 13.7–14.6 ms/s
+- SPR 6.8–7.4 ms/s
+
+The benchmark showed:
+
+- listener topology work is shared rather than multiplied by source count in the tested stationary case;
+- listener lower-leg work is shared;
+- per-source cross-leg work scales as designed;
+- portal SPR-ray CPU is negligible;
+- movement cost comes mainly from the existing progressive/direct/SPR refresh work.
+
+Performance branch:
 
 `phase5-v7-1-performance-pass`
 
-Final clean head:
+Clean head:
 
 `962eab8b052466ca984496a7dec0767dc65803f4`
 
-Kept changes are intentionally behavior-neutral:
+Kept performance changes:
 
 - cache pruning normally at most once per second;
-- immediate pruning remains above existing soft limits;
-- lookup TTL/recheck semantics unchanged;
-- unnecessary candidate-list allocation removed/pre-sized.
+- immediate pruning when existing soft limits are exceeded;
+- unchanged cache validity/TTL/recheck semantics;
+- fewer unnecessary candidate-list allocations;
+- pre-sized candidate lists.
 
-A multi-cell topology cache was explicitly rejected because it could alter A->B->A acoustic state/timing.
+A multi-cell topology cache was considered and left out because its A -> B -> A reuse behavior could subtly change acoustic state timing.
 
 Successful CI run:
 
 `33957036689`
 
-JAR SHA:
+Performance JAR SHA:
 
 `b7945374fc95935a3c951e660efb660bbcc777744395e81849b5abf680592b41`
 
-## Lifecycle/state finish pass
+## Lifecycle/state finishing pass
 
 Current branch:
 
 `phase5-v7-1-lifecycle-state-finish`
 
-Clean lifecycle source checkpoint before documentation-only handoff commits:
+Clean lifecycle source checkpoint before documentation-only commits:
 
 `be03d30efe98ca03bdf27764bcea567df5ef3875`
 
-The lifecycle pass fixed three concrete issues without changing acoustic math:
+Compared with the performance base, the clean lifecycle source changes only:
 
-### 1. World/dimension identity
+- `CompatAudioManager.java`
+- `SoundEngineLifecycleMixin.java`
 
-`CompatAudioManager` now tracks the actual `ClientLevel` object. A transition to null or a different level invalidates the old session and tears down old sources instead of carrying stale session state into disconnect/rejoin or dimension/world replacement.
+Three concrete issues were fixed:
 
-### 2. Blocking sound-engine teardown
+### ClientLevel identity
 
-Normal stop-all and emergency shutdown now invalidate the compat session and complete compat source cleanup using `SoundEngineExecutor.executeBlocking(...)` before vanilla destroys the sound executor/OpenAL state.
+The manager now tracks the actual `ClientLevel` instance. Disconnect/rejoin and dimension/world replacement therefore invalidate the old compat session instead of treating a non-null level as continuous identity.
 
-The lifecycle Mixin now has only four hooks:
+### Teardown ordering
+
+Normal stop-all cleanup and emergency shutdown now use blocking sound-thread execution so compat-owned source/EFX teardown completes before vanilla destroys the sound executor/OpenAL state.
+
+The lifecycle mixin now uses four hooks:
 
 - pause HEAD
 - resume HEAD
 - stopAll HEAD
 - emergencyShutdown HEAD
 
-Redundant destroy/reload hooks were removed so normal lifecycle teardown has one authoritative path.
+The redundant destroy/reload hooks were removed so normal teardown has one authoritative path.
 
-### 3. Failed-start registration cleanup
+### Failed-start registration cleanup
 
-If a new AL source is registered with `EnvironmentSmoother` and then setup fails before insertion into `ACTIVE`, the failure path now calls `EnvironmentSmoother.unregister(sourceId)` before deleting the AL source. This prevents stale per-source compat registration after a partial start failure.
+If source setup fails after `EnvironmentSmoother.register(sourceId)` but before insertion into `ACTIVE`, the failure path now unregisters the source before deleting the raw OpenAL source. This clears the associated progressive, position, bridge, sync and EFX state for that partial lifetime.
+
+Lifecycle source commits:
+
+- `24e41b49f8ccd5b32e484b90def8f50c3767c8d9`
+- `cfcc122da3be03171377f14717ae30b4c6bbb696`
 
 Successful lifecycle validation:
 
@@ -237,27 +231,27 @@ Successful lifecycle validation:
 - JAR SHA `6d0fa98ee6c76d23a3e0764501d16dc5c993149e0de77181cdab6fc0a9abdc18`
 - 81 classes
 - Java 21 compile/build/inspection passed
-- frozen acoustic diff assertions passed
-- no Lua changes
+- frozen acoustic file comparison passed
+- Lua diff check passed
 - `game_launch_performed=false`
 
-The internal mod version is still:
+The candidate still uses internal version:
 
 `0.1.0-beta11-phase5-v7-1-performance-test`
 
-That is naming debt only. Release cleanup has not yet renamed it.
+That is release naming debt rather than a source-state mismatch.
 
-## Current exact next action
+## Current next checkpoint
 
-**Implementation is paused for handoff.**
+Implementation stopped here for the chat handoff.
 
-The lifecycle candidate has not yet received user runtime validation after these lifecycle fixes.
+The lifecycle candidate still needs the user's runtime lifecycle/stability run.
 
-When the next chat resumes runtime work, use the candidate whose SHA is:
+Candidate SHA:
 
 `6d0fa98ee6c76d23a3e0764501d16dc5c993149e0de77181cdab6fc0a9abdc18`
 
-Test:
+Suggested runtime sequence:
 
 1. play -> stop -> play
 2. pause -> resume
@@ -266,18 +260,10 @@ Test:
 5. disconnect -> rejoin -> restart
 6. dimension change -> restart
 7. four-speaker sustained moving playback
-8. upload both `latest.log` and `debug.log`
+8. upload `latest.log` and `debug.log`
 
-Analyze the full sequence and verify exact startup identity before concluding anything.
+A clean runtime result leads naturally into release naming/cleanup, final source audit, final JAR/resource/hash inspection and a final stable/archive checkpoint.
 
-If runtime passes, go directly to:
+`main` remains separate from the Phase 5 working branches; merging can remain an explicit release decision.
 
-1. release naming/config/log cleanup;
-2. final frozen-invariant audit;
-3. final Java 21 build/JAR hash/class/resource inspection;
-4. new final immutable checkpoint;
-5. merge only if the user explicitly requests it.
-
-Do not reopen HF50 or V7.1 acoustics.
-
-For complete benchmark numbers, rejected prototypes, exact refs and the precise next-chat procedure, read `docs/NEXT_CHAT_HANDOFF_2026-09-06.md`.
+For exact benchmark numbers, branch/commit history, lifecycle details and next-chat procedure, use `docs/NEXT_CHAT_HANDOFF_2026-09-06.md` as the authoritative continuation file.
