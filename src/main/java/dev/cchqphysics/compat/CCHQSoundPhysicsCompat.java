@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 @Mod(value = CCHQSoundPhysicsCompat.MOD_ID, dist = Dist.CLIENT)
 public final class CCHQSoundPhysicsCompat {
     public static final String MOD_ID = "cchq_soundphysics_compat";
-    public static final String VERSION = "0.1.0-beta11-phase5-test";
+    public static final String VERSION = "0.1.0-beta11-phase5-issuea-test";
     private static final Logger LOGGER = LoggerFactory.getLogger("CC:HQ Sound Physics Compat");
 
     public CCHQSoundPhysicsCompat(ModContainer container) {
@@ -23,7 +23,7 @@ public final class CCHQSoundPhysicsCompat {
         container.registerConfig(ModConfig.Type.CLIENT, ExtendedClientConfig.SPEC, "cchq_soundphysics_compat-advanced.toml");
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigScreenFactory::create);
         DebugCommands.init();
-        LOGGER.info("CC:HQ Sound Physics Compat {} initialized; Phase 4 parity defaults preserved; Phase 5 advanced/debug controls available", VERSION);
+        LOGGER.info("CC:HQ Sound Physics Compat {} initialized; known-good Phase 5 acoustics are default; Issue A reflection diagnostics available", VERSION);
         if (ExtendedClientConfig.logConfig()) {
             LOGGER.info("Phase 5 advanced config: {}", ExtendedClientConfig.summary());
         }
