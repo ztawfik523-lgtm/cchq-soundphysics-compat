@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   cleanup-build:
+    if: github.event.head_commit.message != 'cleanup: simplify release configuration and expose opening controls'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -30,6 +31,45 @@ jobs:
       - name: Apply asserted config cleanup
         shell: bash
         run: python .github/config_cleanup_patch.py
+
+      - name: Finish user-facing tooltip cleanup
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/main/java/dev/cchqphysics/compat/config/ClothConfigScreen.java')
+          text = p.read_text()
+          replacements = {
+              'Fairness, staleness and movement thresholds used by the Hotfix3 room scheduler.':
+                  'Fairness, staleness and movement thresholds used by room/reverb scheduling.',
+              'Global minimum room scheduling slot. Hotfix3 = 50 ms.':
+                  'Base room scheduling slot. Lower = more responsive but more CPU. Default: 50 ms.',
+              'Minimum age that can force a room target refresh. Hotfix3 = 500 ms.':
+                  'Earliest age that can force a stale room result fresh. Lower = fresher but more CPU. Default: 500 ms.',
+              'Maximum room-target staleness allowed by fairness scaling. Hotfix3 = 2000 ms.':
+                  'Longest room staleness allowed by fairness scaling. Lower = fresher but more CPU. Default: 2000 ms.',
+              'Listener movement treated as a teleport, in blocks. Hotfix3 = 4.0.':
+                  'Listener movement treated as a teleport and forcing room refreshes. Lower = smaller jumps trigger it. Default: 4 blocks.',
+              'Speaker movement that invalidates its room stamp and marks it urgent, in blocks. Hotfix3 = 0.1.':
+                  'Speaker movement that marks room state urgent. Lower = more sensitive. Default: 0.1 blocks.',
+              'Movement in blocks that resets stable-room counters. Hotfix3 = 0.05.':
+                  'Movement that resets stable-room counters. Lower = more sensitive. Default: 0.05 blocks.',
+              'Maximum combined interval multiplier. Hotfix3 = 2.0×.':
+                  'Maximum combined room interval multiplier. 2.0 means at most twice the base interval.',
+              'Absolute ceiling after all Beta9 backoff. Hotfix3 = 1500 ms.':
+                  'Absolute ceiling after stable/load-aware slowdown. Lower = fresher; higher = cheaper. Default: 1500 ms.',
+              'Grace before an incomplete sync group is started anyway. Hotfix3 = 100 ms.':
+                  'Grace before an incomplete synchronized group starts anyway. Higher waits longer. Default: 100 ms.',
+              'Age after which an abandoned pending group is discarded. Hotfix3 = 5000 ms.':
+                  'Age after which an abandoned synchronized group is discarded. Default: 5000 ms.',
+              'Beta10/Beta11 cache-scope resets without per-ray spam.':
+                  'Occlusion/room cache-scope resets without per-ray spam.',
+          }
+          for old, new in replacements.items():
+              assert old in text, f'missing leftover tooltip: {old}'
+              text = text.replace(old, new, 1)
+          p.write_text(text)
+          PY
 
       - name: Verify cleanup scope and release-facing config
         shell: bash
