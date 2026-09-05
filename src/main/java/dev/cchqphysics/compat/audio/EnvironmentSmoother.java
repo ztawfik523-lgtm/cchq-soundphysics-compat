@@ -76,6 +76,7 @@ public final class EnvironmentSmoother {
             return false;
         }
         float[] adjusted = ProgressiveOcclusionModel.adjust(sourceId, directCutoff, directGain);
+        adjusted = VerticalDiffractionRelief.adjust(sourceId, adjusted[0], adjusted[1]);
         float targetCutoff = SynchronizedSpectralBalancer.adjustDirectCutoff(sourceId, adjusted[0]);
         float targetGain = adjusted[1];
         long now = System.nanoTime();

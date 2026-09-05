@@ -58,11 +58,13 @@ final class SoundPhysicsBridge {
     static synchronized void unregisterSource(int sourceId) {
         STATES.remove(sourceId);
         AcousticCapture.unregister(sourceId);
+        VerticalDiffractionRelief.unregister(sourceId);
         if (rrCursor >= Math.max(1, STATES.size())) rrCursor = 0;
         DebugDiagnostics.source("unregister source={} tracked={}", sourceId, STATES.size());
     }
 
     static void apply(int sourceId, UUID uuid, double x, double y, double z) {
+        VerticalDiffractionRelief.updateSource(sourceId, x, y, z);
         ProgressiveOcclusionModel.updateSource(sourceId, x, y, z);
         AcousticCapture.bindIdentity(sourceId, uuid);
         long now = System.nanoTime();
@@ -528,6 +530,7 @@ final class SoundPhysicsBridge {
         rrCursor = 0;
         haveSchedulerListener = false;
         PositionStabilizer.clear();
+        VerticalDiffractionRelief.clear();
         AcousticCapture.clear();
         PerformanceStats.reset();
         RoomSchedulerClient.reset();
