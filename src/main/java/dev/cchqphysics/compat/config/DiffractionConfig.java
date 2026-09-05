@@ -28,8 +28,9 @@ public final class DiffractionConfig {
                 .define("enabled", false);
 
         MIN_VERTICAL_SEPARATION = builder.comment(
-                "Minimum absolute Y separation before the diffraction probe is even considered.")
-                .defineInRange("min_vertical_separation", 3.0D, 0.0D, 32.0D);
+                "Minimum absolute ear-to-source Y separation before the diffraction probe is considered.",
+                "Player camera/ear height means a visually 2-3 block-deep hole has a smaller acoustic Y delta than its floor depth.")
+                .defineInRange("min_vertical_separation", 0.75D, 0.0D, 32.0D);
 
         MIN_HORIZONTAL_SEPARATION = builder.comment(
                 "Minimum horizontal separation. This deliberately excludes nearly vertical floor/ceiling cases.")
@@ -40,8 +41,9 @@ public final class DiffractionConfig {
                 .defineInRange("max_horizontal_separation", 12.0D, 0.5D, 64.0D);
 
         MIN_VERTICAL_HORIZONTAL_RATIO = builder.comment(
-                "Minimum |dy| / horizontal-distance ratio. 0.5 means the geometry must be meaningfully steep.")
-                .defineInRange("min_vertical_horizontal_ratio", 0.50D, 0.0D, 8.0D);
+                "Minimum |dy| / horizontal-distance ratio.",
+                "Relaxed after runtime evidence showed a 3-block-deep open pit measured only ~1.88 Y over ~7.25 horizontal (slope ~0.26).")
+                .defineInRange("min_vertical_horizontal_ratio", 0.10D, 0.0D, 8.0D);
 
         RAW_OCCLUSION_GATE = builder.comment(
                 "Normal progressive raw occlusion must already be at least this high before extra diffraction rays are allowed.")
@@ -85,10 +87,10 @@ public final class DiffractionConfig {
     }
 
     public static boolean enabled() { return b(ENABLED, false); }
-    public static double minVerticalSeparation() { return d(MIN_VERTICAL_SEPARATION, 3.0D); }
+    public static double minVerticalSeparation() { return d(MIN_VERTICAL_SEPARATION, 0.75D); }
     public static double minHorizontalSeparation() { return d(MIN_HORIZONTAL_SEPARATION, 1.5D); }
     public static double maxHorizontalSeparation() { return d(MAX_HORIZONTAL_SEPARATION, 12.0D); }
-    public static double minVerticalHorizontalRatio() { return d(MIN_VERTICAL_HORIZONTAL_RATIO, 0.50D); }
+    public static double minVerticalHorizontalRatio() { return d(MIN_VERTICAL_HORIZONTAL_RATIO, 0.10D); }
     public static double rawOcclusionGate() { return d(RAW_OCCLUSION_GATE, 3.0D); }
     public static double escapeClearance() { return d(ESCAPE_CLEARANCE, 1.5D); }
     public static double verticalOpenGate() { return d(VERTICAL_OPEN_GATE, 0.25D); }
