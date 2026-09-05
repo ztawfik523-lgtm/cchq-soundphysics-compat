@@ -1,0 +1,114 @@
+name: Failed-start lifecycle cleanup
+
+on:
+  push:
+    branches: [phase5-v7-1-lifecycle-state-finish]
+    paths: [.github/workflows/lifecycle-failed-start-cleanup.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: phase5-v7-1-lifecycle-state-finish
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Apply exact failed-start cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java')
+          s = p.read_text()
+          old = '''            if (!installed) {
+                if (sourceId != 0) {
+                    try { AL10.alSourceStop(sourceId); } catch (Throwable ignored) {}
+                    try { AL10.alSourcei(sourceId, AL10.AL_BUFFER, 0); } catch (Throwable ignored) {}
+                    try { AL10.alDeleteSources(sourceId); } catch (Throwable ignored) {}
+                }
+                if (ref != null) releaseBuffer(request.key, ref);
+            }
+'''
+          new = '''            if (!installed) {
+                if (sourceId != 0) {
+                    try { EnvironmentSmoother.unregister(sourceId); } catch (Throwable ignored) {}
+                    try { AL10.alSourceStop(sourceId); } catch (Throwable ignored) {}
+                    try { AL10.alSourcei(sourceId, AL10.AL_BUFFER, 0); } catch (Throwable ignored) {}
+                    try { AL10.alDeleteSources(sourceId); } catch (Throwable ignored) {}
+                }
+                if (ref != null) releaseBuffer(request.key, ref);
+            }
+'''
+          if s.count(old) != 1:
+              raise SystemExit(f'expected exactly one failed-start cleanup block, found {s.count(old)}')
+          p.write_text(s.replace(old, new, 1))
+          PY
+          git diff --check
+          git diff -- src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java
+
+      - name: Assert scope and invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'try { EnvironmentSmoother.unregister(sourceId); } catch (Throwable ignored) {}' src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java
+          grep -F 'return Beta9Optimizer.isAudibleAndRecord(state.sourceId) & beta9EligibleReal(state, now);' src/main/java/dev/cchqphysics/compat/audio/SoundPhysicsBridge.java
+          git diff --exit-code 962eab8b052466ca984496a7dec0767dc65803f4 -- src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java src/main/java/dev/cchqphysics/compat/audio/SynchronizedSpectralBalancer.java src/main/java/dev/cchqphysics/compat/audio/ProgressiveOcclusionModel.java src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java src/main/java/dev/cchqphysics/compat/audio/SyncStartCoordinator.java src/main/java/dev/cchqphysics/compat/audio/PositionStabilizer.java src/main/java/dev/cchqphysics/compat/config/ClientConfig.java src/main/java/dev/cchqphysics/compat/config/DiffractionConfig.java src/main/java/dev/cchqphysics/compat/config/SpectralMixConfig.java
+          test -z "$(git diff --name-only 962eab8b052466ca984496a7dec0767dc65803f4...HEAD -- '*.lua')"
+
+      - name: Commit source fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'ztawfik523-lgtm'
+          git config user.email 'ztawfik523@gmail.com'
+          git add src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java
+          git commit -m 'fix: unregister partial source state on failed start'
+          git push origin HEAD:phase5-v7-1-lifecycle-state-finish
+          git rev-parse HEAD | tee lifecycle-source-commit.txt
+
+      - name: Verify and build
+        run: |
+          ./gradlew --no-configuration-cache verifyReconstructionClasspath verifyResourceWiring clean compileJava jar --stacktrace
+
+      - name: Inspect candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          jars=(build/libs/*.jar)
+          test "${#jars[@]}" -eq 1
+          jar="${jars[0]}"
+          jar tf "$jar" | sort > lifecycle-jar-contents.txt
+          test "$(grep -c '\.class$' lifecycle-jar-contents.txt)" -eq 81
+          sha256sum "$jar" | tee lifecycle-jar-sha256.txt
+          {
+            echo "source_commit=$(cat lifecycle-source-commit.txt)"
+            echo 'performance_base=962eab8b052466ca984496a7dec0767dc65803f4'
+            echo 'frozen_acoustic_base=ffcf5f6e05d85b69f1f1dff8cfae1b082b71604d'
+            echo 'world_identity_reset=true'
+            echo 'blocking_teardown=true'
+            echo 'failed_start_unregister=true'
+            echo 'acoustic_model_changes=false'
+            echo 'lua_changes=false'
+            echo 'game_launch_performed=false'
+          } > lifecycle-build-info.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cchq-lifecycle-state-finish-v2
+          path: |
+            build/libs/*.jar
+            lifecycle-source-commit.txt
+            lifecycle-jar-contents.txt
+            lifecycle-jar-sha256.txt
+            lifecycle-build-info.txt
