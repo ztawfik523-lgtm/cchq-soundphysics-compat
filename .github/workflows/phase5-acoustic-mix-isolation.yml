@@ -1,16 +1,15 @@
-name: Phase 5 acoustic mix isolation verification
+name: Phase 5 direct HF dose verification
 
 on:
   push:
     branches:
-      - phase5-acoustic-mix-isolation-auto
+      - phase5-direct-hf-dose-test
     paths:
       - 'src/main/java/**'
       - 'src/main/resources/**'
       - 'build.gradle'
       - 'gradle.properties'
       - 'tools/phase5_verify_defaults.py'
-      - 'docs/PHASE5_ACOUSTIC_MIX_ISOLATION.md'
       - '.github/workflows/phase5-acoustic-mix-isolation.yml'
   workflow_dispatch:
 
@@ -21,10 +20,10 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out acoustic probe branch
+      - name: Check out direct HF dose branch
         uses: actions/checkout@v4
         with:
-          ref: phase5-acoustic-mix-isolation-auto
+          ref: phase5-direct-hf-dose-test
           fetch-depth: 0
 
       - name: Set up Java 21
@@ -50,14 +49,15 @@ jobs:
           test "$candidate_actual" = "$candidate_expected"
           test "$issuea_actual" = "$issuea_expected"
           git cat-file -e 95bd4b06b78786d4f7b1ad33b665f4685e45a54b^{commit}
+          git cat-file -e 1e3aafc566f9e57588d39ed75fa53bde1035375a^{commit}
 
       - name: Assert diagnostic identity
         shell: bash
         run: |
           set -euo pipefail
-          grep -Fx 'mod_version=0.1.0-beta11-phase5-acousticprobe-auto-test' gradle.properties
-          grep -F 'VERSION = "0.1.0-beta11-phase5-acousticprobe-auto-test"' src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java
-          grep -F 'version="0.1.0-beta11-phase5-acousticprobe-auto-test"' src/main/resources/META-INF/neoforge.mods.toml
+          grep -Fx 'mod_version=0.1.0-beta11-phase5-hfdose-test' gradle.properties
+          grep -F 'VERSION = "0.1.0-beta11-phase5-hfdose-test"' src/main/java/dev/cchqphysics/compat/CCHQSoundPhysicsCompat.java
+          grep -F 'version="0.1.0-beta11-phase5-hfdose-test"' src/main/resources/META-INF/neoforge.mods.toml
 
       - name: Audit Phase 5 parity defaults
         run: python3 tools/phase5_verify_defaults.py
@@ -89,38 +89,41 @@ jobs:
             git diff --exit-code "$base" -- "$path"
           done
 
-      - name: Assert probe scope and no-ID targeting
+      - name: Assert direct HF dose scope and no-ID targeting
         shell: bash
         run: |
           set -euo pipefail
-          grep -F 'Mode.SENDS_OFF ? 0.0F : gains[i]' src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java
-          grep -F 'Mode.DIRECT_HF_BYPASS ? 1.0F : state.cutoff' src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java
+          grep -F 'HF_LIFT_25("hf_lift_25")' src/main/java/dev/cchqphysics/compat/audio/AcousticMixProbe.java
+          grep -F 'HF_LIFT_50("hf_lift_50")' src/main/java/dev/cchqphysics/compat/audio/AcousticMixProbe.java
+          grep -F 'HF_LIFT_75("hf_lift_75")' src/main/java/dev/cchqphysics/compat/audio/AcousticMixProbe.java
+          grep -F 'baseCutoff + (1.0F - baseCutoff) * fraction' src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java
           grep -F 'AL_LOWPASS_GAIN, clamp01(state.gain)' src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java
+          grep -F 'Mode.SENDS_OFF ? 0.0F : gains[i]' src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java
           grep -F 'static synchronized int debugDarkestSourceId()' src/main/java/dev/cchqphysics/compat/audio/EnvironmentSmoother.java
-          grep -F 'Commands.literal("sends_off")' src/main/java/dev/cchqphysics/compat/audio/AcousticProbeCommands.java
-          grep -F 'Commands.literal("direct_hf_bypass")' src/main/java/dev/cchqphysics/compat/audio/AcousticProbeCommands.java
+          grep -F 'Commands.literal("hf_lift_25")' src/main/java/dev/cchqphysics/compat/audio/AcousticProbeCommands.java
+          grep -F 'Commands.literal("hf_lift_50")' src/main/java/dev/cchqphysics/compat/audio/AcousticProbeCommands.java
+          grep -F 'Commands.literal("hf_lift_75")' src/main/java/dev/cchqphysics/compat/audio/AcousticProbeCommands.java
           grep -F 'Commands.literal("auto")' src/main/java/dev/cchqphysics/compat/audio/AcousticProbeCommands.java
-          grep -F 'AcousticMixProbe.clearAll()' src/main/java/dev/cchqphysics/compat/audio/AcousticProbeCommands.java
           ! grep -F 'alSourcePlay' src/main/java/dev/cchqphysics/compat/audio/AcousticMixProbe.java
           ! grep -F 'AL_POSITION' src/main/java/dev/cchqphysics/compat/audio/AcousticMixProbe.java
           ! grep -F 'AL_GAIN' src/main/java/dev/cchqphysics/compat/audio/AcousticMixProbe.java
 
-      - name: Clean compile acoustic probe source
+      - name: Clean compile direct HF dose source
         run: ./gradlew --no-configuration-cache clean compileJava --stacktrace
 
-      - name: Build acoustic probe JAR
+      - name: Build direct HF dose JAR
         run: ./gradlew --no-configuration-cache jar --stacktrace
 
-      - name: Inspect acoustic probe artifact
+      - name: Inspect direct HF dose artifact
         shell: bash
         run: |
           set -euo pipefail
           shopt -s nullglob
-          jars=(build/libs/*phase5-acousticprobe-auto-test*.jar)
+          jars=(build/libs/*phase5-hfdose-test*.jar)
           test "${#jars[@]}" -eq 1
           jar="${jars[0]}"
-          jar tf "$jar" | sort > acousticprobe-auto-jar-contents.txt
-          class_count="$(grep -c '\.class$' acousticprobe-auto-jar-contents.txt)"
+          jar tf "$jar" | sort > hfdose-jar-contents.txt
+          class_count="$(grep -c '\.class$' hfdose-jar-contents.txt)"
           echo "class_count=$class_count"
           test "$class_count" -ge 72
           for class in \
@@ -129,30 +132,32 @@ jobs:
             dev/cchqphysics/compat/audio/AcousticProbeCommands.class \
             dev/cchqphysics/compat/audio/SyncAcousticDiagnostics.class \
             dev/cchqphysics/compat/audio/EnvironmentSmoother.class; do
-            grep -Fx "$class" acousticprobe-auto-jar-contents.txt
+            grep -Fx "$class" hfdose-jar-contents.txt
           done
-          unzip -p "$jar" META-INF/neoforge.mods.toml | grep -F 'version="0.1.0-beta11-phase5-acousticprobe-auto-test"'
-          sha256sum "$jar" | tee acousticprobe-auto-jar-sha256.txt
-          printf '%s\n' "source_commit=${GITHUB_SHA}" > acousticprobe-auto-build-info.txt
-          printf '%s\n' "syncdiag_runtime_source=95bd4b06b78786d4f7b1ad33b665f4685e45a54b" >> acousticprobe-auto-build-info.txt
-          printf '%s\n' "previous_probe_runtime_source=0a60cf63116bad56f4ddb66afbcd5b852e8df1c1" >> acousticprobe-auto-build-info.txt
-          printf '%s\n' "known_good_candidate=44612192d875e43ecef66ca51798cab7adb17020" >> acousticprobe-auto-build-info.txt
-          printf '%s\n' "issue_a_reviewed=973f1df7dad886fb0f5fffd4264015fecac2e786" >> acousticprobe-auto-build-info.txt
-          printf '%s\n' "phase4_frozen=79eed29767343ee34022e8f6268b386f75e84c9f" >> acousticprobe-auto-build-info.txt
-          printf '%s\n' "automatic_darkest_targeting=true" >> acousticprobe-auto-build-info.txt
-          printf '%s\n' "source_gain_mutation=false" >> acousticprobe-auto-build-info.txt
-          printf '%s\n' "source_position_mutation=false" >> acousticprobe-auto-build-info.txt
-          printf '%s\n' "playback_timing_mutation=false" >> acousticprobe-auto-build-info.txt
-          printf '%s\n' "spectral_mix_v1_included=false" >> acousticprobe-auto-build-info.txt
-          printf '%s\n' "spectral_mix_v2_included=false" >> acousticprobe-auto-build-info.txt
-          printf '%s\n' "game_launch_performed=false" >> acousticprobe-auto-build-info.txt
+          unzip -p "$jar" META-INF/neoforge.mods.toml | grep -F 'version="0.1.0-beta11-phase5-hfdose-test"'
+          sha256sum "$jar" | tee hfdose-jar-sha256.txt
+          printf '%s\n' "source_commit=${GITHUB_SHA}" > hfdose-build-info.txt
+          printf '%s\n' "syncdiag_runtime_source=95bd4b06b78786d4f7b1ad33b665f4685e45a54b" >> hfdose-build-info.txt
+          printf '%s\n' "no_id_probe_source=1e3aafc566f9e57588d39ed75fa53bde1035375a" >> hfdose-build-info.txt
+          printf '%s\n' "known_good_candidate=44612192d875e43ecef66ca51798cab7adb17020" >> hfdose-build-info.txt
+          printf '%s\n' "issue_a_reviewed=973f1df7dad886fb0f5fffd4264015fecac2e786" >> hfdose-build-info.txt
+          printf '%s\n' "phase4_frozen=79eed29767343ee34022e8f6268b386f75e84c9f" >> hfdose-build-info.txt
+          printf '%s\n' "automatic_darkest_targeting=true" >> hfdose-build-info.txt
+          printf '%s\n' "hf_lift_fractions=0.25,0.50,0.75,1.00" >> hfdose-build-info.txt
+          printf '%s\n' "source_gain_mutation=false" >> hfdose-build-info.txt
+          printf '%s\n' "source_position_mutation=false" >> hfdose-build-info.txt
+          printf '%s\n' "reverb_send_mutation_for_hf_modes=false" >> hfdose-build-info.txt
+          printf '%s\n' "playback_timing_mutation=false" >> hfdose-build-info.txt
+          printf '%s\n' "spectral_mix_v1_included=false" >> hfdose-build-info.txt
+          printf '%s\n' "spectral_mix_v2_included=false" >> hfdose-build-info.txt
+          printf '%s\n' "game_launch_performed=false" >> hfdose-build-info.txt
 
-      - name: Upload verified acoustic probe build
+      - name: Upload verified direct HF dose build
         uses: actions/upload-artifact@v4
         with:
-          name: cchq-phase5-acoustic-mix-isolation-auto
+          name: cchq-phase5-direct-hf-dose-test
           path: |
-            build/libs/*phase5-acousticprobe-auto-test*.jar
-            acousticprobe-auto-jar-contents.txt
-            acousticprobe-auto-jar-sha256.txt
-            acousticprobe-auto-build-info.txt
+            build/libs/*phase5-hfdose-test*.jar
+            hfdose-jar-contents.txt
+            hfdose-jar-sha256.txt
+            hfdose-build-info.txt
