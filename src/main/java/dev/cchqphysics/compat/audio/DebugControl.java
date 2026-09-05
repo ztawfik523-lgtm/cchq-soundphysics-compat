@@ -1,7 +1,7 @@
 package dev.cchqphysics.compat.audio;
 
 /**
- * Cross-thread request bridge for Phase-5 diagnostics.
+ * Cross-thread request bridge for client diagnostics and maintenance commands.
  *
  * <p>Client commands run on the client thread, while OpenAL/SPR state belongs
  * to the sound-thread-owned scheduler. Commands only set flags here; the real
