@@ -4,10 +4,10 @@ license="MIT"
 
 [[mods]]
 modId="cchq_soundphysics_compat"
-version="0.1.0-beta11-phase5-diffraction-v2-test"
+version="0.1.0-beta11-phase5-diffraction-v3-test"
 displayName="CC:HQ Sound Physics Compat"
 authors="CC:HQ / Sound Physics compatibility"
-description='''Phase 5 isolated steep-elevation/open-top diffraction experiment V2 built on the runtime-approved configurable HF50 baseline. Normal 17-ray progressive occlusion remains authoritative. V2 relaxes only the ear-to-source Y and slope activation gates using runtime evidence from the user's 2-3 block-deep open-pit geometry. The severe-raw-occlusion gate, horizontal bounds, nearly-clear vertical escape requirement, diffraction penalty, source position, synchronized playback timing, reflection routing, and reverb sends remain unchanged. The experiment is OFF by default.'''
+description='''Phase 5 isolated steep-elevation/open-top diffraction experiment V3 built on the runtime-approved configurable HF50 baseline. The V2 diffraction algorithm and relaxed ear-to-source activation defaults are preserved. V3 changes only the test packaging so diffraction uses a fresh config filename and cannot inherit stale V1/V2 gate values. Normal 17-ray progressive occlusion remains authoritative; severe raw occlusion, horizontal bounds, the nearly-clear vertical escape requirement, diffraction penalty, source position, synchronized playback timing, reflection routing, and reverb sends remain unchanged. The experiment is OFF by default.'''
 
 [[mixins]]
 config="cchq_soundphysics_compat.mixins.json"
