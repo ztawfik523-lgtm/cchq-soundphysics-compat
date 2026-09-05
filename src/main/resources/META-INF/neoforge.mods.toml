@@ -4,10 +4,10 @@ license="MIT"
 
 [[mods]]
 modId="cchq_soundphysics_compat"
-version="0.1.0-beta11-phase5-diffraction-test"
+version="0.1.0-beta11-phase5-diffraction-v2-test"
 displayName="CC:HQ Sound Physics Compat"
 authors="CC:HQ / Sound Physics compatibility"
-description='''Phase 5 isolated steep-elevation/open-top diffraction experiment built on the runtime-approved configurable HF50 baseline. Normal 17-ray progressive occlusion remains authoritative. Only when raw occlusion is already severe and the source/listener geometry is steep does the test probe a two-segment route above the lower endpoint; the lower vertical escape leg must be nearly clear, deliberately rejecting sealed floors and ceilings. The experiment is OFF by default and never changes source position, synchronized playback timing, reflection routing, or reverb sends.'''
+description='''Phase 5 isolated steep-elevation/open-top diffraction experiment V2 built on the runtime-approved configurable HF50 baseline. Normal 17-ray progressive occlusion remains authoritative. V2 relaxes only the ear-to-source Y and slope activation gates using runtime evidence from the user's 2-3 block-deep open-pit geometry. The severe-raw-occlusion gate, horizontal bounds, nearly-clear vertical escape requirement, diffraction penalty, source position, synchronized playback timing, reflection routing, and reverb sends remain unchanged. The experiment is OFF by default.'''
 
 [[mixins]]
 config="cchq_soundphysics_compat.mixins.json"
