@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   patch-and-validate:
-    if: github.event.head_commit.message == 'ci: run failed-start cleanup validation'
+    if: "github.event.head_commit.message == 'ci: run failed-start cleanup validation'"
     runs-on: ubuntu-latest
     steps:
       - name: Check out lifecycle branch
