@@ -1,0 +1,67 @@
+name: Lifecycle Async Fix Validation
+
+on:
+  push:
+    branches:
+      - phase5-cleanup-config-first
+
+permissions:
+  contents: write
+
+jobs:
+  fix-build:
+    if: contains(github.event.head_commit.message, 'apply and validate stale decode fix')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Preserve acoustic-critical files
+        shell: bash
+        run: |
+          cp src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java /tmp/VerticalDiffractionRelief.java
+          cp src/main/java/dev/cchqphysics/compat/audio/SynchronizedSpectralBalancer.java /tmp/SynchronizedSpectralBalancer.java
+          cp src/main/java/dev/cchqphysics/compat/audio/ProgressiveOcclusionModel.java /tmp/ProgressiveOcclusionModel.java
+          cp src/main/java/dev/cchqphysics/compat/audio/SoundPhysicsBridge.java /tmp/SoundPhysicsBridge.java
+      - name: Apply asserted async lifecycle fix
+        run: python .github/lifecycle_async_fix_patch.py
+      - name: Verify scope and stale-request guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp /tmp/VerticalDiffractionRelief.java src/main/java/dev/cchqphysics/compat/audio/VerticalDiffractionRelief.java
+          cmp /tmp/SynchronizedSpectralBalancer.java src/main/java/dev/cchqphysics/compat/audio/SynchronizedSpectralBalancer.java
+          cmp /tmp/ProgressiveOcclusionModel.java src/main/java/dev/cchqphysics/compat/audio/ProgressiveOcclusionModel.java
+          cmp /tmp/SoundPhysicsBridge.java src/main/java/dev/cchqphysics/compat/audio/SoundPhysicsBridge.java
+          git diff --exit-code -- . ':(exclude)src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java' || {
+            echo 'Unexpected source change outside CompatAudioManager'; git diff; exit 1;
+          }
+          grep -F 'if (epoch != SESSION_EPOCH.get()) return;' src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java
+          grep -F 'if (currentGeneration == null || currentGeneration.get() != generation) return;' src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java
+          grep -F 'Beta9Optimizer.isAudibleAndRecord(state.sourceId) & beta9EligibleReal(state, now)' src/main/java/dev/cchqphysics/compat/audio/SoundPhysicsBridge.java
+      - name: Commit fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/main/java/dev/cchqphysics/compat/audio/CompatAudioManager.java
+          git commit -m 'fix stale decode retention across sessions'
+          git push
+      - name: Clean build
+        run: ./gradlew clean build --no-daemon
+      - name: Inspect JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR=$(find build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*sources*' | head -1)
+          test -f "$JAR"
+          COUNT=$(zipinfo -1 "$JAR" | grep -c '\.class$')
+          test "$COUNT" -eq 81
+          sha256sum "$JAR"
