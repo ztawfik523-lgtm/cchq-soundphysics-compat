@@ -244,6 +244,7 @@ public final class CompatAudioManager {
                 try {
                     bufferId = AL10.alGenBuffers();
                     checkAl("allocate audio buffer");
+                    if (bufferId == 0) throw new IllegalStateException("alGenBuffers returned 0");
                     bytes = MemoryUtil.memAlloc(request.decoded.monoPcm16Le().length);
                     bytes.put(request.decoded.monoPcm16Le()).flip();
                     AL10.alBufferData(bufferId, AL10.AL_FORMAT_MONO16, bytes, request.decoded.sampleRate());
@@ -262,6 +263,8 @@ public final class CompatAudioManager {
             ref.refs++;
 
             sourceId = AL10.alGenSources();
+            checkAl("allocate source");
+            if (sourceId == 0) throw new IllegalStateException("alGenSources returned 0");
             EnvironmentSmoother.register(sourceId);
             AL10.alSourcei(sourceId, AL10.AL_BUFFER, ref.bufferId);
             AL10.alSourcei(sourceId, AL10.AL_SOURCE_RELATIVE, AL10.AL_FALSE);
