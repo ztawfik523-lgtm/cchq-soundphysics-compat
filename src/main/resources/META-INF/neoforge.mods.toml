@@ -4,10 +4,10 @@ license="MIT"
 
 [[mods]]
 modId="cchq_soundphysics_compat"
-version="0.1.0-beta11-phase5-sync-hf50-config-test"
+version="0.1.0-beta11-phase5-diffraction-test"
 displayName="CC:HQ Sound Physics Compat"
 authors="CC:HQ / Sound Physics compatibility"
-description='''Phase 5 configurable synchronized direct-HF candidate derived from the user's HF dose A/B. When a synchronized source is strongly low-passed, a clear synchronized peer exists, and the spectral gap is large, the candidate raises only that source's direct low-pass cutoff toward the clearest peer. The dark-source gate, clear-peer gate, minimum gap, lift strength, and maximum lift are configurable; validated defaults reproduce the approved HF50 candidate. It never changes source gain, source position, reverb-send filters, PCM timing, or synchronized start behavior.'''
+description='''Phase 5 isolated steep-elevation/open-top diffraction experiment built on the runtime-approved configurable HF50 baseline. Normal 17-ray progressive occlusion remains authoritative. Only when raw occlusion is already severe and the source/listener geometry is steep does the test probe a two-segment route above the lower endpoint; the lower vertical escape leg must be nearly clear, deliberately rejecting sealed floors and ceilings. The experiment is OFF by default and never changes source position, synchronized playback timing, reflection routing, or reverb sends.'''
 
 [[mixins]]
 config="cchq_soundphysics_compat.mixins.json"
