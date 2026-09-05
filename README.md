@@ -1,139 +1,162 @@
 # CC:HQ Sound Physics Compat
 
-Compatibility layer between **CC:HQ Speakers** and **Sound Physics Remastered (SPR)** for Minecraft 1.21.1 / NeoForge.
+Client-side compatibility layer between **CC:HQ Speakers** and **Sound Physics Remastered** for Minecraft 1.21.1 / NeoForge.
 
-## Current known-good baseline
+The mod routes CC:HQ whole-file speaker playback through Sound Physics Remastered while preserving CC:HQ playback timing and source lifetime behavior. It adds positional obstruction, stable reflected direction, synchronized-copy clarity balancing, and opening-aware vertical sound for cases where a nearby real opening should affect what reaches the listener.
 
-**Beta11 Hotfix3**
+## Release candidate
 
-- Minecraft 1.21.1
-- NeoForge 21.1.248
-- Java 21
-- CC:Tweaked 1.120.2
-- CC:HQ Speakers tested artifact `ygA78R8l-u5PEI5Ax.jar`
-- Sound Physics Remastered 1.21.1-1.5.1
-- client-only compatibility mod
+Current branch identity: **0.1.0-beta11-rc1**
 
-Authoritative baseline artifact SHA-256:
+Supported/tested stack:
 
-`83500f182fc9829aa1a5a51fbfa11ba6cdfb645699b25d1c445167666dabc1ef`
+- Minecraft **1.21.1**
+- NeoForge **21.1.248**
+- Java **21**
+- CC:Tweaked **1.120.2**
+- CC:HQ Speakers Modrinth artifact `ygA78R8l / u5PEI5Ax`
+- Sound Physics Remastered **1.21.1-1.5.1**
+- Cloth Config **15.0.140+** is optional but recommended for the in-game settings screen
 
-The exact Hotfix3 JAR was independently reverified on 2026-09-04 and remains the behavioral authority through runtime validation.
+This is a **client-only** compatibility mod.
 
-## Reconstruction state
+## What it does
 
-Work is isolated on `beta11-source-reconstruction`.
+### Positional wall obstruction
 
-Canonical status:
+CC:HQ whole-file audio is treated as real positional audio instead of bypassing Sound Physics. Direct obstruction uses a 17-path model:
 
-- Phase 1 — **complete / JAR-rechecked**
-- Phase 2 — **complete / JAR-rechecked**
-- Phase 3 — **complete / rechecked**
-- Phase 4 — **in progress**
-- Phase 5 — not started
+- 1 exact speaker-to-listener path
+- 8 inner surrounding paths
+- 8 outer surrounding paths
 
-Phase 3 was rechecked before opening Phase 4 on branch head `70d37a3e6b072a6e215cecf3c4299b96e0276968`. Hard closure run `33867785411` passed complete build, exact 60/60 class-path topology and processed resources.
+This makes increasing wall thickness progressively darker/quieter instead of behaving like a single binary blocked/unblocked ray.
 
-Phase 4 is now performing a stricter structural/behavioral comparison against the exact Hotfix3 classfiles. It has already corrected exact HQ Mixin descriptor/field metadata and one avoidable sync-source iteration drift that Phase 3's class-path topology check could not detect.
+### Stable reflected direction
 
-See:
+Sound Physics can bend apparent sound direction toward reflected routes. The compat smooths those virtual positions so long-running speakers do not rapidly jump between directions while still preserving reflected positioning.
 
-- `RECONSTRUCTION_STATUS.md`
-- `docs/BETA11_RECONSTRUCTION_HANDOFF.md`
-- `docs/RECONSTRUCTION_PHASES.md`
-- `docs/PHASE3_FINAL_VERIFICATION.md`
-- `docs/PHASE4_START_AUDIT.md`
+### Synchronized sound balance
 
-## Phase 4 structural audit
+When synchronized copies of the same sound reach the listener with an extreme clarity mismatch, the most heavily muffled copy can receive a bounded direct-clarity correction. This changes only the direct low-pass cutoff; it does **not** change source gain, source position, synchronized start timing, or reverb sends.
 
-The repository now contains a 60-class structural ABI baseline and deterministic comparator:
+### Openings & vertical sound
 
-- `tools/class_abi.py`
-- `docs/baseline/HOTFIX3_STRUCTURAL_ABI_SHA256.txt`
-- `.github/workflows/phase4-structural-abi.yml`
+For speakers above the listener, a real nearby ceiling/open-top opening can contribute a secondary acoustic path. This helps tunnels, shafts and lower floors respond to actual openings instead of relying only on straight-line speaker-to-listener obstruction.
 
-The comparator checks Java major version, class access/super/interfaces, field descriptors/access/constants, and method descriptors/access flags across every compat class. Method-body/control-flow equivalence is audited separately.
+The normal direct obstruction result remains authoritative; an opening adds a bounded contribution rather than replacing the direct path.
 
-The first structural CI attempts were blocked before comparison by an HTTP 502 from NeoForged's Maven endpoint while resolving `net.neoforged:minecraft-dependencies:1.21.1`; that external outage is not treated as either a structural pass or mismatch.
+### Performance safeguards
 
-## Build-project note
+The compat includes:
 
-Hotfix3 directly calls SPR members widened by this mod's access transformer. The reconstructed build therefore:
+- adaptive 17-path refreshes
+- exact direct-result reuse when inputs are unchanged
+- occlusion-ray reuse
+- same-world-snapshot room/bounce ray reuse
+- stable room-update slowdown under safe conditions
+- per-source isolated OpenAL filters
+- bounded opening verification and cached opening paths
 
-- keeps the untouched tested SPR artifact at runtime;
-- creates an isolated access-transformed SPR copy for javac;
-- compiles against `sound-physics-remastered-at.jar`;
-- explicitly rejects the raw private-member SPR JAR from compileClasspath.
+## Installation
 
-The JAR-backed Phase 2 recheck succeeded in GitHub Actions runs `33864425672` and `33864425687`.
+Install the following client-side mods for Minecraft 1.21.1 / NeoForge:
 
-## Frozen acoustic/runtime invariants
+1. CC:Tweaked
+2. CC:HQ Speakers
+3. Sound Physics Remastered
+4. CC:HQ Sound Physics Compat
+5. Cloth Config API, optional but recommended for the config screen
 
-The tested baseline preserves these rules:
+Do not replace or modify Sound Physics Remastered for this compat. The normal upstream SPR JAR is used at runtime.
 
-- HQ whole-file playback is intercepted without Lua-side changes.
-- Decode is off-thread; stereo/multichannel audio is downmixed to mono PCM for positional OpenAL playback.
-- Shared OpenAL buffers/refcounts are used for synchronized speakers playing the same payload.
-- Synchronized groups use `alSourcePlayv`; incomplete groups receive the Hotfix3 100 ms grace period so arrived sources are not stranded in `AL_INITIAL`.
-- Distance behavior remains based on the approved `SoundSource.BLOCKS` curve.
-- Direct occlusion uses the approved progressive 17-path model: center + 8 inner + 8 outer, with adaptive 9-path partial refreshes.
-- Private per-source EFX prevents SPR global-filter cross-source contamination.
-- **Every actual environment application must reattach direct/aux EFX. Do not optimize EFX attachment away.**
-- Private EFX is not created before the OpenAL source reaches PLAYING/PAUSED eligibility.
-- `PositionStabilizer` behavior is preserved.
-- Do not inject/cancel/replace SPR `calculateOcclusion()`.
-- `SoundPhysicsOcclusionMemoMixin` redirects the internal `runOcclusion(...)` call instead of replacing the whole calculation.
-- No worker-thread SPR world/geometry raycasts.
-- Source lifetime identity/generation semantics remain strict.
-- Physics scheduling must not alter PCM sample position, OpenAL playback clock, buffer offset or sync-group timing.
-- Beta10 exact direct reuse and bit-identical OpenAL write suppression remain intact.
-- Beta11 room-ray cache remains same-clone/exact; cross-clone reuse is telemetry-only.
+## Configuration
 
-## Beta11 additions retained in Hotfix3
+With Cloth Config installed, open the mod's config screen from your normal mod/config UI.
 
-- Beta10 exact direct-occlusion reuse for HQ-owned SPR calls.
-- Exact same-clone room/bounce ray memoization in SPR `evaluateEnvironment`.
-- Room-ray diagnostics including cross-clone reuse-potential telemetry.
-- Batched PCM mono conversion writes.
-- OpenAL `alSourcePlayv` synchronized group start.
-- Hotfix3 pending-INITIAL protection and partial-group grace behavior.
+Main categories include:
 
-## Current work: Phase 4
+- **General** — enable/disable CC:HQ interception
+- **Distance & Range** — audible reach
+- **Occlusion & Muffling** — wall obstruction strength and 17-probe tuning
+- **Direction & Reflections** — reflected-position stabilization
+- **Smoothing** — how quickly acoustic changes are applied
+- **Performance** — update intervals and adaptive probing
+- **Openings & Vertical Sound** — opening strength, influence distance and advanced opening behavior
+- **Synchronized Sound Balance** — synchronized-copy clarity correction
+- **Advanced / Troubleshooting** — low-level scheduler/cache/filter controls
+- **Debug & Validation** — targeted diagnostics
 
-Phase 4 is a structural and behavioral equivalence audit, not feature development. It compares reconstructed output against the exact Hotfix3 JAR for class/method/field structure, annotations/mixins, constants, OpenAL ordering, source lifecycle, sync logic, direct/room caches, EFX behavior, scheduler/stamp/sentinel semantics, position handling and config/resources.
+The release uses clean config files:
 
-Do not treat the Phase 3 green build as runtime equivalence proof.
+- `cchq_soundphysics_compat-client.toml`
+- `cchq_soundphysics_compat-advanced.toml`
+- `cchq_soundphysics_compat-sync-balance.toml`
+- `cchq_soundphysics_compat-openings.toml`
 
-## Development roadmap
+See **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)** for a plain-English explanation of every important option and what increasing/decreasing it does.
 
-Do not start this roadmap until Phases 4–5 close and reconstructed source becomes authoritative.
+## Diagnostic commands
 
-1. **Beta11.1 — exact cleanup (B)**
-   - remove redundant decode/probe work safely;
-   - reduce whole-track PCM copies where practical;
-   - replace fixed-entry decoded cache with byte-budgeted LRU;
-   - add a short-lived byte-budgeted warm OpenAL buffer cache;
-   - remove repeated sound-thread allocation churn where it matters;
-   - make diagnostics-off hot paths genuinely cheap;
-   - add focused hash/decode/downmix/upload timing instrumentation.
+Client commands are available under `/cchqphysics`:
 
-2. **Beta12 — Persistent Progressive Room (C1)**
-   - persistent temporal source-centered room/bounce state;
-   - budgeted subset refresh using the current SPR clone;
-   - current listener/shared-airspace work stays fresh;
-   - change detection can force urgent/full room refresh.
+- `/cchqphysics status` — compact runtime status
+- `/cchqphysics dump` — write a detailed compat snapshot to `latest.log`
+- `/cchqphysics diffraction on|off|status` — runtime-only toggle/status for opening-aware sound; the command name is retained for diagnostic compatibility
+- `/cchqphysics refresh_rooms` — queue a room/reverb refresh
+- `/cchqphysics reset_caches` — safely reset acoustic caches on the sound thread
+- `/cchqphysics reset_efx` — recreate compat-owned private filters
+- `/cchqphysics config` — print effective advanced/opening/sync configuration
 
-3. **Beta12.x — Acoustic work scheduler (C2)**
-   - schedule room branch/ray work instead of whole-room jobs;
-   - fairness, age ceilings and bounded per-tick acoustic work.
+These commands are client-side and do not mutate server state.
 
-4. **Beta13 — Sparse Adaptive Room Map (D)**
-   - room-only spatial memory;
-   - direct occlusion remains exact/current;
-   - sparse adaptive listener cells across the speaker's audible range.
+## Behavioral guarantees
 
-Later: optional HQ enhanced/music spatial mode. Adaptive quality reduction remains shelved.
+The release candidate intentionally preserves these rules:
 
-## Repository rule
+- no Lua-side changes
+- `SoundSource.BLOCKS` distance behavior
+- no intentional PCM sample-position, OpenAL playback-clock or buffer-offset changes
+- synchronized groups still use batched OpenAL starts and partial-group grace
+- no private compat filter creation before a source is PLAYING/PAUSED eligible
+- required direct/aux filter reattachments are not optimized away
+- no replacement/cancellation of SPR's normal `calculateOcclusion()` flow
+- no worker-thread SPR world/geometry raycasts
+- strict source lifetime/generation handling
+- opening-aware sound never creates a second playback source or changes source position/timing
+- synchronized clarity balance changes only direct cutoff
 
-Do not merge `beta11-source-reconstruction` to `main` until Phase 4 structural/behavioral auditing and Phase 5 runtime validation are complete.
+## Known limitations and validation scope
+
+See **[docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md)**.
+
+In particular, opening discovery currently has a finite maximum search radius of 8 blocks, and the final multi-source performance benchmark covered 1- and 4-source cases; a 12-source stress run has not yet been completed for this release candidate.
+
+## Building from source
+
+Requires Java 21.
+
+```text
+./gradlew clean build
+```
+
+The build keeps the upstream Sound Physics Remastered runtime artifact untouched. For compilation only, `prepareSprCompileJar` creates an isolated access-transformed copy so javac sees the members used by the compatibility layer.
+
+Useful verification tasks:
+
+```text
+./gradlew verifyReconstructionClasspath
+./gradlew verifyResourceWiring
+```
+
+The historical task name `verifyReconstructionClasspath` is retained for build compatibility; it now validates the release compile classpath.
+
+## Development and audit history
+
+This source was reconstructed and audited against the previous known-good binary before the current release candidate was prepared. The detailed bytecode, structural ABI, mixin and runtime-validation records are intentionally retained under `docs/` and the frozen Git refs for traceability, but they are no longer the primary user documentation.
+
+The current release branch should be judged by the release configuration, final CI, and runtime validation—not by the old phase-status documents.
+
+## License
+
+MIT
