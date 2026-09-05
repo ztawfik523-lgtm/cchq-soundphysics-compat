@@ -29,10 +29,12 @@ final class PositionStabilizer {
 
     static synchronized void unregister(int sourceId) {
         STATES.remove(sourceId);
+        ReflectionDiagnostics.clearSourceOverride(sourceId);
     }
 
     static synchronized void clear() {
         STATES.clear();
+        ReflectionDiagnostics.clearAllSourceOverrides();
     }
 
     static void updateAndApply(int sourceId, double sourceX, double sourceY, double sourceZ, Vec3 reflected, double occlusion) {
@@ -45,7 +47,7 @@ final class PositionStabilizer {
         double targetY = sourceY;
         double targetZ = sourceZ;
         boolean requestedRedirect = reflected != null && occlusion >= ClientConfig.reflectionThreshold();
-        boolean redirect = ReflectionDiagnostics.redirectEnabled() && requestedRedirect;
+        boolean redirect = ReflectionDiagnostics.redirectEnabled(sourceId) && requestedRedirect;
         if (redirect) {
             double dx = (reflected.x - sourceX) * ClientConfig.reflectionBlend();
             double dy = (reflected.y - sourceY) * ClientConfig.reflectionBlend();
@@ -166,7 +168,7 @@ final class PositionStabilizer {
 
     static synchronized String debugSnapshot(int sourceId) {
         State state = STATES.get(sourceId);
-        if (state == null || !state.initialized) return "positionState=missing";
+        if (state == null || !state.initialized) return "positionState=missing " + ReflectionDiagnostics.sourceStatus(sourceId);
         double dx = state.x - state.sourceX;
         double dy = state.y - state.sourceY;
         double dz = state.z - state.sourceZ;
@@ -180,7 +182,8 @@ final class PositionStabilizer {
                 + " offset=" + round2(offset)
                 + " occlusion=" + round2(state.occlusion)
                 + " requestedRedirect=" + state.requestedRedirect
-                + " redirectActive=" + state.redirectActive;
+                + " redirectActive=" + state.redirectActive
+                + " " + ReflectionDiagnostics.sourceStatus(sourceId);
     }
 
     private static void applyCurrent(int sourceId, State state) {
